@@ -33,3 +33,5 @@ def big_query(query):
 if __name__ == '__main__':
     df_labitems = load_data('/home/justinxu/PycharmProjects/mimic-iv-dash/D_LABITEMS.csv')
     df_labevents = load_data('/home/justinxu/PycharmProjects/mimic-iv-dash/LABEVENTS.csv')
+
+    print("Finished.")
