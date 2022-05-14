@@ -35,9 +35,3 @@ if __name__ == '__main__':
     df_labevents = load_data('/home/justinxu/PycharmProjects/mimic-iv-dash/LABEVENTS.csv')
 
     print("Finished.")
-
-awd
-aw
-defawd
-aw
-defawd
