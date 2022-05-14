@@ -7,7 +7,6 @@ import csv
 from google.cloud import bigquery
 import numpy as np
 import pandas as pd
-import matplotlib
 import plotly
 from dash import Dash, html
 
