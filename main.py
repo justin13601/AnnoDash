@@ -1,6 +1,10 @@
-#!/usr/bin/env python3
+##!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Created on May 10, 2022
+@author: Justin Xu
+"""
 
 import os
 import csv
