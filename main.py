@@ -17,7 +17,7 @@ from dash import Dash, html
 
 def load_data(path):
     filename = os.path.basename(path).strip()
-    print('Loading ' + filename + '...')
+    print(f'Loading {filename}...')
     df_data = pd.read_csv(path)
     print('Done.')
     return df_data
