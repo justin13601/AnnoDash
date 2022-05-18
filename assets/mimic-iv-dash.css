@@ -10,10 +10,10 @@
 }
 
 body {
-    background-color: #f9f9f9;
-    color: #333333;
+    background-color: #272e41;
+    color: #9fa6b7;
     font-size: 15px;
-    margin: 0px;
+    margin: 3px;
 }
 
 hr {
@@ -22,11 +22,13 @@ hr {
 
 .banner {
     height: 5.5rem;
-    padding: 0rem 2rem 0rem;
-    background-color: white;
+    margin-bottom: 1rem;
+    padding: 2rem 2.25rem 0rem;
+    background-color: #171b26;
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: space-between;
 }
 
 .banner Img {
@@ -45,6 +47,14 @@ H5, H3 {
     font-family: Acumin, "Helvetica Neue", sans-serif;
 }
 
+H3 {
+    color: #cfddee;
+}
+
+P {
+    color: #cfddee;
+}
+
 #left-column {
     margin-top: 20px;
     padding: 0rem 2rem;
@@ -55,7 +65,7 @@ H5, H3 {
 }
 
 #right-column {
-    background-color: #f4f4f4;
+    background-color: #272e41;
     padding: 0rem 2rem;
     min-height: calc(100vh - 5.5rem);
 }
@@ -75,6 +85,10 @@ H5, H3 {
     cursor: pointer !important;
 }
 
+.dropdown {
+
+}
+
 #intro {
     margin: 20px 0px;
     font-family: "Helvetica Neue", sans-serif;
@@ -86,7 +100,7 @@ H5, H3 {
 }
 
 #patient_volume_card, #wait_time_card {
-    background-color: #FFFFFF;
+    background-color: #272e41;
     padding: 1rem;
     margin: auto;
     margin-top: 20px;
@@ -105,7 +119,7 @@ H5, H3 {
 }
 
 .table-row:nth-child(even) {
-    background-color: #f2f2f2;
+    background-color: #272e41;
 }
 
 .row-department > b {

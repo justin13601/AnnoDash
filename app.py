@@ -5,7 +5,6 @@
 Created on May 10, 2022
 @author: Justin Xu
 """
-
 import dash
 from dash import Dash, html, dcc, dash_table
 import plotly.graph_objs as go
@@ -14,12 +13,22 @@ from dash.exceptions import PreventUpdate
 
 import os
 import csv
-import pathlib
 import datetime
 from datetime import datetime as dt
 import numpy as np
 import pandas as pd
 from google.cloud import bigquery
+
+
+def big_query(query):
+    client = bigquery.Client()
+    query_job = client.query(query)  # API request
+    print("The query data:")
+    for row in query_job:
+        # row values can be accessed by field name or index
+        print("name={}, count={}".format(row[0], row["total_people"]))
+    return
+
 
 app = dash.Dash(
     __name__,
@@ -30,18 +39,51 @@ app = dash.Dash(
         }
     ],
 )
+
 app.title = "MIMIC-IV Clinical Laboratory Data Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
 
-# Path
+
+def description_card():
+    """
+    :return: A Div containing dashboard title & descriptions.
+    """
+    return html.Div(
+        id="description-card",
+        children=[
+            html.H5("MIMIC-IV Clinical Dashboard"),
+            html.H3("Welcome to MIMIC-IV Clinical Laboratory Data"),
+            html.P(
+                id="intro",
+                children="Explore various clinical laboratory measurements. Click\
+                 on the heatmap to visualize patient chart measurements at different time points.",
+            ),
+        ],
+    )
+
+
+# path
 PATH_base = os.getcwd()
 PATH_data = os.path.join(PATH_base, "demo-data")
 
-# Read data
-df = pd.read_csv(DATA_PATH.joinpath("clinical_analytics.csv.gz"))
 
-clinic_list = df["Clinic Name"].unique()
+# load data
+def load_data(path):
+    filename = os.path.basename(path).strip()
+    print(f'Loading {filename}...')
+    df_data = pd.read_csv(path)
+    print('Done.\n')
+    return df_data
+
+
+df = load_data(os.path.join(PATH_data, 'clinical_analytics.csv.gz'))
+
+df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
+df_labevents = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
+print("Data loaded.\n")
+
+labitems_list = df_labitems["label"].unique()
 df["Admit Source"] = df["Admit Source"].fillna("Not Identified")
 admit_list = df["Admit Source"].unique().tolist()
 
@@ -71,7 +113,7 @@ day_list = [
     "Sunday",
 ]
 
-check_in_duration = df["Check-In Time"].describe()
+check_in_duration = df["Check-In Time"].describe(datetime_is_numeric=True)
 
 # Register all departments for callbacks
 all_departments = df["Department"].unique().tolist()
@@ -79,24 +121,6 @@ wait_time_inputs = [
     Input((i + "_wait_time_graph"), "selectedData") for i in all_departments
 ]
 score_inputs = [Input((i + "_score_graph"), "selectedData") for i in all_departments]
-
-
-def description_card():
-    """
-
-    :return: A Div containing dashboard title & descriptions.
-    """
-    return html.Div(
-        id="description-card",
-        children=[
-            html.H5("Clinical Analytics"),
-            html.H3("Welcome to the Clinical Analytics Dashboard"),
-            html.Div(
-                id="intro",
-                children="Explore clinic patient volume by time of day, waiting time, and care score. Click on the heatmap to visualize patient experience at different time points.",
-            ),
-        ],
-    )
 
 
 def generate_control_card():
@@ -107,11 +131,11 @@ def generate_control_card():
     return html.Div(
         id="control-card",
         children=[
-            html.P("Select Clinic"),
+            html.P("Select Lab Measurement"),
             dcc.Dropdown(
-                id="clinic-select",
-                options=[{"label": i, "value": i} for i in clinic_list],
-                value=clinic_list[0],
+                id="labitem-select",
+                options=[{"label": i, "value": i} for i in labitems_list],
+                value=labitems_list[0],
             ),
             html.Br(),
             html.P("Select Check-In Time"),
@@ -604,7 +628,7 @@ app.layout = html.Div(
     [
         Input("date-picker-select", "start_date"),
         Input("date-picker-select", "end_date"),
-        Input("clinic-select", "value"),
+        Input("labitem-select", "value"),
         Input("patient_volume_hm", "clickData"),
         Input("admit-select", "value"),
         Input("reset-btn", "n_clicks"),
@@ -641,7 +665,7 @@ app.clientside_callback(
     [
         Input("date-picker-select", "start_date"),
         Input("date-picker-select", "end_date"),
-        Input("clinic-select", "value"),
+        Input("labitem-select", "value"),
         Input("admit-select", "value"),
         Input("patient_volume_hm", "clickData"),
         Input("reset-btn", "n_clicks"),
@@ -752,6 +776,6 @@ def update_table(start, end, clinic, admit_type, heatmap_click, reset_click, *ar
     return table
 
 
-# Run the server
+# run
 if __name__ == "__main__":
     app.run_server(debug=True)
