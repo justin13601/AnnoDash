@@ -1,26 +1,42 @@
-import dash
-import dash_core_components as dcc
-import dash_html_components as html
-from dash.dependencies import Input, Output, ClientsideFunction
+##!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-import numpy as np
-import pandas as pd
+"""
+Created on May 10, 2022
+@author: Justin Xu
+"""
+
+import dash
+from dash import Dash, html, dcc, dash_table
+import plotly.graph_objs as go
+from dash.dependencies import State, Input, Output, ClientsideFunction
+from dash.exceptions import PreventUpdate
+
+import os
+import csv
+import pathlib
 import datetime
 from datetime import datetime as dt
-import pathlib
+import numpy as np
+import pandas as pd
+from google.cloud import bigquery
 
 app = dash.Dash(
     __name__,
-    meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
+    meta_tags=[
+        {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no",
+        }
+    ],
 )
-app.title = "Clinical Analytics Dashboard"
-
+app.title = "MIMIC-IV Clinical Laboratory Data Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
 
 # Path
-BASE_PATH = pathlib.Path(__file__).parent.resolve()
-DATA_PATH = BASE_PATH.joinpath("demo-data").resolve()
+PATH_base = os.getcwd()
+PATH_data = os.path.join(PATH_base, "demo-data")
 
 # Read data
 df = pd.read_csv(DATA_PATH.joinpath("clinical_analytics.csv.gz"))
@@ -139,10 +155,10 @@ def generate_patient_volume_heatmap(start, end, clinic, hm_click, admit_type, re
 
     filtered_df = df[
         (df["Clinic Name"] == clinic) & (df["Admit Source"].isin(admit_type))
-    ]
+        ]
     filtered_df = filtered_df.sort_values("Check-In Time").set_index("Check-In Time")[
-        start:end
-    ]
+                  start:end
+                  ]
 
     x_axis = [datetime.time(i).strftime("%I %p") for i in range(24)]  # 24hr time list
     y_axis = day_list
@@ -449,7 +465,7 @@ def generate_patient_table(figure_list, departments, wait_time_xrange, score_xra
 
 
 def create_table_figure(
-    department, filtered_df, category, category_xrange, selected_index
+        department, filtered_df, category, category_xrange, selected_index
 ):
     """Create figures.
 
@@ -470,7 +486,7 @@ def create_table_figure(
 
     df_by_department = filtered_df[
         filtered_df["Department"] == department
-    ].reset_index()
+        ].reset_index()
     grouped = (
         df_by_department.groupby("Encounter Number").agg(aggregation).reset_index()
     )
@@ -481,22 +497,22 @@ def create_table_figure(
 
     f = lambda x_val: dt.strftime(x_val, "%Y-%m-%d")
     check_in = (
-        grouped["Check-In Time"].apply(f)
-        + " "
-        + grouped["Days of Wk"]
-        + " "
-        + grouped["Check-In Hour"].map(str)
+            grouped["Check-In Time"].apply(f)
+            + " "
+            + grouped["Days of Wk"]
+            + " "
+            + grouped["Check-In Hour"].map(str)
     )
 
     text_wait_time = (
-        "Patient # : "
-        + patient_id_list
-        + "<br>Check-in Time: "
-        + check_in
-        + "<br>Wait Time: "
-        + grouped["Wait Time Min"].round(decimals=1).map(str)
-        + " Minutes,  Care Score : "
-        + grouped["Care Score"].round(decimals=1).map(str)
+            "Patient # : "
+            + patient_id_list
+            + "<br>Check-in Time: "
+            + check_in
+            + "<br>Wait Time: "
+            + grouped["Wait Time Min"].round(decimals=1).map(str)
+            + " Minutes,  Care Score : "
+            + grouped["Care Score"].round(decimals=1).map(str)
     )
 
     layout = dict(
@@ -541,18 +557,18 @@ app.layout = html.Div(
         html.Div(
             id="banner",
             className="banner",
-            children=[html.Img(src=app.get_asset_url("mimic.png"), style={'height':'120%', 'width':'10%'})],
+            children=[html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'})],
         ),
         # Left column
         html.Div(
             id="left-column",
             className="four columns",
             children=[description_card(), generate_control_card()]
-            + [
-                html.Div(
-                    ["initial child"], id="output-clientside", style={"display": "none"}
-                )
-            ],
+                     + [
+                         html.Div(
+                             ["initial child"], id="output-clientside", style={"display": "none"}
+                         )
+                     ],
         ),
         # Right column
         html.Div(
@@ -651,10 +667,10 @@ def update_table(start, end, clinic, admit_type, heatmap_click, reset_click, *ar
     # filter data
     filtered_df = df[
         (df["Clinic Name"] == clinic) & (df["Admit Source"].isin(admit_type))
-    ]
+        ]
     filtered_df = filtered_df.sort_values("Check-In Time").set_index("Check-In Time")[
-        start:end
-    ]
+                  start:end
+                  ]
     departments = filtered_df["Department"].unique()
 
     # Highlight click data's patients in this table
@@ -664,7 +680,7 @@ def update_table(start, end, clinic, admit_type, heatmap_click, reset_click, *ar
         clicked_df = filtered_df[
             (filtered_df["Days of Wk"] == weekday)
             & (filtered_df["Check-In Hour"] == hour_of_day)
-        ]  # slice based on clicked weekday and hour
+            ]  # slice based on clicked weekday and hour
         departments = clicked_df["Department"].unique()
         filtered_df = clicked_df
 
@@ -681,7 +697,7 @@ def update_table(start, end, clinic, admit_type, heatmap_click, reset_click, *ar
     figure_list = []
 
     if prop_type != "selectedData" or (
-        prop_type == "selectedData" and triggered_value is None
+            prop_type == "selectedData" and triggered_value is None
     ):  # Default condition, all ""
 
         for department in departments:
