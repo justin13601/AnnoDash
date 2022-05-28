@@ -51,6 +51,11 @@ H3 {
     color: #cfddee;
 }
 
+H4 {
+    color: #cfddee;
+    font-weight: 200;
+}
+
 P {
     color: #cfddee;
 }
@@ -83,10 +88,6 @@ P {
 
 .draglayer {
     cursor: pointer !important;
-}
-
-.dropdown {
-
 }
 
 #intro {
