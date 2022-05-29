@@ -12,10 +12,12 @@ import datetime
 from datetime import datetime as dt
 from collections import defaultdict
 
+import scipy
 import dash
 import plotly.express as px
-from dash import Dash, html, dcc, dash_table
 import plotly.graph_objs as go
+import plotly.figure_factory as ff
+from dash import Dash, html, dcc, dash_table
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
 
@@ -66,9 +68,9 @@ def description_card():
             html.H3("Welcome to MIMIC-IV Clinical Laboratory Data"),
             html.P(
                 id="intro",
-                children="Explore various clinical laboratory measurements. Click\
-                 on the heatmap to visualize patient chart measurements at different time points. If importing data, "
-                         "please ensure a dictionary mapping each label with a code is present.",
+                children="Explore various clinical laboratory measurements. Select a laboratory measurement to "
+                         "visualize patient records at different time points. If importing data, please ensure "
+                         "columns denoting the label, id, fluid, and category of each measurement is present."
             ),
         ],
     )
@@ -121,14 +123,14 @@ def generate_control_card():
     return html.Div(
         id="control-card",
         children=[
-            html.P("Filter by Category"),
+            html.P("Filter by Category (Optional)"),
             dcc.Dropdown(
                 id="category-select",
                 value=None,
                 options=[{"label": x, "value": x} for x in list(labitems_dict.keys())],
             ),
             html.Br(),
-            html.P("Filter by Fluid"),
+            html.P("Filter by Fluid (Optional)"),
             dcc.Dropdown(
                 id="fluid-select",
                 value=None,
@@ -136,7 +138,7 @@ def generate_control_card():
                 disabled=True,
             ),
             html.Br(),
-            html.P("Select Lab Measurement"),
+            html.P("Select Lab Measurement (Enables Measurement Specific Tabs)"),
             dcc.Dropdown(
                 id="labitem-select",
                 value=None,
@@ -144,7 +146,7 @@ def generate_control_card():
                          labitemsid_dict],
             ),
             html.Br(),
-            html.P("Specify Patient"),
+            html.P("Specify Patient (Enables Patient Specific Tabs)"),
             dcc.Dropdown(
                 id="patient-select",
                 value=None,
@@ -163,7 +165,7 @@ def generate_control_card():
 
 
 def initialize_all_patients_graph():
-    # clustering of all labitems values?
+    # not sure what to initialize yet
     return
 
 
@@ -172,14 +174,36 @@ def initialize_tab_graph():
     return
 
 
-def initialize_boxplot():
+def initialize_violinplot():
     # not sure what to initialize yet
     return
 
 
-def generate_all_patients_graph():
-    # histogram
-    return
+def generate_all_patients_graph(labitem, data, labels, units):
+    if data == [[]]:
+        return {}
+    fig = ff.create_distplot(data, labels)
+    fig.update_layout(
+        title={
+            'text': f"Patient Cohort w/ {labitemsid_dict[labitem]}",
+            'y': 0.9,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'font': dict(
+                family="verdana",
+                size=25,
+                color="Black"
+            )},
+        xaxis_title=f"{labitemsid_dict[labitem]} ({units})",
+        yaxis_title="Count (#)",
+        font=dict(
+            family="verdana",
+            size=12,
+            color="Black"
+        )
+    )
+    return fig
 
 
 def generate_tab_graph():
@@ -187,8 +211,8 @@ def generate_tab_graph():
     return
 
 
-def generate_boxplot():
-    # boxplot dist
+def generate_violinplot():
+    # violinplot dist
     return
 
 
@@ -220,30 +244,37 @@ app.layout = html.Div(
                 # Tabbed graphs
                 html.Div(
                     id="patient_card",
+                    style={'height': '500%'},
                     children=[
                         html.H4("Patient Records"),
                         html.Hr(style={}),
                         html.Br(),
                         dcc.Tabs([
-                            dcc.Tab(label='All Patients', children=[
+                            dcc.Tab(label='All Measurements', id="all_measurements_tab", children=[
+                                dcc.Graph(
+                                    id="all_measurements_graph",
+                                    figure={}
+                                )
+                            ]),
+                            dcc.Tab(label='All Patients', id="all_patients_tab", disabled=True, children=[
                                 dcc.Graph(
                                     id="all_patients_graph",
                                     figure={}
                                 )
                             ]),
-                            dcc.Tab(label='Blood Gas', children=[
+                            dcc.Tab(label='Blood Gas', id="blood_gas_tab", disabled=True, children=[
                                 dcc.Graph(
                                     id="blood_gas_graph",
                                     figure={}
                                 )
                             ]),
-                            dcc.Tab(label='Chemistry', children=[
+                            dcc.Tab(label='Chemistry', id="chemistry_tab", disabled=True, children=[
                                 dcc.Graph(
                                     id="chemistry_graph",
                                     figure={}
                                 )
                             ]),
-                            dcc.Tab(label='Vital Signs', children=[
+                            dcc.Tab(label='Vital Signs', id="vital_signs_tab", disabled=True, children=[
                                 dcc.Graph(
                                     id="vital_sign_graph",
                                     figure={}
@@ -252,14 +283,14 @@ app.layout = html.Div(
                         ])
                     ],
                 ),
-                # Patient boxplot summaries by lab measurements
+                # Patient violinplot summaries by lab measurements
                 html.Div(
-                    id="boxplot_card",
+                    id="violinplot_card",
                     children=[
                         html.Br(),
                         html.Hr(),
                         html.Br(),
-                        dcc.Graph(id="patient_boxplot", figure={}),
+                        dcc.Graph(id="patient_violinplot", figure={}),
                     ],
                 ),
             ],
@@ -278,10 +309,11 @@ app.layout = html.Div(
     [
         Input("reset-btn", "n_clicks"),
         Input("category-select", "value"),
+        Input("labitem-select", "value"),
     ],
 )
-def reset_values(n_clicks, category):
-    if n_clicks is None or category is None:
+def reset_values(n_clicks, category, labitem):
+    if n_clicks == 0 and category is None:
         raise PreventUpdate
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'category-select.value':
@@ -335,6 +367,7 @@ def update_lab_measurement_dropdown(category, fluid, reset):
 @app.callback(
     Output("patient-select", "options"),
     Output("patient-select", "disabled"),
+    Output("all_patients_tab", "disabled"),
     [
         Input("labitem-select", "value"),
         Input("reset-btn", "n_clicks"),
@@ -348,42 +381,54 @@ def update_patient_dropdown(labitem, reset):
         options = [{"label": each_patient, "value": each_patient} for each_patient in
                    list(table['subject_id'].unique())]
         disabled = False
-        return options, disabled
-    return options, disabled
+        return options, disabled, disabled
+    return options, disabled, disabled
 
 
 @app.callback(
     Output("all_patients_graph", "figure"),
-    Output("blood_gas_graph", "figure"),
-    Output("chemistry_graph", "figure"),
-    Output("vital_sign_graph", "figure"),
-    Output("patient_boxplot", "figure"),
+    # Output("blood_gas_graph", "figure"),
+    # Output("chemistry_graph", "figure"),
+    # Output("vital_sign_graph", "figure"),
+    # Output("patient_violinplot", "figure"),
     [
         Input("labitem-select", "value"),
         Input("patient-select", "value"),
+        Input("reset-btn", "n_clicks"),
     ],
 )
-def update_graph(labitem, patient):
-    # updates patient graph after changing dropdowns
-    return
+def update_graph(labitem, patient, reset):
+    if labitem is None:
+        return {}
+
+    result = df_labevents.query(f'itemid == {labitem}')
+    result.replace(np.inf, np.nan)
+    result.dropna(subset='valuenum', inplace=True)
+    if result.empty:
+        return {}
+
+    hist_data = [list(result['valuenum'])]
+    units = list(result['valueuom'])[0]
+    group_labels = [labitemsid_dict[labitem]]
+    return generate_all_patients_graph(labitem, hist_data, group_labels, units)
 
 
 # @app.callback(
-#     Output("patient_boxplot", "figure"), #boxplot card instead of boxplot figure
+#     Output("patient_violinplot", "figure"), #violinplot card instead of violinplot figure
 #     [
 #         Input("labitem-select", "value"),
 #         Input("all_patient_graph", "clickData"),
 #     ]
 # )
-# def update_boxplot():
-#     # maybe show some info about flags (abnormal) in boxplot card when hover/clicked on datapoint?
+# def update_violinplot():
+#     # maybe show some info about flags (abnormal) in violinplot card when hover/clicked on datapoint?
 #     return
 
 
 app.clientside_callback(
     ClientsideFunction(namespace="clientside", function_name="resize"),
     Output("output-clientside", "children"),
-    [Input("patient_boxplot", "figure")],
+    [Input("patient_violinplot", "figure")],
 )
 
 # run
