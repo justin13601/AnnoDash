@@ -39,8 +39,8 @@ def big_query(query):
 
 
 if __name__ == "__main__":
-    df_labitems = load_data('./demo-data/D_LABITEMS.csv')
-    df_labevents = load_data('./demo-data/LABEVENTS.csv')
+    df_labitems = load_data('../demo-data/D_LABITEMS.csv')
+    df_labevents = load_data('../demo-data/LABEVENTS.csv')
 
     print("Data Loaded.")
 
