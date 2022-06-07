@@ -50,33 +50,11 @@ app = dash.Dash(
 app.title = "MIMIC-IV Clinical Laboratory Data Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
-
-
 ######################################################################################################
+first_value_testing = 2
 
 # callback_manager.attach_to_app(app)
 
-
-def description_card():
-    """
-    :return: A Div containing dashboard title & descriptions.
-    """
-    return html.Div(
-        id="description-card",
-        children=[
-            html.H5("MIMIC-IV Clinical Dashboard"),
-            html.H3("Welcome to MIMIC-IV Clinical Laboratory Data"),
-            html.P(
-                id="intro",
-                children="Explore various clinical laboratory measurements. Select a laboratory measurement to "
-                         "visualize patient records at different time points. If importing data, please ensure "
-                         "columns denoting the label, id, fluid, and category of each measurement is present."
-            ),
-        ],
-    )
-
-
-######################################################################################################
 # path
 PATH_base = os.getcwd()
 PATH_data = os.path.join(PATH_base, "demo-data")
@@ -95,18 +73,7 @@ df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
-df_labitems['category'] = [x.lower().capitalize() for x in df_labitems['category'].tolist()]
-df_labitems['fluid'] = [x.lower().capitalize() for x in df_labitems['fluid'].tolist()]
-
-labitems_tuples = list(df_labitems[['category', 'fluid', 'itemid', 'label']].itertuples(index=False))
-labitems_dict = defaultdict(lambda: defaultdict(dict))
-for i in range(len(labitems_tuples)):  # Each tuple is "key1, key2, value"
-    labitems_dict[labitems_tuples[i][0]][labitems_tuples[i][1]][labitems_tuples[i][2]] = labitems_tuples[i][3]
-
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
-
-categories_list = df_labitems["category"].unique().tolist()
-fluids_list = df_labitems["fluid"].unique().tolist()
 
 # Date
 # Format charttime
@@ -115,16 +82,28 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 )  # String -> Datetime
 
 # define labitem pairs for patient specific tabs
-bg_labitem_1 = (50806, 50824)  # Chloride & Sodium, Blood
-bg_labitem_2 = (50822, 50808)  # Potassium & Calcium, Blood
+bg_pair = (50821, 50818)  # PO2 & PCO2, Blood
+chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood
+cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood
 
-chem_labitem_1 = (50868, 50882)  # Anion Gap & Bicarbonate, Blood
-chem_labitem_2 = (50893, 50912)  # Calcium & Creatinine, Blood
-chem_labitem_3 = (50902, 50931)  # Chloride & Glucose, Blood
 
-# set labitem pair that will be used
-bg_pair = bg_labitem_2
-chem_pair = chem_labitem_1
+def description_card():
+    """
+    :return: A Div containing dashboard title & descriptions.
+    """
+    return html.Div(
+        id="description-card",
+        children=[
+            html.H5("MIMIC-IV Clinical Dashboard"),
+            html.H3("Welcome to MIMIC-IV Clinical Laboratory Data"),
+            html.P(
+                id="intro",
+                children="Explore various clinical laboratory measurements. Select a laboratory measurement to "
+                         "visualize patient records at different time points. If importing data, please ensure "
+                         "columns denoting the label and corresponding id of each measurement is present."
+            ),
+        ],
+    )
 
 
 def generate_control_card():
@@ -134,54 +113,42 @@ def generate_control_card():
     return html.Div(
         id="control-card",
         children=[
-            html.P("Filter by Category (Optional)"),
-            dcc.Dropdown(
-                id="category-select",
-                value=None,
-                style={"border-radius": 0},
-                options=[{"label": x, "value": x} for x in list(labitems_dict.keys())],
-            ),
-            html.Br(),
-            html.P("Filter by Fluid (Optional)"),
-            dcc.Dropdown(
-                id="fluid-select",
-                value=None,
-                style={"border-radius": 0},
-                options=[],
-                disabled=True,
-            ),
-            html.Br(),
-            html.P("Select Lab Measurement (Enables Measurement Specific Tabs)"),
+            html.P("Select Lab Measurement"),
             dcc.Dropdown(
                 id="labitem-select",
-                value=None,
+                value=initialize_labitem_select()[1],
                 style={"border-radius": 0},
-                options=[{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in
-                         labitemsid_dict],
+                options=initialize_labitem_select()[0],
             ),
             html.Br(),
             html.P("Specify Patient (Enables Patient Specific Tabs)"),
             dcc.Dropdown(
                 id="patient-select",
+                value=initialize_patient_select()[1],
+                style={"border-radius": 0},
+                options=initialize_patient_select()[0],
+                disabled=False,
+            ),
+            html.Br(),
+            html.Hr(),
+            html.Br(),
+            html.P("Annotate"),
+            dcc.Dropdown(
+                id="label-select",
                 value=None,
+                placeholder='Start typing...',
                 style={"border-radius": 0},
                 options=[],
-                disabled=True,
             ),
             html.Br(),
             html.Div(
-                id="reset-btn-outer",
-                children=html.Button(id="reset-btn", children="Reset", n_clicks=0,
+                id="submit-btn-outer",
+                children=html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
                                      style={'width': '100%', 'color': 'white'}),
             ),
         ],
         style={'width': '100%', 'color': 'black'},
     )
-
-
-def initialize_all_measurements_graph():
-    # not sure what to initialize yet
-    return
 
 
 def generate_all_patients_graph(labitem):
@@ -195,12 +162,12 @@ def generate_all_patients_graph(labitem):
     if hist_data == [[]]:
         return {}
     units = list(table['valueuom'])[0]
-    group_labels = [labitemsid_dict[labitem]]
-    fig = ff.create_distplot(hist_data, group_labels)
+    group_labels = [f"{labitemsid_dict[labitem]} (%)"]
+    fig = ff.create_distplot(hist_data, group_labels, colors=['rgb(44,140,255)'])
     fig.update_layout(
         title={
-            'text': f"Patient Cohort w/ {labitemsid_dict[labitem]}",
-            'y': 0.9,
+            'text': labitemsid_dict[labitem],
+            'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top',
@@ -210,37 +177,15 @@ def generate_all_patients_graph(labitem):
                 color="Black"
             )},
         xaxis_title=f"{labitemsid_dict[labitem]} ({units})",
-        yaxis_title="Count (#)",
+        yaxis_title="",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         font=dict(
             family="verdana",
             size=12,
             color="Black"
         ),
-        height=int(600)
-    )
-    return fig
-
-
-def generate_violinplot(labitem):
-    table = df_labevents.query(f'itemid == {labitem}')
-    table.replace(np.inf, np.nan)
-    table.dropna(subset=['valuenum'], inplace=True)
-    if table.empty:
-        return {}
-
-    units = list(table['valueuom'])[0]
-    fig = go.Figure(data=go.Violin(y=table['valuenum'], box_visible=True, meanline_visible=True, points='all',
-                                   x0=f"Lab Item ID: {labitem}"))
-
-    fig.update_layout(
-        yaxis_title=f"{labitemsid_dict[labitem]} ({units})",
-        font=dict(
-            family="verdana",
-            size=12,
-            color="Black"
-        ),
-        margin=dict(t=10, b=10),
-        height=int(400)
+        height=int(502),
+        margin=dict(l=50, r=50, t=70, b=20),
     )
     return fig
 
@@ -252,6 +197,9 @@ def generate_tab_graph(labitem, patient, template_labitems):
     table_labitem_patient_1 = table_labitem_1.query(f'subject_id == {patient}')
     table_labitem_patient_2 = table_labitem_2.query(f'subject_id == {patient}')
     table_labitem_patient_target = table_labitem_target.query(f'subject_id == {patient}')
+    units_1 = list(table_labitem_1['valueuom'])[0]
+    units_2 = list(table_labitem_2['valueuom'])[0]
+    units_target = list(table_labitem_target['valueuom'])[0]
 
     if table_labitem_patient_1.empty or table_labitem_patient_2.empty or table_labitem_patient_target.empty:
         return {}
@@ -275,16 +223,16 @@ def generate_tab_graph(labitem, patient, template_labitems):
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
-        go.Scatter(x=table_labitem_patient_1["charttime"], y=table_labitem_patient_1["valuenum"], name=series_names[0]),
-        secondary_y=False,
+        go.Scatter(x=table_labitem_patient_1["charttime"], y=table_labitem_patient_1["valuenum"],
+                   name=f"{series_names[0]} ({units_1})"), secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(x=table_labitem_patient_2["charttime"], y=table_labitem_patient_2["valuenum"], name=series_names[1]),
-        secondary_y=False,
+        go.Scatter(x=table_labitem_patient_2["charttime"], y=table_labitem_patient_2["valuenum"],
+                   name=f"{series_names[1]} ({units_2})"), secondary_y=False,
     )
     fig.add_trace(
         go.Scatter(x=table_labitem_patient_target["charttime"], y=table_labitem_patient_target["valuenum"],
-                   name=series_names[2]),
+                   name=f"{series_names[2]} ({units_target})"),
         secondary_y=True,
     )
 
@@ -292,23 +240,23 @@ def generate_tab_graph(labitem, patient, template_labitems):
 
     fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
                      spikemode='across+marker')
-    fig.update_yaxes(title_text=f"Value ({list(table_labitem_patient_1['valueuom'])[0]})", showspikes=True,
+    fig.update_yaxes(showspikes=True,
                      spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
                      spikemode='across+marker', secondary_y=False)
-    fig.update_yaxes(title_text=f"Value ({list(table_labitem_target['valueuom'])[0]})", showspikes=True,
+    fig.update_yaxes(showspikes=True,
                      spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
                      spikemode='across+marker', secondary_y=True)
 
     fig.update_layout(
         title={
-            'text': f"{labitemsid_dict[labitem]} vs. {labitemsid_dict[template_labitems[0]]} and {labitemsid_dict[template_labitems[1]]}",
+            'text': f"{labitemsid_dict[labitem]}",
             'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top',
             'font': dict(
                 family="verdana",
-                size=20,
+                size=25,
                 color="Black"
             )},
         xaxis_title="Time (Hours)",
@@ -318,11 +266,163 @@ def generate_tab_graph(labitem, patient, template_labitems):
             color="Black"
         ),
         hovermode="x",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=100),
-        height=int(600)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
+        margin=dict(l=50, r=0, t=100, b=20),
+        height=int(502)
     )
     return fig
+
+
+def query_patients(labitem):
+    table = df_labevents.query(f'itemid == {labitem}')
+
+    table1 = df_labevents.query(f'itemid == {bg_pair[0]}')
+    table2 = df_labevents.query(f'itemid == {bg_pair[1]}')
+    table3 = df_labevents.query(f'itemid == {chem_pair[0]}')
+    table4 = df_labevents.query(f'itemid == {chem_pair[1]}')
+    table5 = df_labevents.query(f'itemid == {cbc_pair[0]}')
+    table6 = df_labevents.query(f'itemid == {cbc_pair[1]}')
+
+    patients_with_labitem = set(table['subject_id'].unique())
+
+    patients_with_pair_item1 = set(table1['subject_id'].unique())
+    patients_with_pair_item2 = set(table2['subject_id'].unique())
+    patients_with_pair_item3 = set(table3['subject_id'].unique())
+    patients_with_pair_item4 = set(table4['subject_id'].unique())
+    patients_with_pair_item5 = set(table5['subject_id'].unique())
+    patients_with_pair_item6 = set(table6['subject_id'].unique())
+
+    temp_set_1 = patients_with_labitem.intersection(patients_with_pair_item1)
+    temp_set_2 = temp_set_1.intersection(patients_with_pair_item2)
+    temp_set_3 = temp_set_2.intersection(patients_with_pair_item3)
+    temp_set_4 = temp_set_3.intersection(patients_with_pair_item4)
+    temp_set_5 = temp_set_4.intersection(patients_with_pair_item5)
+    temp_set_6 = temp_set_5.intersection(patients_with_pair_item6)
+
+    patient_list = list(temp_set_6)
+    patient_list.sort()
+
+    patients = [{"label": each_patient, "value": each_patient} for each_patient in
+                patient_list]
+    return patients
+
+
+def initialize_all_patients_graph():
+    labitems = update_lab_measurement_dropdown(reset=0)
+    fig = generate_all_patients_graph(labitems[first_value_testing]["value"])
+    return fig
+
+
+def initialize_tab_graph(pair):
+    labitems = update_lab_measurement_dropdown(reset=0)
+    patients = update_patient_dropdown(labitems[first_value_testing]["value"], reset=0)
+    if not patients[0]:
+        return {}
+    first_patient = patients[0][0]["value"]
+    fig = generate_tab_graph(labitems[first_value_testing]["value"], first_patient, template_labitems=pair)
+    return fig
+
+
+def initialize_tab():
+    labitems = update_lab_measurement_dropdown(reset=0)
+    patients = update_patient_dropdown(labitems[first_value_testing]["value"], reset=0)
+    if not patients[0]:
+        return True
+    first_patient = patients[0][0]["value"]
+    disabled = update_graph(labitems[first_value_testing]["value"], first_patient, reset=0)[2]
+    return disabled
+
+
+def initialize_labitem_select():
+    options = update_lab_measurement_dropdown(reset=0)
+    value = options[first_value_testing]["value"]
+    return options, value
+
+
+def initialize_patient_select():
+    labitems = update_lab_measurement_dropdown(reset=0)
+    options, disabled = update_patient_dropdown(labitems[first_value_testing]["value"], reset=0)
+    if not options:
+        return [], None
+    value = options[0]["value"]
+    return options, value
+
+
+######################################################################################################
+@app.callback(
+    Output("labitem-select", "value"),
+    Output("patient-select", "value"),
+    Output("submit-btn", "n_clicks"),
+    [
+        Input("submit-btn", "n_clicks"),
+    ],
+)
+def reset_values(n_clicks):
+    if n_clicks == 0:
+        raise PreventUpdate
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if n_clicks > 0 and triggered_id == 'submit-btn.n_clicks':
+        n_clicks = 0
+        return None, None, n_clicks
+
+
+@app.callback(
+    Output("labitem-select", "options"),
+    [
+        Input("submit-btn", "n_clicks"),
+    ],
+)
+def update_lab_measurement_dropdown(reset):
+    options = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    return options
+
+
+@app.callback(
+    Output("patient-select", "options"),
+    Output("patient-select", "disabled"),
+    [
+        Input("labitem-select", "value"),
+        Input("submit-btn", "n_clicks"),
+    ],
+)
+def update_patient_dropdown(labitem, reset):
+    options = []
+    disabled = True
+    if labitem:
+        options = query_patients(labitem)
+        disabled = False
+        return options, disabled
+    return options, disabled
+
+
+@app.callback(
+    Output("all_patients_graph", "figure"),
+    Output("blood_gas_graph", "figure"),
+    Output("blood_gas_tab", "disabled"),
+    Output("chemistry_graph", "figure"),
+    Output("chemistry_tab", "disabled"),
+    Output("cbc_graph", "figure"),
+    Output("cbc_tab", "disabled"),
+    [
+        Input("labitem-select", "value"),
+        Input("patient-select", "value"),
+        Input("submit-btn", "n_clicks"),
+    ],
+)
+def update_graph(labitem, patient, reset):
+    disabled = True
+
+    if labitem is None:
+        return {}, {}, disabled, {}, disabled, {}, disabled
+
+    if patient:
+        disabled = False
+        return generate_all_patients_graph(labitem), \
+               generate_tab_graph(labitem, patient, bg_pair), disabled, \
+               generate_tab_graph(labitem, patient, chem_pair), disabled, \
+               generate_tab_graph(labitem, patient, cbc_pair), disabled
+
+    return generate_all_patients_graph(labitem), {}, disabled, {}, disabled, {}, disabled
 
 
 ######################################################################################################
@@ -359,7 +459,7 @@ app.layout = html.Div(
                         html.Hr(style={}),
                         html.Br(),
                         dcc.Tabs([
-                            dcc.Tab(label='All Measurements', id="all_measurements_tab",
+                            dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -367,25 +467,12 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '600px'},
-                                            id="all_measurements_graph",
-                                            figure={}
-                                        )
-                                    ]),
-                            dcc.Tab(label='All Patients', id="all_patients_tab", disabled=True,
-                                    style={'color': '#1a75f9'},
-                                    selected_style={
-                                        'color': '#1a75f9',
-                                        'border-width': '3px'
-                                    },
-                                    children=[
-                                        dcc.Graph(
-                                            style={'height': '600px'},
+                                            style={'height': '502px'},
                                             id="all_patients_graph",
-                                            figure={}
+                                            figure=initialize_all_patients_graph()
                                         )
                                     ]),
-                            dcc.Tab(label='Blood Gas', id="blood_gas_tab", disabled=True,
+                            dcc.Tab(label='Blood Gas', id="blood_gas_tab", disabled=initialize_tab(),
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -393,12 +480,12 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '600px'},
+                                            style={'height': '502px'},
                                             id="blood_gas_graph",
-                                            figure={}
+                                            figure=initialize_tab_graph(bg_pair)
                                         )
                                     ]),
-                            dcc.Tab(label='Chemistry', id="chemistry_tab", disabled=True,
+                            dcc.Tab(label='Chemistry', id="chemistry_tab", disabled=initialize_tab(),
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -406,12 +493,12 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '600px'},
+                                            style={'height': '502px'},
                                             id="chemistry_graph",
-                                            figure={}
+                                            figure=initialize_tab_graph(chem_pair)
                                         )
                                     ]),
-                            dcc.Tab(label='Vital Signs', id="vital_signs_tab", disabled=True,
+                            dcc.Tab(label='Complete Blood Count', id="cbc_tab", disabled=initialize_tab(),
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -419,173 +506,19 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '600px'},
-                                            id="vital_sign_graph",
-                                            figure={}
+                                            style={'height': '502px'},
+                                            id="cbc_graph",
+                                            figure=initialize_tab_graph(cbc_pair)
                                         )
                                     ]),
                         ])
-                    ],
-                ),
-                # Patient violinplot summaries by lab measurements
-                html.Div(
-                    id="violinplot_card",
-                    style={"display": "none"},
-                    children=[
-                        html.Br(),
-                        html.Hr(),
-                        html.Br(),
-                        dcc.Graph(style={'height': '400px'}, id="patient_violinplot", figure={}),
                     ],
                 ),
             ],
         ),
     ],
 )
-
-
 ######################################################################################################
-@app.callback(
-    Output("category-select", "value"),
-    Output("fluid-select", "value"),
-    Output("labitem-select", "value"),
-    Output("patient-select", "value"),
-    Output("reset-btn", "n_clicks"),
-    [
-        Input("reset-btn", "n_clicks"),
-        Input("category-select", "value"),
-        Input("labitem-select", "value"),
-    ],
-)
-def reset_values(n_clicks, category, labitem):
-    if n_clicks == 0 and category is None:
-        raise PreventUpdate
-    triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if triggered_id == 'category-select.value':
-        return category, None, None, None, n_clicks
-    if n_clicks > 0 and triggered_id == 'reset-btn.n_clicks':
-        n_clicks = 0
-        return None, None, None, None, n_clicks
-
-
-@app.callback(
-    Output("fluid-select", "options"),
-    Output("fluid-select", "disabled"),
-    [
-        Input("category-select", "value"),
-        Input("reset-btn", "n_clicks"),
-    ],
-)
-def update_fluid_dropdown(category, reset):
-    options = []
-    disabled = True
-    if category:
-        options = [{"label": each_fluid, "value": each_fluid} for each_fluid in list(labitems_dict[category].keys())]
-        disabled = False
-        return options, disabled
-    return options, disabled
-
-
-@app.callback(
-    Output("labitem-select", "options"),
-    [
-        Input("category-select", "value"),
-        Input("fluid-select", "value"),
-        Input("reset-btn", "n_clicks"),
-    ],
-)
-def update_lab_measurement_dropdown(category, fluid, reset):
-    options = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    if category:
-        options = []
-        for each in labitems_dict['Blood gas']:
-            options.append(labitems_dict[category][each])
-        measurements = {k: v for d in options for k, v in d.items()}
-        options = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in measurements]
-        if fluid:
-            options = [{"label": f'{each_measurement}: {labitems_dict[category][fluid][each_measurement]}',
-                        "value": each_measurement} for each_measurement in
-                       labitems_dict[category][fluid]]
-    return options
-
-
-@app.callback(
-    Output("patient-select", "options"),
-    Output("patient-select", "disabled"),
-    Output("all_patients_tab", "disabled"),
-    [
-        Input("labitem-select", "value"),
-        Input("reset-btn", "n_clicks"),
-    ],
-)
-def update_patient_dropdown(labitem, reset):
-    options = []
-    disabled = True
-    if labitem:
-        table = df_labevents.query(f'itemid == {labitem}')
-
-        table1 = df_labevents.query(f'itemid == {bg_pair[0]}')
-        table2 = df_labevents.query(f'itemid == {bg_pair[1]}')
-
-        patients_with_labitem = set(table['subject_id'].unique())
-        patients_with_pair_item1 = set(table1['subject_id'].unique())
-        patients_with_pair_item2 = set(table2['subject_id'].unique())
-
-        temp_set = patients_with_labitem.intersection(patients_with_pair_item1)
-        patient_list = list(temp_set.intersection(patients_with_pair_item2))
-        patient_list.sort()
-
-        options = [{"label": each_patient, "value": each_patient} for each_patient in
-                   patient_list]
-        disabled = False
-        return options, disabled, disabled
-    return options, disabled, disabled
-
-
-@app.callback(
-    Output("all_patients_graph", "figure"),
-    Output("blood_gas_graph", "figure"),
-    Output("blood_gas_tab", "disabled"),
-    Output("chemistry_graph", "figure"),
-    Output("chemistry_tab", "disabled"),
-    # Output("vital_sign_graph", "figure"),
-    # Output("vital_sign_tab", "disabled"),
-    [
-        Input("labitem-select", "value"),
-        Input("patient-select", "value"),
-        Input("reset-btn", "n_clicks"),
-    ],
-)
-def update_graph(labitem, patient, reset):
-    disabled = True
-
-    if labitem is None:
-        return {}, {}, disabled, {}, disabled
-
-    if patient:
-        disabled = False
-        return generate_all_patients_graph(labitem), generate_tab_graph(labitem, patient,
-                                                                        bg_pair), disabled, generate_tab_graph(labitem,
-                                                                                                               patient,
-                                                                                                               chem_pair), disabled
-
-    return generate_all_patients_graph(labitem), {}, disabled, {}, disabled
-
-
-@app.callback(
-    Output("violinplot_card", "style"),
-    Output("patient_violinplot", "figure"),
-    [
-        Input("labitem-select", "value"),
-        # Input("all_patient_graph", "clickData")     # maybe show some info about flags (abnormal) in violinplot card when hover/clicked on datapoint?
-    ]
-)
-def update_violinplot(labitem):
-    visible = {"display": "block"}
-    hidden = {"display": "none"}
-    if labitem is None:
-        return hidden, {}
-    return visible, generate_violinplot(labitem)
 
 
 # run
