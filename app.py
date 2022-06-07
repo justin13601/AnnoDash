@@ -51,8 +51,6 @@ app.title = "MIMIC-IV Clinical Laboratory Data Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
 ######################################################################################################
-first_value_testing = 2
-
 # callback_manager.attach_to_app(app)
 
 # path
@@ -75,6 +73,9 @@ print("Data loaded.\n")
 
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
+df_labitems_annotation = df_labitems
+df_labitems_annotation[["Annotation", "Annotation_Code"]] = None
+
 # Date
 # Format charttime
 df_labevents["charttime"] = df_labevents["charttime"].apply(
@@ -85,6 +86,8 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 bg_pair = (50821, 50818)  # PO2 & PCO2, Blood
 chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood
 cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood
+
+first_value_testing = 0  ############################## FOR TESTING ##############################
 
 
 def description_card():
@@ -134,7 +137,7 @@ def generate_control_card():
             html.Br(),
             html.P("Annotate"),
             dcc.Dropdown(
-                id="label-select",
+                id="annotate-select",
                 value=None,
                 placeholder='Start typing...',
                 style={"border-radius": 0},
@@ -185,7 +188,7 @@ def generate_all_patients_graph(labitem):
             color="Black"
         ),
         height=int(502),
-        margin=dict(l=50, r=50, t=70, b=20),
+        margin=dict(l=50, r=50, t=90, b=20),
     )
     return fig
 
@@ -267,7 +270,7 @@ def generate_tab_graph(labitem, patient, template_labitems):
         ),
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
-        margin=dict(l=50, r=0, t=100, b=20),
+        margin=dict(l=50, r=0, t=90, b=20),
         height=int(502)
     )
     return fig
@@ -292,12 +295,12 @@ def query_patients(labitem):
     patients_with_pair_item5 = set(table5['subject_id'].unique())
     patients_with_pair_item6 = set(table6['subject_id'].unique())
 
-    temp_set_1 = patients_with_labitem.intersection(patients_with_pair_item1)
-    temp_set_2 = temp_set_1.intersection(patients_with_pair_item2)
-    temp_set_3 = temp_set_2.intersection(patients_with_pair_item3)
-    temp_set_4 = temp_set_3.intersection(patients_with_pair_item4)
-    temp_set_5 = temp_set_4.intersection(patients_with_pair_item5)
-    temp_set_6 = temp_set_5.intersection(patients_with_pair_item6)
+    temp_set_1 = patients_with_pair_item1.intersection(patients_with_pair_item2)
+    temp_set_2 = temp_set_1.intersection(patients_with_pair_item3)
+    temp_set_3 = temp_set_2.intersection(patients_with_pair_item4)
+    temp_set_4 = temp_set_3.intersection(patients_with_pair_item5)
+    temp_set_5 = temp_set_4.intersection(patients_with_pair_item6)
+    temp_set_6 = temp_set_5.intersection(patients_with_labitem)
 
     patient_list = list(temp_set_6)
     patient_list.sort()
@@ -308,91 +311,114 @@ def query_patients(labitem):
 
 
 def initialize_all_patients_graph():
-    labitems = update_lab_measurement_dropdown(reset=0)
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
     fig = generate_all_patients_graph(labitems[first_value_testing]["value"])
     return fig
 
 
 def initialize_tab_graph(pair):
-    labitems = update_lab_measurement_dropdown(reset=0)
-    patients = update_patient_dropdown(labitems[first_value_testing]["value"], reset=0)
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    patients = query_patients(labitems[first_value_testing]["value"])
     if not patients[0]:
         return {}
-    first_patient = patients[0][0]["value"]
+    first_patient = patients[0]["value"]
     fig = generate_tab_graph(labitems[first_value_testing]["value"], first_patient, template_labitems=pair)
     return fig
 
 
 def initialize_tab():
-    labitems = update_lab_measurement_dropdown(reset=0)
-    patients = update_patient_dropdown(labitems[first_value_testing]["value"], reset=0)
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    patients = query_patients(labitems[first_value_testing]["value"])
     if not patients[0]:
         return True
-    first_patient = patients[0][0]["value"]
-    disabled = update_graph(labitems[first_value_testing]["value"], first_patient, reset=0)[2]
+    first_patient = patients[0]["value"]
+    disabled = update_graph(labitems[first_value_testing]["value"], first_patient, submit=0)[2]
     return disabled
 
 
 def initialize_labitem_select():
-    options = update_lab_measurement_dropdown(reset=0)
-    value = options[first_value_testing]["value"]
-    return options, value
+    options = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    first_labitem = options[first_value_testing]["value"]
+    return options, first_labitem
 
 
 def initialize_patient_select():
-    labitems = update_lab_measurement_dropdown(reset=0)
-    options, disabled = update_patient_dropdown(labitems[first_value_testing]["value"], reset=0)
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    options = query_patients(labitems[first_value_testing]["value"])
     if not options:
         return [], None
-    value = options[0]["value"]
-    return options, value
+    first_labitem = options[0]["value"]
+    return options, first_labitem
+
+
+def annotate(options, labitem, annotation):
+    next_value = options[0]['value']
+    for index in range(len(options)):
+        if options[index]['value'] == labitem:
+            del options[index]
+            next_value = options[index]['value']
+            break
+    return options, next_value
 
 
 ######################################################################################################
 @app.callback(
-    Output("labitem-select", "value"),
-    Output("patient-select", "value"),
     Output("submit-btn", "n_clicks"),
     [
         Input("submit-btn", "n_clicks"),
     ],
 )
-def reset_values(n_clicks):
+def submit_values(n_clicks):
     if n_clicks == 0:
         raise PreventUpdate
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if n_clicks > 0 and triggered_id == 'submit-btn.n_clicks':
         n_clicks = 0
-        return None, None, n_clicks
+        return n_clicks
 
 
 @app.callback(
     Output("labitem-select", "options"),
+    Output("labitem-select", "value"),
     [
         Input("submit-btn", "n_clicks"),
     ],
+    [
+        State('labitem-select', 'value'),
+        State('labitem-select', 'options'),
+        State('annotate-select', 'value')
+    ]
 )
-def update_lab_measurement_dropdown(reset):
-    options = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    return options
+def update_lab_measurement_dropdown(submit, value, options, annotation):
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    curr_options = options
+    new_value = curr_options[0]["value"]
+    if triggered_id == 'submit-btn.n_clicks':
+        new_options, new_value = annotate(curr_options, value, annotation)
+        curr_options = new_options
+    return curr_options, new_value
 
 
 @app.callback(
     Output("patient-select", "options"),
     Output("patient-select", "disabled"),
+    Output("patient-select", "value"),
     [
         Input("labitem-select", "value"),
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_patient_dropdown(labitem, reset):
+def update_patient_dropdown(labitem, submit):
     options = []
     disabled = True
     if labitem:
         options = query_patients(labitem)
         disabled = False
-        return options, disabled
-    return options, disabled
+        if options:
+            first_patient = options[0]["value"]
+            return options, disabled, first_patient
+        return options, disabled, None
+    return options, disabled, None
 
 
 @app.callback(
@@ -409,7 +435,7 @@ def update_patient_dropdown(labitem, reset):
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_graph(labitem, patient, reset):
+def update_graph(labitem, patient, submit):
     disabled = True
 
     if labitem is None:
