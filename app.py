@@ -71,10 +71,26 @@ df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
+df_loinc = load_data(os.path.join(PATH_data, 'LoincTableCoreCondensed.csv'))
+print("LOINC codes loaded.\n")
+
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
-df_labitems_annotation = df_labitems
-df_labitems_annotation[["Annotation", "Annotation_Code"]] = None
+loinc_dict = pd.Series(df_loinc.COMPONENT.values, index=df_loinc.LOINC_NUM.values).to_dict()
+
+df_labitems_annotation = pd.DataFrame()
+unannoted = labitemsid_dict
+if os.path.isfile('annotations.csv'):
+    try:
+        df_labitems_annotation = pd.read_csv('annotations.csv')
+        df_unannoted = df_labitems_annotation[df_labitems_annotation['Annotation_Code'].isnull()]
+        unannoted = pd.Series(df_unannoted.label.values, index=df_unannoted.itemid.values).to_dict()
+    except pd.errors.EmptyDataError:
+        df_labitems_annotation = df_labitems
+        df_labitems_annotation[["Annotation_Label", "Annotation_Code"]] = None
+else:
+    df_labitems_annotation = df_labitems
+    df_labitems_annotation[["Annotation_Label", "Annotation_Code"]] = None
 
 # Date
 # Format charttime
@@ -101,9 +117,7 @@ def description_card():
             html.H3("Welcome to MIMIC-IV Clinical Laboratory Data"),
             html.P(
                 id="intro",
-                children="Explore various clinical laboratory measurements. Select a laboratory measurement to "
-                         "visualize patient records at different time points. If importing data, please ensure "
-                         "columns denoting the label and corresponding id of each measurement is present."
+                children=""
             ),
         ],
     )
@@ -136,12 +150,21 @@ def generate_control_card():
             html.Hr(),
             html.Br(),
             html.P("Annotate"),
-            dcc.Dropdown(
-                id="annotate-select",
-                value=None,
-                placeholder='Start typing...',
-                style={"border-radius": 0},
-                options=[],
+            # dcc.Dropdown(
+            #     id="annotate-select",
+            #     value=None,
+            #     placeholder='Start typing...',
+            #     style={"border-radius": 0},
+            #     options=initialize_annotate_select(),
+            # ),
+            html.Div(
+                children=dcc.Input(
+                    id="annotate-text",
+                    placeholder="Annotation...",
+                    debounce=True,
+                    style={"width": 390},
+                    autoFocus=True,
+                ),
             ),
             html.Br(),
             html.Div(
@@ -337,7 +360,7 @@ def initialize_tab():
 
 
 def initialize_labitem_select():
-    options = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    options = [{"label": f'{each_id}: {unannoted[each_id]}', "value": each_id} for each_id in unannoted]
     first_labitem = options[first_value_testing]["value"]
     return options, first_labitem
 
@@ -351,7 +374,23 @@ def initialize_patient_select():
     return options, first_labitem
 
 
-def annotate(options, labitem, annotation):
+def initialize_annotate_select():
+    # loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
+    # return loinc_codes
+    return []
+
+
+def annotate(labitem, annotation):
+    df_labitems_annotation.loc[(df_labitems_annotation.itemid == labitem), ['Annotation_Label', 'Annotation_Code']] = [
+        annotation, annotation]
+    # df_labitems_annotation.loc[(df_labitems_annotation.itemid == labitem), ['Annotation_Label', 'Annotation_Code']] = [
+    #     annotation, loinc_dict[annotation]]
+    #use json per labitem
+    df_labitems_annotation.to_csv("annotations.csv", index=False)
+    return
+
+
+def update_labitem_options(options, labitem):
     next_value = options[0]['value']
     for index in range(len(options)):
         if options[index]['value'] == labitem:
@@ -364,17 +403,38 @@ def annotate(options, labitem, annotation):
 ######################################################################################################
 @app.callback(
     Output("submit-btn", "n_clicks"),
+    # Output('annotate-select', 'value'),
+    Output('annotate-text', 'value'),
     [
         Input("submit-btn", "n_clicks"),
     ],
+    [
+        State('labitem-select', 'value'),
+        # State('annotate-select', 'value'),
+        State('annotate-text', 'value')
+    ]
 )
-def submit_values(n_clicks):
+def submit_annotation(n_clicks, labitem, annotation):
     if n_clicks == 0:
         raise PreventUpdate
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if n_clicks > 0 and triggered_id == 'submit-btn.n_clicks':
+        annotate(labitem, annotation)
         n_clicks = 0
-        return n_clicks
+        return n_clicks, ''
+
+
+@app.callback(
+    Output("tabs", "value"),
+    [
+        Input("patient-select", "value"),
+    ]
+)
+def update_tabs_view(patient):
+    if patient is not None:
+        raise PreventUpdate
+    else:
+        return "home-tab"
 
 
 @app.callback(
@@ -386,15 +446,14 @@ def submit_values(n_clicks):
     [
         State('labitem-select', 'value'),
         State('labitem-select', 'options'),
-        State('annotate-select', 'value')
     ]
 )
-def update_lab_measurement_dropdown(submit, value, options, annotation):
+def update_lab_measurement_dropdown(submit, value, options):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     curr_options = options
     new_value = curr_options[0]["value"]
     if triggered_id == 'submit-btn.n_clicks':
-        new_options, new_value = annotate(curr_options, value, annotation)
+        new_options, new_value = update_labitem_options(curr_options, value)
         curr_options = new_options
     return curr_options, new_value
 
@@ -486,6 +545,7 @@ app.layout = html.Div(
                         html.Br(),
                         dcc.Tabs([
                             dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
+                                    value='home-tab',
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -537,7 +597,7 @@ app.layout = html.Div(
                                             figure=initialize_tab_graph(cbc_pair)
                                         )
                                     ]),
-                        ])
+                        ], id='tabs', value='home-tab')
                     ],
                 ),
             ],
@@ -549,4 +609,4 @@ app.layout = html.Div(
 
 # run
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(port=8888, debug=True)
