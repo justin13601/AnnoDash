@@ -8,6 +8,7 @@ Created on May 10, 2022
 
 import os
 import csv
+import json
 from datetime import timedelta, datetime as dt
 from collections import defaultdict
 
@@ -56,6 +57,7 @@ app.config.suppress_callback_exceptions = True
 # path
 PATH_base = os.getcwd()
 PATH_data = os.path.join(PATH_base, "demo-data")
+PATH_results = os.path.join(PATH_base, "results-json")
 
 
 # load data
@@ -65,6 +67,12 @@ def load_data(path):
     df_data = pd.read_csv(path)
     print('Done.\n')
     return df_data
+
+
+def load_annotations(path):
+    annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
+    annotated = [int(each_labitem.strip('.json')) for each_labitem in annotation_files]
+    return annotated
 
 
 df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
@@ -78,19 +86,9 @@ labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.v
 
 loinc_dict = pd.Series(df_loinc.COMPONENT.values, index=df_loinc.LOINC_NUM.values).to_dict()
 
-df_labitems_annotation = pd.DataFrame()
-unannoted = labitemsid_dict
-if os.path.isfile('annotations.csv'):
-    try:
-        df_labitems_annotation = pd.read_csv('annotations.csv')
-        df_unannoted = df_labitems_annotation[df_labitems_annotation['Annotation_Code'].isnull()]
-        unannoted = pd.Series(df_unannoted.label.values, index=df_unannoted.itemid.values).to_dict()
-    except pd.errors.EmptyDataError:
-        df_labitems_annotation = df_labitems
-        df_labitems_annotation[["Annotation_Label", "Annotation_Code"]] = None
-else:
-    df_labitems_annotation = df_labitems
-    df_labitems_annotation[["Annotation_Label", "Annotation_Code"]] = None
+annotated_list = load_annotations(PATH_results)
+unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
+unannotated_list.sort()
 
 # Date
 # Format charttime
@@ -335,39 +333,42 @@ def query_patients(labitem):
 
 def initialize_all_patients_graph():
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    fig = generate_all_patients_graph(labitems[first_value_testing]["value"])
+    fig = generate_all_patients_graph(labitems[0]["value"])
     return fig
 
 
 def initialize_tab_graph(pair):
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    patients = query_patients(labitems[first_value_testing]["value"])
+    patients = query_patients(labitems[0]["value"])
     if not patients[0]:
         return {}
     first_patient = patients[0]["value"]
-    fig = generate_tab_graph(labitems[first_value_testing]["value"], first_patient, template_labitems=pair)
+    fig = generate_tab_graph(labitems[0]["value"], first_patient, template_labitems=pair)
     return fig
 
 
 def initialize_tab():
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    patients = query_patients(labitems[first_value_testing]["value"])
+    patients = query_patients(labitems[0]["value"])
     if not patients[0]:
         return True
     first_patient = patients[0]["value"]
-    disabled = update_graph(labitems[first_value_testing]["value"], first_patient, submit=0)[2]
+    disabled = update_graph(labitems[0]["value"], first_patient, submit=0)[2]
     return disabled
 
 
 def initialize_labitem_select():
-    options = [{"label": f'{each_id}: {unannoted[each_id]}', "value": each_id} for each_id in unannoted]
-    first_labitem = options[first_value_testing]["value"]
+    options = [
+        {"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} if each_id in unannotated_list else
+        {"label": f'{each_id}: {labitemsid_dict[each_id]} ✔', "value": each_id} for each_id in labitemsid_dict
+    ]
+    first_labitem = unannotated_list[0]
     return options, first_labitem
 
 
 def initialize_patient_select():
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    options = query_patients(labitems[first_value_testing]["value"])
+    options = query_patients(labitems[0]["value"])
     if not options:
         return [], None
     first_labitem = options[0]["value"]
@@ -381,21 +382,39 @@ def initialize_annotate_select():
 
 
 def annotate(labitem, annotation):
-    df_labitems_annotation.loc[(df_labitems_annotation.itemid == labitem), ['Annotation_Label', 'Annotation_Code']] = [
-        annotation, annotation]
-    # df_labitems_annotation.loc[(df_labitems_annotation.itemid == labitem), ['Annotation_Label', 'Annotation_Code']] = [
-    #     annotation, loinc_dict[annotation]]
-    #use json per labitem
-    df_labitems_annotation.to_csv("annotations.csv", index=False)
+    labitem_row = df_labitems.query(f'itemid == {labitem}')
+    labitem_dict = {'itemid': labitem,
+                    'label': labitemsid_dict[labitem],
+                    'mimic_loinc': labitem_row['loinc_code'].item(),
+                    'loincid': annotation,
+                    'loinclabel': loinc_dict[annotation]
+                    }
+
+    filename = os.path.join(PATH_results, f"{labitem}.json")
+    with open(filename, "w") as outfile:
+        json.dump(labitem_dict, outfile, indent=4)
+
+    if labitem in unannotated_list:
+        unannotated_list.remove(labitem)
     return
 
 
 def update_labitem_options(options, labitem):
-    next_value = options[0]['value']
+    if unannotated_list:
+        next_value = unannotated_list[0]
+    else:
+        next_value = options[0]['value']
     for index in range(len(options)):
         if options[index]['value'] == labitem:
-            del options[index]
-            next_value = options[index]['value']
+            # del options[index]
+            options[index]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ✔'
+            if unannotated_list:
+                for next_index in range(index, len(options)):
+                    if options[next_index]['value'] in unannotated_list:
+                        next_value = options[next_index]['value']
+                        break
+                    if next_index == len(options) - 1:
+                        next_value = unannotated_list[0]
             break
     return options, next_value
 
@@ -405,6 +424,7 @@ def update_labitem_options(options, labitem):
     Output("submit-btn", "n_clicks"),
     # Output('annotate-select', 'value'),
     Output('annotate-text', 'value'),
+    Output('confirm-replace', 'displayed'),
     [
         Input("submit-btn", "n_clicks"),
     ],
@@ -421,7 +441,7 @@ def submit_annotation(n_clicks, labitem, annotation):
     if n_clicks > 0 and triggered_id == 'submit-btn.n_clicks':
         annotate(labitem, annotation)
         n_clicks = 0
-        return n_clicks, ''
+        return n_clicks, '', False
 
 
 @app.callback(
@@ -514,6 +534,16 @@ def update_graph(labitem, patient, submit):
 app.layout = html.Div(
     id="app-container",
     children=[
+        # Replace confirmation
+        html.Div(
+            id="replace-confirmation",
+            children=[
+                dcc.ConfirmDialog(
+                    id='confirm-replace',
+                    message='This measurement has already been annotated. Are you sure you want to replace the '
+                            'existing annotation?',
+                )]
+        ),
         # Banner
         html.Div(
             id="banner",
