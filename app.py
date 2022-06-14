@@ -24,6 +24,7 @@ from dash.exceptions import PreventUpdate
 import scipy
 import numpy as np
 import pandas as pd
+# import vaex
 from google.cloud import bigquery
 
 
@@ -79,12 +80,15 @@ df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
-df_loinc = load_data(os.path.join(PATH_data, 'LoincTableCoreCondensed.csv'))
+df_loinc = load_data(os.path.join(PATH_data, 'LoincTableCore.csv'))
 print("LOINC codes loaded.\n")
 
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
 loinc_dict = pd.Series(df_loinc.COMPONENT.values, index=df_loinc.LOINC_NUM.values).to_dict()
+loinc_list = [f'{each_code}: {loinc_dict[each_code]}' for each_code in loinc_dict]
+df_loinc_new = pd.DataFrame(
+    {'loinc_num': list(loinc_dict.keys()), 'component': list(loinc_dict.values()), 'display': loinc_list})
 
 annotated_list = load_annotations(PATH_results)
 unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
@@ -111,8 +115,7 @@ def description_card():
     return html.Div(
         id="description-card",
         children=[
-            html.H5("MIMIC-IV Clinical Dashboard"),
-            html.H3("Welcome to MIMIC-IV Clinical Laboratory Data"),
+            html.H5("Welcome to MIMIC-IV Clinical Dashboard!"),
             html.P(
                 id="intro",
                 children=""
@@ -128,6 +131,26 @@ def generate_control_card():
     return html.Div(
         id="control-card",
         children=[
+            html.Div(
+                id="upload-outer",
+                children=dcc.Upload(
+                    id='upload-data',
+                    children=html.Div([
+                        html.P('Drag and Drop or Select Files'),
+                    ]),
+                    style={
+                        'width': '100%',
+                        'height': '60px',
+                        'lineHeight': '60px',
+                        'borderWidth': '1px',
+                        'borderStyle': 'dashed',
+                        'borderRadius': '5px',
+                        'textAlign': 'center',
+                        'borderColor': 'gray'
+                    },
+                ),
+            ),
+            html.Br(),
             html.P("Select Lab Measurement"),
             dcc.Dropdown(
                 id="labitem-select",
@@ -148,27 +171,54 @@ def generate_control_card():
             html.Hr(),
             html.Br(),
             html.P("Annotate"),
-            # dcc.Dropdown(
-            #     id="annotate-select",
-            #     value=None,
-            #     placeholder='Start typing...',
-            #     style={"border-radius": 0},
-            #     options=initialize_annotate_select(),
-            # ),
-            html.Div(
-                children=dcc.Input(
-                    id="annotate-text",
-                    placeholder="Annotation...",
-                    debounce=True,
-                    style={"width": 390},
-                    autoFocus=True,
-                ),
+            dcc.Dropdown(
+                id="annotate-select",
+                value=None,
+                optionHeight=65,
+                placeholder='Start typing...',
+                style={"border-radius": 0},
+                options=initialize_annotate_select(),
             ),
+            # html.Div(
+            #     children=dcc.Input(
+            #         id="annotate-text",
+            #         placeholder="Annotation...",
+            #         debounce=True,
+            #         style={"width": 390},
+            #         autoFocus=True,
+            #     ),
+            # ),
+            # html.Br(),
+            # html.Div(
+            #     id="search-btn-outer",
+            #     children=html.Button(id="search-btn", children="Search", n_clicks=0,
+            #                          style={'width': '100%', 'color': 'white'}),
+            # ),
+            # html.Br(),
+            # html.Div(
+            #     id="search-datatable-outer",
+            #     children=dash_table.DataTable(data=df_loinc_new.to_dict('records'),
+            #                                   columns=[{'name': 'Search Results', 'id': 'display'}],
+            #                                   style_data={
+            #                                       'whiteSpace': 'normal',
+            #                                       'height': 'auto',
+            #                                       'lineHeight': '15px',
+            #                                   },
+            #                                   style_table={
+            #                                       'height': '175px',
+            #                                       'overflowY': 'auto'
+            #                                   },
+            #                                   style_cell={'textAlign': 'left'},
+            #                                   css=[{'selector': '.previous-page, .next-page, .first-page, .last-page',
+            #                                         'rule': 'background-color: white;'}],
+            #                                   page_size=10)
+            # ),
             html.Br(),
             html.Div(
                 id="submit-btn-outer",
                 children=html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
-                                     style={'width': '100%', 'color': 'white'}),
+                                     style={'width': '100%', 'color': 'white'},
+                                     disabled=True),
             ),
         ],
         style={'width': '100%', 'color': 'black'},
@@ -208,7 +258,7 @@ def generate_all_patients_graph(labitem):
             size=12,
             color="Black"
         ),
-        height=int(502),
+        height=int(400),
         margin=dict(l=50, r=50, t=90, b=20),
     )
     return fig
@@ -292,14 +342,16 @@ def generate_tab_graph(labitem, patient, template_labitems):
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
         margin=dict(l=50, r=0, t=90, b=20),
-        height=int(502)
+        height=int(400)
     )
     return fig
 
 
 def query_patients(labitem):
-    table = df_labevents.query(f'itemid == {labitem}')
+    df_patients = pd.DataFrame(
+        columns=["target_labitem", "bg_item_1", "bg_item_2", "chem_item_1", "chem_item_2", "cbc_item_1", "cbc_item_2"])
 
+    table = df_labevents.query(f'itemid == {labitem}')
     table1 = df_labevents.query(f'itemid == {bg_pair[0]}')
     table2 = df_labevents.query(f'itemid == {bg_pair[1]}')
     table3 = df_labevents.query(f'itemid == {chem_pair[0]}')
@@ -307,8 +359,9 @@ def query_patients(labitem):
     table5 = df_labevents.query(f'itemid == {cbc_pair[0]}')
     table6 = df_labevents.query(f'itemid == {cbc_pair[1]}')
 
-    patients_with_labitem = set(table['subject_id'].unique())
+    # table_grouped = table.groupby(['subject_id'])['subject_id'].count()
 
+    patients_with_labitem = set(table['subject_id'].unique())
     patients_with_pair_item1 = set(table1['subject_id'].unique())
     patients_with_pair_item2 = set(table2['subject_id'].unique())
     patients_with_pair_item3 = set(table3['subject_id'].unique())
@@ -376,9 +429,9 @@ def initialize_patient_select():
 
 
 def initialize_annotate_select():
-    # loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
-    # return loinc_codes
-    return []
+    loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
+    return loinc_codes[0:1000]
+    # return []
 
 
 def annotate(labitem, annotation):
@@ -421,17 +474,29 @@ def update_labitem_options(options, labitem):
 
 ######################################################################################################
 @app.callback(
+    Output('submit-btn', 'disabled'),
+    [
+        Input('annotate-select', 'value'),
+    ]
+)
+def enable_submit_button(annotation):
+    if annotation:
+        return False
+    return True
+
+
+@app.callback(
     Output("submit-btn", "n_clicks"),
-    # Output('annotate-select', 'value'),
-    Output('annotate-text', 'value'),
+    Output('annotate-select', 'value'),
+    # Output('annotate-text', 'value'),
     Output('confirm-replace', 'displayed'),
     [
         Input("submit-btn", "n_clicks"),
     ],
     [
         State('labitem-select', 'value'),
-        # State('annotate-select', 'value'),
-        State('annotate-text', 'value')
+        State('annotate-select', 'value'),
+        # State('annotate-text', 'value')
     ]
 )
 def submit_annotation(n_clicks, labitem, annotation):
@@ -530,6 +595,25 @@ def update_graph(labitem, patient, submit):
     return generate_all_patients_graph(labitem), {}, disabled, {}, disabled, {}, disabled
 
 
+@app.callback(
+    Output("search-datatable-outer", "hidden"),
+    Output("loinc-datatable", "data"),
+    Output("loinc-datatable", "columns"),
+    [
+        Input("annotate-select", "value"),
+        Input("submit-btn", "n_clicks"),
+    ],
+)
+def update_datatable(annotation, submit):
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'submit-btn.n_clicks':
+        return True, None, []
+    df_data = df_loinc.loc[df_loinc['LOINC_NUM'] == annotation]
+    data = df_data.to_dict('records')
+    columns = [{"name": i, "id": i} for i in df_data.columns]
+    return False, data, columns
+
+
 ######################################################################################################
 app.layout = html.Div(
     id="app-container",
@@ -583,7 +667,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '502px'},
+                                            style={'height': '400px'},
                                             id="all_patients_graph",
                                             figure=initialize_all_patients_graph()
                                         )
@@ -596,7 +680,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '502px'},
+                                            style={'height': '400px'},
                                             id="blood_gas_graph",
                                             figure=initialize_tab_graph(bg_pair)
                                         )
@@ -609,7 +693,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '502px'},
+                                            style={'height': '400px'},
                                             id="chemistry_graph",
                                             figure=initialize_tab_graph(chem_pair)
                                         )
@@ -622,12 +706,34 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '502px'},
+                                            style={'height': '400px'},
                                             id="cbc_graph",
                                             figure=initialize_tab_graph(cbc_pair)
                                         )
                                     ]),
-                        ], id='tabs', value='home-tab')
+                        ], id='tabs', value='home-tab'),
+                        html.Br(),
+                        html.Div(
+                            id="search-datatable-outer",
+                            hidden=True,
+                            children=dash_table.DataTable(id='loinc-datatable',
+                                                          data=None,
+                                                          columns=[],
+                                                          style_data={
+                                                              'whiteSpace': 'normal',
+                                                              'height': 'auto',
+                                                              'lineHeight': '15px',
+                                                          },
+                                                          style_table={
+                                                              'height': '175px',
+                                                              'overflowY': 'auto'
+                                                          },
+                                                          style_cell={'textAlign': 'left'},
+                                                          css=[{
+                                                              'selector': '.previous-page, .next-page, .first-page, .last-page',
+                                                              'rule': 'background-color: white;'}],
+                                                          page_size=10)
+                        ),
                     ],
                 ),
             ],

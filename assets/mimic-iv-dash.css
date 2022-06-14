@@ -81,11 +81,6 @@ P {
     font-size: 13px;
 }
 
-.wait_time_graph > div, .patient_score_graph > div {
-    height: 100% !important;
-    width: 100% !important;
-}
-
 .draglayer {
     cursor: pointer !important;
 }
@@ -100,41 +95,9 @@ P {
     font-weight: bold;
 }
 
-#patient_volume_card, #wait_time_card {
-    background-color: #272e41;
-    padding: 1rem;
-    margin: auto;
-    margin-top: 20px;
-}
-
-#patient_volume_card > b, #wait_time_card > b {
-    line-height: 2.5;
-}
-
-#wait_time_card {
-    margin: 20px 0px;
-}
-
-#patient_volume_hm {
-    height: 400px;
-}
 
 .table-row:nth-child(even) {
     background-color: #272e41;
-}
-
-.row-department > b {
-    display: table-cell;
-    vertical-align: middle;
-}
-
-#header_wait_time_min, #header_care_score {
-    display: table;
-}
-
-#header_wait_time_min > b, #header_care_score > b {
-    display: table-cell;
-    vertical-align: middle;
 }
 
 
@@ -190,19 +153,6 @@ P {
 
     #header {
         display: none;
-    }
-
-    #wait_time_table:after {
-        content: "";
-        display: table;
-        clear: both;
-    }
-
-    #patient_volume_card > b, #wait_time_card > b {
-        line-height: 2.5;
-        font-size: 13px;
-        display: block;
-        text-align: center;
     }
 
     .annotation-text {
