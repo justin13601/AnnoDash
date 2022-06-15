@@ -28,6 +28,9 @@ import pandas as pd
 from google.cloud import bigquery
 
 
+# from callbacks.all_callbacks import callback_manager
+
+
 def big_query(query):
     client = bigquery.Client()
     query_job = client.query(query)  # API request
@@ -65,7 +68,10 @@ PATH_results = os.path.join(PATH_base, "results-json")
 def load_data(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
-    df_data = pd.read_csv(path)
+    if path == os.path.join(PATH_data, 'LoincTableCore.csv'):
+        df_data = pd.read_csv(path, dtype=object)
+    else:
+        df_data = pd.read_csv(path)
     print('Done.\n')
     return df_data
 
@@ -86,9 +92,8 @@ print("LOINC codes loaded.\n")
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
 loinc_dict = pd.Series(df_loinc.COMPONENT.values, index=df_loinc.LOINC_NUM.values).to_dict()
-loinc_list = [f'{each_code}: {loinc_dict[each_code]}' for each_code in loinc_dict]
 df_loinc_new = pd.DataFrame(
-    {'loinc_num': list(loinc_dict.keys()), 'component': list(loinc_dict.values()), 'display': loinc_list})
+    {'loinc_num': list(loinc_dict.keys()), 'component': list(loinc_dict.values())})
 
 annotated_list = load_annotations(PATH_results)
 unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
@@ -194,31 +199,54 @@ def generate_control_card():
             #     children=html.Button(id="search-btn", children="Search", n_clicks=0,
             #                          style={'width': '100%', 'color': 'white'}),
             # ),
-            # html.Br(),
-            # html.Div(
-            #     id="search-datatable-outer",
-            #     children=dash_table.DataTable(data=df_loinc_new.to_dict('records'),
-            #                                   columns=[{'name': 'Search Results', 'id': 'display'}],
-            #                                   style_data={
-            #                                       'whiteSpace': 'normal',
-            #                                       'height': 'auto',
-            #                                       'lineHeight': '15px',
-            #                                   },
-            #                                   style_table={
-            #                                       'height': '175px',
-            #                                       'overflowY': 'auto'
-            #                                   },
-            #                                   style_cell={'textAlign': 'left'},
-            #                                   css=[{'selector': '.previous-page, .next-page, .first-page, .last-page',
-            #                                         'rule': 'background-color: white;'}],
-            #                                   page_size=10)
-            # ),
+            html.Br(),
+            html.Div(
+                id="related-datatable-outer",
+                className='related-datable',
+                hidden=True,
+                children=dash_table.DataTable(id='related-loinc-datatable',
+                                              data=None,
+                                              columns=[{'name': ["Related Results", "LOINC_NUM"], 'id': 'loinc_num'},
+                                                       {'name': ["Related Results", "COMPONENT"], 'id': 'component'}],
+                                              style_data={
+                                                  'whiteSpace': 'normal',
+                                                  'height': 'auto',
+                                                  'lineHeight': '15px',
+                                              },
+                                              style_table={
+                                                  'height': '150px',
+                                                  'overflowY': 'auto'
+                                              },
+                                              style_cell={
+                                                  'textAlign': 'left',
+                                                  'backgroundColor': 'transparent'
+                                              },
+                                              style_header={
+                                                  'fontWeight': 'bold',
+                                                  'color': '#2c8cff'
+                                              },
+                                              style_data_conditional=[
+                                                  {  # 'active' | 'selected'
+                                                      'if': {'state': 'active'},
+                                                      'backgroundColor': 'transparent',
+                                                      'border': '1px solid lightgray'
+                                                  },
+                                                  {
+                                                      'if': {'column_id': 'loinc_num'},
+                                                      'width': '30%'
+                                                  },
+                                              ],
+                                              page_size=10,
+                                              merge_duplicate_headers=True,
+                                              style_as_list_view=True)
+            ),
             html.Br(),
             html.Div(
                 id="submit-btn-outer",
+                hidden=True,
                 children=html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
                                      style={'width': '100%', 'color': 'white'},
-                                     disabled=True),
+                                     disabled=False),
             ),
         ],
         style={'width': '100%', 'color': 'black'},
@@ -258,7 +286,7 @@ def generate_all_patients_graph(labitem):
             size=12,
             color="Black"
         ),
-        height=int(400),
+        height=int(375),
         margin=dict(l=50, r=50, t=90, b=20),
     )
     return fig
@@ -342,7 +370,7 @@ def generate_tab_graph(labitem, patient, template_labitems):
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
         margin=dict(l=50, r=0, t=90, b=20),
-        height=int(400)
+        height=int(375)
     )
     return fig
 
@@ -474,7 +502,7 @@ def update_labitem_options(options, labitem):
 
 ######################################################################################################
 @app.callback(
-    Output('submit-btn', 'disabled'),
+    Output('submit-btn-outer', 'hidden'),
     [
         Input('annotate-select', 'value'),
     ]
@@ -606,12 +634,29 @@ def update_graph(labitem, patient, submit):
 )
 def update_datatable(annotation, submit):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if triggered_id == 'submit-btn.n_clicks':
+    if triggered_id == 'submit-btn.n_clicks' or annotation is None:
         return True, None, []
     df_data = df_loinc.loc[df_loinc['LOINC_NUM'] == annotation]
     data = df_data.to_dict('records')
     columns = [{"name": i, "id": i} for i in df_data.columns]
     return False, data, columns
+
+
+@app.callback(
+    Output("related-datatable-outer", "hidden"),
+    Output("related-loinc-datatable", "data"),
+    [
+        Input("annotate-select", "value"),
+        Input("submit-btn", "n_clicks"),
+    ],
+)
+def update_related_datatable(annotation, submit):
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'submit-btn.n_clicks' or annotation is None:
+        return True, None
+
+    data = df_loinc_new[0:1000].to_dict('records')
+    return False, data
 
 
 ######################################################################################################
@@ -667,7 +712,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '400px'},
+                                            style={'height': '375px'},
                                             id="all_patients_graph",
                                             figure=initialize_all_patients_graph()
                                         )
@@ -680,7 +725,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '400px'},
+                                            style={'height': '375px'},
                                             id="blood_gas_graph",
                                             figure=initialize_tab_graph(bg_pair)
                                         )
@@ -693,7 +738,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '400px'},
+                                            style={'height': '375px'},
                                             id="chemistry_graph",
                                             figure=initialize_tab_graph(chem_pair)
                                         )
@@ -706,7 +751,7 @@ app.layout = html.Div(
                                     },
                                     children=[
                                         dcc.Graph(
-                                            style={'height': '400px'},
+                                            style={'height': '375px'},
                                             id="cbc_graph",
                                             figure=initialize_tab_graph(cbc_pair)
                                         )
@@ -715,6 +760,7 @@ app.layout = html.Div(
                         html.Br(),
                         html.Div(
                             id="search-datatable-outer",
+                            className='search-datatable',
                             hidden=True,
                             children=dash_table.DataTable(id='loinc-datatable',
                                                           data=None,
@@ -725,14 +771,28 @@ app.layout = html.Div(
                                                               'lineHeight': '15px',
                                                           },
                                                           style_table={
-                                                              'height': '175px',
+                                                              'height': 'auto',
                                                               'overflowY': 'auto'
                                                           },
-                                                          style_cell={'textAlign': 'left'},
-                                                          css=[{
-                                                              'selector': '.previous-page, .next-page, .first-page, .last-page',
-                                                              'rule': 'background-color: white;'}],
-                                                          page_size=10)
+                                                          style_cell={
+                                                              'textAlign': 'left',
+                                                              'backgroundColor': 'transparent',
+                                                              'color': 'black'
+                                                          },
+                                                          style_header={
+                                                              'fontWeight': 'bold',
+                                                              'color': '#2c8cff'
+                                                          },
+                                                          style_data_conditional=[
+                                                              {
+                                                                  'if': {
+                                                                      'state': 'active'  # 'active' | 'selected'
+                                                                  },
+                                                                  'backgroundColor': 'transparent',
+                                                                  'border': '1px solid lightgray'
+                                                              }],
+                                                          page_size=10,
+                                                          )
                         ),
                     ],
                 ),

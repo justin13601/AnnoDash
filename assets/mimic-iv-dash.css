@@ -96,9 +96,9 @@ P {
 }
 
 
-.table-row:nth-child(even) {
-    background-color: #272e41;
-}
+/*.table-row:nth-child(even) {*/
+/*    background-color: #272e41;*/
+/*}*/
 
 
 /*
@@ -147,10 +147,9 @@ P {
         margin: auto;
     }
 
-    .table-row:nth-child(even), .table-row:nth-child(odd) {
-        background-color: #FFFFFF;
-    }
-
+    /*.table-row:nth-child(even), .table-row:nth-child(odd) {*/
+    /*    background-color: #FFFFFF;*/
+    /*}*/
     #header {
         display: none;
     }
@@ -159,4 +158,37 @@ P {
         font-size: 0.8rem !important;
     }
 
+}
+
+.search-datatable {
+    background-color: rgb(255, 255, 255);
+}
+
+.related-datable {
+    background-color: rgb(255, 255, 255);
+}
+
+tr:hover {
+    background-color: rgba(0, 116, 217, 0.3) !important;
+}
+
+*::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+    background-color: #F5F5F5;
+}
+
+*::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
+    background-color: #F5F5F5;
+    /*border-radius: 8px;*/
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: #63a8fc;
+    /*border-radius: 8px;*/
+}
+
+::-webkit-scrollbar-thumb:hover {
+background: #378df8;
 }
