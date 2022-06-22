@@ -93,7 +93,8 @@ labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.v
 
 loinc_dict = pd.Series(df_loinc.COMPONENT.values, index=df_loinc.LOINC_NUM.values).to_dict()
 df_loinc_new = pd.DataFrame(
-    {'loinc_num': list(loinc_dict.keys()), 'component': list(loinc_dict.values())})
+    {'LOINC_NUM': list(loinc_dict.keys()), 'COMPONENT': list(loinc_dict.values())})
+df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 
 annotated_list = load_annotations(PATH_results)
 unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
@@ -106,9 +107,9 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 )  # String -> Datetime
 
 # define labitem pairs for patient specific tabs
-bg_pair = (50821, 50818)  # PO2 & PCO2, Blood
-chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood
-cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood
+bg_pair = (50821, 50818)  # PO2 & PCO2, Blood       # Could add FiO2
+chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
+cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood        # Could add RBC
 
 first_value_testing = 0  ############################## FOR TESTING ##############################
 
@@ -206,8 +207,8 @@ def generate_control_card():
                 hidden=True,
                 children=dash_table.DataTable(id='related-loinc-datatable',
                                               data=None,
-                                              columns=[{'name': ["Related Results", "LOINC_NUM"], 'id': 'loinc_num'},
-                                                       {'name': ["Related Results", "COMPONENT"], 'id': 'component'}],
+                                              columns=[{'name': ["Related Results", "LOINC_NUM"], 'id': 'LOINC_NUM'},
+                                                       {'name': ["Related Results", "COMPONENT"], 'id': 'COMPONENT'}],
                                               style_data={
                                                   'whiteSpace': 'normal',
                                                   'height': 'auto',
@@ -232,13 +233,18 @@ def generate_control_card():
                                                       'border': '1px solid lightgray'
                                                   },
                                                   {
-                                                      'if': {'column_id': 'loinc_num'},
+                                                      'if': {'column_id': 'LOINC_NUM'},
                                                       'width': '30%'
                                                   },
                                               ],
                                               page_size=10,
                                               merge_duplicate_headers=True,
-                                              style_as_list_view=True)
+                                              style_as_list_view=True,
+                                              css=[
+                                                  {'selector': '.previous-page, .next-page, .first-page, .last-page',
+                                                   'rule': 'color: #2c8cff'}
+                                              ]
+                                              )
             ),
             html.Br(),
             html.Div(
@@ -376,9 +382,6 @@ def generate_tab_graph(labitem, patient, template_labitems):
 
 
 def query_patients(labitem):
-    df_patients = pd.DataFrame(
-        columns=["target_labitem", "bg_item_1", "bg_item_2", "chem_item_1", "chem_item_2", "cbc_item_1", "cbc_item_2"])
-
     table = df_labevents.query(f'itemid == {labitem}')
     table1 = df_labevents.query(f'itemid == {bg_pair[0]}')
     table2 = df_labevents.query(f'itemid == {bg_pair[1]}')
@@ -630,15 +633,19 @@ def update_graph(labitem, patient, submit):
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
-    ],
+        Input('related-loinc-datatable', 'active_cell'),
+    ]
 )
-def update_datatable(annotation, submit):
+def update_search_datatable(annotation, submit, related):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks' or annotation is None:
         return True, None, []
     df_data = df_loinc.loc[df_loinc['LOINC_NUM'] == annotation]
     data = df_data.to_dict('records')
     columns = [{"name": i, "id": i} for i in df_data.columns]
+    if related:
+        df_data = pd.concat([df_data, df_loinc.iloc[[related['row_id']]]], ignore_index=True)
+        data = df_data.to_dict('records')
     return False, data, columns
 
 
