@@ -82,12 +82,15 @@ def load_annotations(path):
     return annotated
 
 
-df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
+df_labitems = load_data(os.path.join(PATH_data, 'd_labitems.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
 df_loinc = load_data(os.path.join(PATH_data, 'LoincTableCore.csv'))
-print("LOINC codes loaded.\n")
+df_loinc.drop(['CLASSTYPE', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'], axis=1,
+              inplace=True)
+df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
+print("LOINC codes loaded and processed.\n")
 
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
@@ -382,36 +385,35 @@ def generate_tab_graph(labitem, patient, template_labitems):
 
 
 def query_patients(labitem):
-    table = df_labevents.query(f'itemid == {labitem}')
-    table1 = df_labevents.query(f'itemid == {bg_pair[0]}')
-    table2 = df_labevents.query(f'itemid == {bg_pair[1]}')
-    table3 = df_labevents.query(f'itemid == {chem_pair[0]}')
-    table4 = df_labevents.query(f'itemid == {chem_pair[1]}')
-    table5 = df_labevents.query(f'itemid == {cbc_pair[0]}')
-    table6 = df_labevents.query(f'itemid == {cbc_pair[1]}')
+    list_of_labitems = [labitem, bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
+    list_of_patient_sets = []
+    for each_labitem in list_of_labitems:
+        table = df_labevents.query(f'itemid == {each_labitem}')
+        list_of_patient_sets.append(set(table['subject_id'].unique()))
 
-    # table_grouped = table.groupby(['subject_id'])['subject_id'].count()
+    map_reduce_list = []
+    for i in range(0, len(list_of_patient_sets)):
+        for each_item in list_of_patient_sets[i]:
+            map_reduce_list.append([each_item, i])
 
-    patients_with_labitem = set(table['subject_id'].unique())
-    patients_with_pair_item1 = set(table1['subject_id'].unique())
-    patients_with_pair_item2 = set(table2['subject_id'].unique())
-    patients_with_pair_item3 = set(table3['subject_id'].unique())
-    patients_with_pair_item4 = set(table4['subject_id'].unique())
-    patients_with_pair_item5 = set(table5['subject_id'].unique())
-    patients_with_pair_item6 = set(table6['subject_id'].unique())
+    dict_grouped = {}
+    for each_pair in map_reduce_list:
+        if each_pair[0] not in dict_grouped:
+            dict_grouped[each_pair[0]] = each_pair[1:]
+        else:
+            dict_grouped[each_pair[0]].append(each_pair[1])
 
-    temp_set_1 = patients_with_pair_item1.intersection(patients_with_pair_item2)
-    temp_set_2 = temp_set_1.intersection(patients_with_pair_item3)
-    temp_set_3 = temp_set_2.intersection(patients_with_pair_item4)
-    temp_set_4 = temp_set_3.intersection(patients_with_pair_item5)
-    temp_set_5 = temp_set_4.intersection(patients_with_pair_item6)
-    temp_set_6 = temp_set_5.intersection(patients_with_labitem)
+    second_map_reduce_list = []
+    for each_key in dict_grouped:
+        if len(dict_grouped[each_key]) > 1:
+            second_map_reduce_list.append([tuple(dict_grouped[each_key]), each_key])
 
-    patient_list = list(temp_set_6)
-    patient_list.sort()
+    ranked_patients = sorted(second_map_reduce_list, key=lambda x: (len(x[0]), x[1]))[::-1]
+    ranked_patients = [patient for patient in ranked_patients if 0 in patient[0]]
+    list_of_patients_ranked = [subject_id[1] for subject_id in ranked_patients]
 
     patients = [{"label": each_patient, "value": each_patient} for each_patient in
-                patient_list]
+                list_of_patients_ranked]
     return patients
 
 
@@ -469,7 +471,7 @@ def annotate(labitem, annotation):
     labitem_row = df_labitems.query(f'itemid == {labitem}')
     labitem_dict = {'itemid': labitem,
                     'label': labitemsid_dict[labitem],
-                    'mimic_loinc': labitem_row['loinc_code'].item(),
+                    # 'mimic_loinc': labitem_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-labitems
                     'loincid': annotation,
                     'loinclabel': loinc_dict[annotation]
                     }
@@ -586,6 +588,11 @@ def update_lab_measurement_dropdown(submit, value, options):
 def update_patient_dropdown(labitem, submit):
     options = []
     disabled = True
+
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    # if triggered_id == 'submit-btn.n_clicks':
+    #     return
+
     if labitem:
         options = query_patients(labitem)
         disabled = False
@@ -617,12 +624,37 @@ def update_graph(labitem, patient, submit):
         return {}, {}, disabled, {}, disabled, {}, disabled
 
     if patient:
+        list_of_labitems = [bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
+        labitem_exists = []
+        tabs = []
+        for each_labitem in list_of_labitems:
+            table = df_labevents.query(f'itemid == {each_labitem}')
+            patients_with_labitem = set(table['subject_id'].unique())
+            if patient in patients_with_labitem:
+                labitem_exists.append(True)
+            else:
+                labitem_exists.append(False)
+        for i in range(0, len(labitem_exists), 2):
+            if labitem_exists[i] and labitem_exists[i + 1]:
+                tabs.append(True)
+            else:
+                tabs.append(False)
         disabled = False
-        return generate_all_patients_graph(labitem), \
-               generate_tab_graph(labitem, patient, bg_pair), disabled, \
-               generate_tab_graph(labitem, patient, chem_pair), disabled, \
-               generate_tab_graph(labitem, patient, cbc_pair), disabled
+        if tabs[0]:
+            tab_bg = (generate_tab_graph(labitem, patient, bg_pair), disabled)
+        else:
+            tab_bg = ({}, True)
+        if tabs[1]:
+            tab_chem = (generate_tab_graph(labitem, patient, chem_pair), disabled)
+        else:
+            tab_chem = ({}, True)
+        if tabs[2]:
+            tab_cbc = (generate_tab_graph(labitem, patient, cbc_pair), disabled)
+        else:
+            tab_cbc = ({}, True)
+        tab_labtiem = generate_all_patients_graph(labitem)
 
+        return tab_labtiem, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
     return generate_all_patients_graph(labitem), {}, disabled, {}, disabled, {}, disabled
 
 
@@ -662,9 +694,25 @@ def update_related_datatable(annotation, submit):
     if triggered_id == 'submit-btn.n_clicks' or annotation is None:
         return True, None
 
-    data = df_loinc_new[0:1000].to_dict('records')
+    data = df_loinc_new[0:100].to_dict('records')
     return False, data
 
+
+# @app.callback(
+#     Output("annotate-select", "options"),
+#     [
+#         Input("annotate-select", "search_value"),
+#         Input("submit-btn", "n_clicks"),
+#     ],
+# )
+# def update_options(search_value, submit):
+#     if not search_value:
+#         raise PreventUpdate
+#     return [o for o in annotation_options if search_value in o["label"].lower()]
+#
+#
+# # For dynamic dropdown, also make sure to remove 'options' tag in annotate-select declaration
+# annotation_options = initialize_annotate_select()
 
 ######################################################################################################
 app.layout = html.Div(
@@ -707,8 +755,6 @@ app.layout = html.Div(
                     style={'height': '500%'},
                     children=[
                         html.H4("Patient Records"),
-                        html.Hr(style={}),
-                        html.Br(),
                         dcc.Tabs([
                             dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
                                     value='home-tab',

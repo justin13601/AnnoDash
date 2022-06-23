@@ -1,7 +1,6 @@
 {
     "itemid": 50801,
     "label": "Alveolar-arterial Gradient",
-    "mimic_loinc": "19991-9",
-    "loincid": "100002-5",
-    "loinclabel": "Specimen care is maintained"
+    "loincid": "100003-3",
+    "loinclabel": "Team communication is maintained throughout care"
 }
