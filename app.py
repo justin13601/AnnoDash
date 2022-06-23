@@ -112,7 +112,7 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 # define labitem pairs for patient specific tabs
 bg_pair = (50821, 50818)  # PO2 & PCO2, Blood       # Could add FiO2
 chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood        # Could add RBC
+cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood        # Could add RBC (the one with space)
 
 first_value_testing = 0  ############################## FOR TESTING ##############################
 
