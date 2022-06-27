@@ -34,7 +34,7 @@ Files required:
 
 * A .csv file containing all patient observations
 * A .csv file containing all lab measurements to-be annotated in id-label pairs {id: label}
-* config.yaml
+* config.yaml:
     * Results directory
     * Data directory
     * Ontology directory (LOINC.csv etc.)
