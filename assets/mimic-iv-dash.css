@@ -1,9 +1,3 @@
-@font-face {
-    font-family: Acumin;
-    font-weight: bold;
-    src: url("Acumin-BdPro.otf") format("opentype");
-}
-
 #app-container {
     width: 100%;
     max-width: none;

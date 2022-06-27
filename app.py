@@ -75,9 +75,9 @@ def load_data(path):
     return df_data
 
 
-def load_config(config_file):
-    print(f'Loading {config_file}...')
-    with open(config_file, "r") as f:
+def load_config(file):
+    print(f'Loading {file}...')
+    with open(file, "r") as f:
         configurations = yaml.safe_load(f)
         print('Done.\n')
         return configurations
@@ -97,15 +97,15 @@ else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
 # path
-PATH_base = os.getcwd()
-PATH_data = os.path.join(PATH_base, "demo-data")
-PATH_results = os.path.join(PATH_base, "results-json")
+PATH_data = config['directories']['data']
+PATH_loinc = config['directories']['loinc']
+PATH_results = config['directories']['results']
 
 df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
-df_loinc = load_data(os.path.join(PATH_data, 'LoincTableCore.csv'))
+df_loinc = load_data(os.path.join(PATH_loinc, 'LoincTableCore.csv'))
 df_loinc.drop(['CLASSTYPE', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'], axis=1,
               inplace=True)
 df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
@@ -113,7 +113,7 @@ print("LOINC codes loaded and processed.\n")
 
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
-loinc_dict = pd.Series(df_loinc.COMPONENT.values, index=df_loinc.LOINC_NUM.values).to_dict()
+loinc_dict = pd.Series(df_loinc.LONG_COMMON_NAME.values, index=df_loinc.LOINC_NUM.values).to_dict()
 df_loinc_new = pd.DataFrame(
     {'LOINC_NUM': list(loinc_dict.keys()), 'COMPONENT': list(loinc_dict.values())})
 df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
@@ -129,11 +129,12 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 )  # String -> Datetime
 
 # define labitem pairs for patient specific tabs
-bg_pair = (50821, 50818)  # PO2 & PCO2, Blood       # Could add FiO2
-chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
-
-first_value_testing = 0  ############################## FOR TESTING ##############################
+pairs = []
+for each in config['graphs']['pairs'].values():
+    pairs.append((each['item_1'], each['item_2']))
+bg_pair = pairs[0]  # Default PO2 & PCO2, Blood       # Could add FiO2
+chem_pair = pairs[1]  # Default Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
+cbc_pair = pairs[2]  # Default Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
 
 
 def description_card():
@@ -265,8 +266,7 @@ def generate_control_card():
                                               css=[
                                                   {'selector': '.previous-page, .next-page, .first-page, .last-page',
                                                    'rule': 'color: #2c8cff'}
-                                              ]
-                                              )
+                                              ])
             ),
             html.Br(),
             html.Div(
@@ -281,7 +281,7 @@ def generate_control_card():
     )
 
 
-def generate_all_patients_graph(labitem):
+def generate_all_patients_graph(labitem, **kwargs):
     table = df_labevents.query(f'itemid == {labitem}')
     table.replace(np.inf, np.nan)
     table.dropna(subset=['valuenum'], inplace=True)
@@ -302,25 +302,25 @@ def generate_all_patients_graph(labitem):
             'xanchor': 'center',
             'yanchor': 'top',
             'font': dict(
-                family="verdana",
-                size=25,
-                color="Black"
+                family=kwargs['config']['title-font'],
+                size=kwargs['config']['title-size'],
+                color=kwargs['config']['title-color']
             )},
         xaxis_title=f"{labitemsid_dict[labitem]} ({units})",
         yaxis_title="",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         font=dict(
-            family="verdana",
-            size=12,
-            color="Black"
+            family=kwargs['config']['text-font'],
+            size=kwargs['config']['text-size'],
+            color=kwargs['config']['text-color']
         ),
-        height=int(375),
+        height=kwargs['config']['height'],
         margin=dict(l=50, r=50, t=90, b=20),
     )
     return fig
 
 
-def generate_tab_graph(labitem, patient, template_labitems):
+def generate_tab_graph(labitem, patient, template_labitems, **kwargs):
     table_labitem_1 = df_labevents.query(f'itemid == {template_labitems[0]}')
     table_labitem_2 = df_labevents.query(f'itemid == {template_labitems[1]}')
     table_labitem_target = df_labevents.query(f'itemid == {labitem}')
@@ -368,14 +368,15 @@ def generate_tab_graph(labitem, patient, template_labitems):
 
     fig.update_traces(mode="markers+lines", hovertemplate='Value: %{y:.1f}<extra></extra>')
 
-    fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
-                     spikemode='across+marker')
-    fig.update_yaxes(showspikes=True,
-                     spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
-                     spikemode='across+marker', secondary_y=False)
-    fig.update_yaxes(showspikes=True,
-                     spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
-                     spikemode='across+marker', secondary_y=True)
+    if kwargs['config']['spikes']:
+        fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
+                         spikemode='across+marker')
+        fig.update_yaxes(showspikes=True,
+                         spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
+                         spikemode='across+marker', secondary_y=False)
+        fig.update_yaxes(showspikes=True,
+                         spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
+                         spikemode='across+marker', secondary_y=True)
 
     fig.update_layout(
         title={
@@ -385,20 +386,20 @@ def generate_tab_graph(labitem, patient, template_labitems):
             'xanchor': 'center',
             'yanchor': 'top',
             'font': dict(
-                family="verdana",
-                size=25,
-                color="Black"
+                family=kwargs['config']['title-font'],
+                size=kwargs['config']['title-size'],
+                color=kwargs['config']['title-color']
             )},
         xaxis_title="Time (Hours)",
         font=dict(
-            family="verdana",
-            size=12,
-            color="Black"
+            family=kwargs['config']['text-font'],
+            size=kwargs['config']['text-size'],
+            color=kwargs['config']['text-color']
         ),
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
         margin=dict(l=50, r=0, t=90, b=20),
-        height=int(375)
+        height=kwargs['config']['height']
     )
     return fig
 
@@ -437,23 +438,24 @@ def query_patients(labitem):
 
 
 def initialize_all_patients_graph():
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    fig = generate_all_patients_graph(labitems[0]["value"])
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
+    fig = generate_all_patients_graph(labitems[0]["value"], config=config['graphs']['kwargs'])
     return fig
 
 
 def initialize_tab_graph(pair):
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     patients = query_patients(labitems[0]["value"])
     if not patients[0]:
         return {}
     first_patient = patients[0]["value"]
-    fig = generate_tab_graph(labitems[0]["value"], first_patient, template_labitems=pair)
+    fig = generate_tab_graph(labitems[0]["value"], first_patient, template_labitems=pair,
+                             config=config['graphs']['kwargs'])
     return fig
 
 
 def initialize_tab():
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
+    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     patients = query_patients(labitems[0]["value"])
     if not patients[0]:
         return True
@@ -482,12 +484,13 @@ def initialize_patient_select():
 
 def initialize_annotate_select():
     loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
-    return loinc_codes[0:1000]
-    # return []
+    if config['temp']['test']:
+        return loinc_codes[0:1000]
+    return loinc_codes
 
 
 def annotate(labitem, annotation):
-    labitem_row = df_labitems.query(f'itemid == {labitem}')
+    # labitem_row = df_labitems.query(f'itemid == {labitem}')
     labitem_dict = {'itemid': labitem,
                     'label': labitemsid_dict[labitem],
                     # 'mimic_loinc': labitem_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-labitems
@@ -544,6 +547,7 @@ def enable_submit_button(annotation):
     Output('confirm-replace', 'displayed'),
     [
         Input("submit-btn", "n_clicks"),
+        Input('loinc-datatable', 'active_cell'),
     ],
     [
         State('labitem-select', 'value'),
@@ -551,7 +555,7 @@ def enable_submit_button(annotation):
         # State('annotate-text', 'value')
     ]
 )
-def submit_annotation(n_clicks, labitem, annotation):
+def reset_annotation(n_clicks, replace_annotation, labitem, annotation):
     if n_clicks == 0:
         raise PreventUpdate
     triggered_id = dash.callback_context.triggered[0]['prop_id']
@@ -660,21 +664,22 @@ def update_graph(labitem, patient, submit):
                 tabs.append(False)
         disabled = False
         if tabs[0]:
-            tab_bg = (generate_tab_graph(labitem, patient, bg_pair), disabled)
+            tab_bg = (generate_tab_graph(labitem, patient, bg_pair, config=config['graphs']['kwargs']), disabled)
         else:
             tab_bg = ({}, True)
         if tabs[1]:
-            tab_chem = (generate_tab_graph(labitem, patient, chem_pair), disabled)
+            tab_chem = (generate_tab_graph(labitem, patient, chem_pair, config=config['graphs']['kwargs']), disabled)
         else:
             tab_chem = ({}, True)
         if tabs[2]:
-            tab_cbc = (generate_tab_graph(labitem, patient, cbc_pair), disabled)
+            tab_cbc = (generate_tab_graph(labitem, patient, cbc_pair, config=config['graphs']['kwargs']), disabled)
         else:
             tab_cbc = ({}, True)
-        tab_labtiem = generate_all_patients_graph(labitem)
+        tab_labitem = generate_all_patients_graph(labitem, config=config['graphs']['kwargs'])
 
-        return tab_labtiem, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
-    return generate_all_patients_graph(labitem), {}, disabled, {}, disabled, {}, disabled
+        return tab_labitem, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
+    return generate_all_patients_graph(labitem,
+                                       config=config['graphs']['kwargs']), {}, disabled, {}, disabled, {}, disabled
 
 
 @app.callback(
@@ -789,7 +794,8 @@ app.layout = html.Div(
                                             figure=initialize_all_patients_graph()
                                         )
                                     ]),
-                            dcc.Tab(label='Blood Gas', id="blood_gas_tab", disabled=initialize_tab(),
+                            dcc.Tab(label=config['graphs']['pairs']['pair_one']['label'], id="blood_gas_tab",
+                                    disabled=initialize_tab(),
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -802,7 +808,8 @@ app.layout = html.Div(
                                             figure=initialize_tab_graph(bg_pair)
                                         )
                                     ]),
-                            dcc.Tab(label='Chemistry', id="chemistry_tab", disabled=initialize_tab(),
+                            dcc.Tab(label=config['graphs']['pairs']['pair_two']['label'], id="chemistry_tab",
+                                    disabled=initialize_tab(),
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',
@@ -815,7 +822,8 @@ app.layout = html.Div(
                                             figure=initialize_tab_graph(chem_pair)
                                         )
                                     ]),
-                            dcc.Tab(label='Complete Blood Count', id="cbc_tab", disabled=initialize_tab(),
+                            dcc.Tab(label=config['graphs']['pairs']['pair_three']['label'], id="cbc_tab",
+                                    disabled=initialize_tab(),
                                     style={'color': '#1a75f9'},
                                     selected_style={
                                         'color': '#1a75f9',

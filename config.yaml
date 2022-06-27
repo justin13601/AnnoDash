@@ -1,11 +1,10 @@
-# This YAML exposes the fields defined in the UI. Please edit directly.
+# This YAML exposes the fields defined in the dashboard. Please edit directly.
 directories:
-  base:
-  result:
-  data:
-  loinc:
+  results: C:\Users\Justin\PycharmProjects\mimic-iv-dash\results-json
+  data: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data # observations will be split into a file per measurement
+  loinc: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data
 graphs: # options for graphs
-  pairs: # standard measurements for tab graph overlays
+  pairs: # standard measurements for tab graph overlays       // allow user to choose num of tabs in future
     pair_one:
       item_1: 50821
       item_2: 50818
@@ -33,5 +32,7 @@ metadata:
   name: mimic-iv-dash-development
   labels:
     app: dash-web
-other:
+temp:
+  test: True
+  mimic-iv-version: 2.0
 

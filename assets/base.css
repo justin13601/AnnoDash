@@ -39,6 +39,11 @@
 /*    overflow-y: hidden;*/
 /*}*/
 
+@font-face {
+    font-family: Acumin;
+    font-weight: bold;
+    src: url("Acumin-BdPro.otf") format("opentype");
+}
 
 .container {
     position: relative;

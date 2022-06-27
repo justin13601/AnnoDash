@@ -120,12 +120,13 @@ def update_graph(labitem, patient, submit):
 
     if patient:
         disabled = False
-        return generate_all_patients_graph(labitem), \
+        return generate_all_patients_graph(labitem, config=config['graphs']['kwargs']), \
                generate_tab_graph(labitem, patient, bg_pair), disabled, \
                generate_tab_graph(labitem, patient, chem_pair), disabled, \
                generate_tab_graph(labitem, patient, cbc_pair), disabled
 
-    return generate_all_patients_graph(labitem), {}, disabled, {}, disabled, {}, disabled
+    return generate_all_patients_graph(labitem,
+                                       config=config['graphs']['kwargs']), {}, disabled, {}, disabled, {}, disabled
 
 
 @callback_manager.callback(
