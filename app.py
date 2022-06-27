@@ -7,8 +7,10 @@ Created on May 10, 2022
 """
 
 import os
+import errno
 import csv
 import json
+import yaml
 from datetime import timedelta, datetime as dt
 from collections import defaultdict
 
@@ -52,16 +54,13 @@ app = dash.Dash(
     ],
 )
 
-app.title = "MIMIC-IV Clinical Laboratory Data Dashboard"
+app.title = "Clinical Laboratory Data Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
+
+
 ######################################################################################################
 # callback_manager.attach_to_app(app)
-
-# path
-PATH_base = os.getcwd()
-PATH_data = os.path.join(PATH_base, "demo-data")
-PATH_results = os.path.join(PATH_base, "results-json")
 
 
 # load data
@@ -76,13 +75,33 @@ def load_data(path):
     return df_data
 
 
+def load_config(config_file):
+    print(f'Loading {config_file}...')
+    with open(config_file, "r") as f:
+        configurations = yaml.safe_load(f)
+        print('Done.\n')
+        return configurations
+
+
 def load_annotations(path):
     annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
     annotated = [int(each_labitem.strip('.json')) for each_labitem in annotation_files]
     return annotated
 
 
-df_labitems = load_data(os.path.join(PATH_data, 'd_labitems.csv'))
+config_file = 'config.yaml'
+if os.path.exists(config_file):
+    print('Configuration file found.')
+    config = load_config('config.yaml')
+else:
+    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
+
+# path
+PATH_base = os.getcwd()
+PATH_data = os.path.join(PATH_base, "demo-data")
+PATH_results = os.path.join(PATH_base, "results-json")
+
+df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
@@ -112,7 +131,7 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 # define labitem pairs for patient specific tabs
 bg_pair = (50821, 50818)  # PO2 & PCO2, Blood       # Could add FiO2
 chem_pair = (50912, 50971)  # Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood        # Could add RBC (the one with space)
+cbc_pair = (51222, 51300)  # Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
 
 first_value_testing = 0  ############################## FOR TESTING ##############################
 

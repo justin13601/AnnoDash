@@ -1,0 +1,37 @@
+# This YAML exposes the fields defined in the UI. Please edit directly.
+directories:
+  base:
+  result:
+  data:
+  loinc:
+graphs: # options for graphs
+  pairs: # standard measurements for tab graph overlays
+    pair_one:
+      item_1: 50821
+      item_2: 50818
+      label: Blood Gas
+    pair_two:
+      item_1: 50912
+      item_2: 50971
+      label: Chemistry
+    pair_three:
+      item_1: 51222
+      item_2: 51300
+      label: Complete Blood Count
+  kwargs:
+    title-font: verdana
+    title-color: Black
+    title-size: 25
+    text-font: verdana
+    text-color: Black
+    text-size: 12
+    height: 375
+    spikes: True
+version: 2.6
+kind: Development
+metadata:
+  name: mimic-iv-dash-development
+  labels:
+    app: dash-web
+other:
+
