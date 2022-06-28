@@ -26,7 +26,6 @@ from dash.exceptions import PreventUpdate
 import scipy
 import numpy as np
 import pandas as pd
-# import vaex
 from google.cloud import bigquery
 
 
@@ -98,18 +97,21 @@ else:
 
 # path
 PATH_data = config['directories']['data']
-PATH_loinc = config['directories']['loinc']
 PATH_results = config['directories']['results']
+PATH_loinc = config['loinc']['directory']
 
 df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
 df_loinc = load_data(os.path.join(PATH_loinc, 'LoincTableCore.csv'))
-df_loinc.drop(['CLASSTYPE', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'], axis=1,
-              inplace=True)
+df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(config['loinc']['loinc-class-type-value'])]
 df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
-print("LOINC codes loaded and processed.\n")
+df_loinc.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
+              axis=1,
+              inplace=True)
+print(f"LOINC codes (CLASSTYPE={config['loinc']['loinc-class-type-value']}, "
+      f"{config['loinc']['loinc-class-type-label']}) loaded and processed.\n")
 
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 

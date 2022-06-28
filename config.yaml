@@ -2,7 +2,12 @@
 directories:
   results: C:\Users\Justin\PycharmProjects\mimic-iv-dash\results-json
   data: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data # observations will be split into a file per measurement
-  loinc: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data
+loinc:
+  directory: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data
+  version: 2.72
+  type: Core
+  loinc-class-type-value: 1
+  loinc-class-type-label: Laboratory Terms
 graphs: # options for graphs
   pairs: # standard measurements for tab graph overlays       // allow user to choose num of tabs in future
     pair_one:
