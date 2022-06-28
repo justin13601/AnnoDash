@@ -38,7 +38,7 @@ Files required:
     * Results directory
     * Data directory
     * Ontology directory (LOINC.csv etc.)
-    * Define up to 3 pairs of lab measurements to graph annotations against
+    * Define up to 3 pairs of lab measurements to plot annotations against
 
 | ![Home](assets/home.png)          | ![Tabs](assets/tabs.png)          |
 |-----------------------------------|-----------------------------------|

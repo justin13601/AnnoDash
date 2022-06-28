@@ -228,7 +228,7 @@ def generate_control_card():
                 id="related-datatable-outer",
                 className='related-datable',
                 hidden=True,
-                children=dash_table.DataTable(id='related-loinc-datatable',
+                children=dash_table.DataTable(id='related-datatable',
                                               data=None,
                                               columns=[{'name': ["Related Results", "LOINC_NUM"], 'id': 'LOINC_NUM'},
                                                        {'name': ["Related Results", "COMPONENT"], 'id': 'COMPONENT'}],
@@ -541,10 +541,13 @@ def enable_submit_button(annotation):
 
 
 @app.callback(
-    Output("submit-btn", "n_clicks"),
     Output('annotate-select', 'value'),
     # Output('annotate-text', 'value'),
     Output('confirm-replace', 'displayed'),
+    Output("related-datatable", "active_cell"),
+    Output("related-datatable", "selected_cells"),
+    Output("loinc-datatable", "active_cell"),
+    Output("loinc-datatable", "selected_cells"),
     [
         Input("submit-btn", "n_clicks"),
         Input('loinc-datatable', 'active_cell'),
@@ -553,16 +556,20 @@ def enable_submit_button(annotation):
         State('labitem-select', 'value'),
         State('annotate-select', 'value'),
         # State('annotate-text', 'value')
+        State("loinc-datatable", "data"),
     ]
 )
-def reset_annotation(n_clicks, replace_annotation, labitem, annotation):
-    if n_clicks == 0:
-        raise PreventUpdate
+def reset_annotation(n_clicks, replace_annotation, labitem, annotation, curr_data):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if n_clicks > 0 and triggered_id == 'submit-btn.n_clicks':
+    if triggered_id == 'submit-btn.n_clicks':
         annotate(labitem, annotation)
-        n_clicks = 0
-        return n_clicks, '', False
+        return '', False, None, [], None, []
+    elif triggered_id == 'loinc-datatable.active_cell':
+        if replace_annotation['row'] == 1:
+            new_annotation = curr_data[replace_annotation['row']]['LOINC_NUM']
+            return new_annotation, False, None, [], None, []
+    else:
+        raise PreventUpdate
 
 
 @app.callback(
@@ -591,6 +598,8 @@ def update_tabs_view(patient):
 )
 def update_lab_measurement_dropdown(submit, value, options):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == '.':
+        raise PreventUpdate
     curr_options = options
     new_value = curr_options[0]["value"]
     if triggered_id == 'submit-btn.n_clicks':
@@ -613,7 +622,7 @@ def update_patient_dropdown(labitem, submit):
     disabled = True
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
-    # if triggered_id == 'submit-btn.n_clicks':
+    # if triggered_id == 'next-btn.n_clicks':
     #     return
 
     if labitem:
@@ -683,42 +692,45 @@ def update_graph(labitem, patient, submit):
 
 
 @app.callback(
-    Output("search-datatable-outer", "hidden"),
+    Output("loinc-datatable-outer", "hidden"),
     Output("loinc-datatable", "data"),
     Output("loinc-datatable", "columns"),
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
-        Input('related-loinc-datatable', 'active_cell'),
+        Input('related-datatable', 'active_cell'),
+    ],
+    [
+        State("related-datatable", "data"),
     ]
 )
-def update_search_datatable(annotation, submit, related):
-    triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if triggered_id == 'submit-btn.n_clicks' or annotation is None:
+def update_loinc_datatable(annotation, submit, related, curr_data):
+    triggered_ids = dash.callback_context.triggered
+    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or annotation is None:
         return True, None, []
     df_data = df_loinc.loc[df_loinc['LOINC_NUM'] == annotation]
     data = df_data.to_dict('records')
     columns = [{"name": i, "id": i} for i in df_data.columns]
     if related:
-        df_data = pd.concat([df_data, df_loinc.iloc[[related['row_id']]]], ignore_index=True)
+        df_data = pd.concat([df_data, df_loinc.loc[df_loinc['LOINC_NUM'] == curr_data[related['row_id']]['LOINC_NUM']]])
         data = df_data.to_dict('records')
     return False, data, columns
 
 
 @app.callback(
     Output("related-datatable-outer", "hidden"),
-    Output("related-loinc-datatable", "data"),
+    Output("related-datatable", "data"),
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
     ],
 )
 def update_related_datatable(annotation, submit):
-    triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if triggered_id == 'submit-btn.n_clicks' or annotation is None:
-        return True, None
-
     data = df_loinc_new[0:100].to_dict('records')
+
+    triggered_ids = dash.callback_context.triggered
+    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or annotation is None:
+        return True, None
     return False, data
 
 
@@ -839,8 +851,8 @@ app.layout = html.Div(
                         ], id='tabs', value='home-tab'),
                         html.Br(),
                         html.Div(
-                            id="search-datatable-outer",
-                            className='search-datatable',
+                            id="loinc-datatable-outer",
+                            className='loinc-datatable',
                             hidden=True,
                             children=dash_table.DataTable(id='loinc-datatable',
                                                           data=None,
