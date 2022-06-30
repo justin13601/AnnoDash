@@ -9,9 +9,12 @@ Created on May 10, 2022
 import os
 import errno
 import csv
+import time
 import json
 import yaml
 from datetime import timedelta, datetime as dt
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 from collections import defaultdict
 
 import dash
@@ -117,7 +120,7 @@ labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.v
 
 loinc_dict = pd.Series(df_loinc.LONG_COMMON_NAME.values, index=df_loinc.LOINC_NUM.values).to_dict()
 df_loinc_new = pd.DataFrame(
-    {'LOINC_NUM': list(loinc_dict.keys()), 'COMPONENT': list(loinc_dict.values())})
+    {'LOINC_NUM': list(loinc_dict.keys()), 'LONG_COMMON_NAME': list(loinc_dict.values())})
 df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 
 annotated_list = load_annotations(PATH_results)
@@ -226,50 +229,61 @@ def generate_control_card():
             #                          style={'width': '100%', 'color': 'white'}),
             # ),
             html.Br(),
-            html.Div(
-                id="related-datatable-outer",
-                className='related-datable',
-                hidden=True,
-                children=dash_table.DataTable(id='related-datatable',
-                                              data=None,
-                                              columns=[{'name': ["Related Results", "LOINC_NUM"], 'id': 'LOINC_NUM'},
-                                                       {'name': ["Related Results", "COMPONENT"], 'id': 'COMPONENT'}],
-                                              style_data={
-                                                  'whiteSpace': 'normal',
-                                                  'height': 'auto',
-                                                  'lineHeight': '15px',
-                                              },
-                                              style_table={
-                                                  'height': '150px',
-                                                  'overflowY': 'auto'
-                                              },
-                                              style_cell={
-                                                  'textAlign': 'left',
-                                                  'backgroundColor': 'transparent'
-                                              },
-                                              style_header={
-                                                  'fontWeight': 'bold',
-                                                  'color': '#2c8cff'
-                                              },
-                                              style_data_conditional=[
-                                                  {  # 'active' | 'selected'
-                                                      'if': {'state': 'active'},
-                                                      'backgroundColor': 'transparent',
-                                                      'border': '1px solid lightgray'
+            html.Br(id='before_loading', hidden=False),
+            dcc.Loading(
+                id="related-loading",
+                type="dot",
+                color='#2c89f2',
+                children=html.Div(
+                    id="related-datatable-outer",
+                    className='related-datable',
+                    hidden=True,
+                    children=dash_table.DataTable(id='related-datatable',
+                                                  data=None,
+                                                  columns=[
+                                                      {'name': ["Related Results", "LOINC_NUM"], 'id': 'LOINC_NUM'},
+                                                      {'name': ["Related Results", "LONG_COMMON_NAME"],
+                                                       'id': 'LONG_COMMON_NAME'}],
+                                                  style_data={
+                                                      'whiteSpace': 'normal',
+                                                      'height': 'auto',
+                                                      'lineHeight': '15px',
                                                   },
-                                                  {
-                                                      'if': {'column_id': 'LOINC_NUM'},
-                                                      'width': '30%'
+                                                  style_table={
+                                                      'height': '150px',
+                                                      'overflowY': 'auto'
                                                   },
-                                              ],
-                                              page_size=10,
-                                              merge_duplicate_headers=True,
-                                              style_as_list_view=True,
-                                              css=[
-                                                  {'selector': '.previous-page, .next-page, .first-page, .last-page',
-                                                   'rule': 'color: #2c8cff'}
-                                              ])
+                                                  style_cell={
+                                                      'textAlign': 'left',
+                                                      'backgroundColor': 'transparent'
+                                                  },
+                                                  style_header={
+                                                      'fontWeight': 'bold',
+                                                      'color': '#2c8cff'
+                                                  },
+                                                  style_data_conditional=[
+                                                      {  # 'active' | 'selected'
+                                                          'if': {'state': 'active'},
+                                                          'backgroundColor': 'transparent',
+                                                          'border': '1px solid lightgray'
+                                                      },
+                                                      {
+                                                          'if': {'column_id': 'LOINC_NUM'},
+                                                          'width': '30%'
+                                                      },
+                                                  ],
+                                                  page_size=10,
+                                                  merge_duplicate_headers=True,
+                                                  style_as_list_view=True,
+                                                  css=[
+                                                      {
+                                                          'selector': '.previous-page, .next-page, '
+                                                                      '.first-page, .last-page',
+                                                          'rule': 'color: #2c8cff'}
+                                                  ])
+                ),
             ),
+            html.Br(id='after_loading', hidden=False),
             html.Br(),
             html.Div(
                 id="submit-btn-outer",
@@ -487,7 +501,7 @@ def initialize_patient_select():
 def initialize_annotate_select():
     loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
     if config['temp']['test']:
-        return loinc_codes[0:1000]
+        return loinc_codes[2000:4000]
     return loinc_codes
 
 
@@ -553,15 +567,15 @@ def enable_submit_button(annotation):
     [
         Input("submit-btn", "n_clicks"),
         Input('loinc-datatable', 'active_cell'),
+        Input('annotate-select', 'value'),
     ],
     [
         State('labitem-select', 'value'),
-        State('annotate-select', 'value'),
         # State('annotate-text', 'value')
         State("loinc-datatable", "data"),
     ]
 )
-def reset_annotation(n_clicks, replace_annotation, labitem, annotation, curr_data):
+def reset_annotation(n_clicks, replace_annotation, annotation, labitem, curr_data):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         annotate(labitem, annotation)
@@ -570,6 +584,11 @@ def reset_annotation(n_clicks, replace_annotation, labitem, annotation, curr_dat
         if replace_annotation['row'] == 1:
             new_annotation = curr_data[replace_annotation['row']]['LOINC_NUM']
             return new_annotation, False, None, [], None, []
+    elif triggered_id == 'annotate-select.value':
+        if not annotation:
+            return '', False, None, [], None, []
+        else:
+            raise PreventUpdate
     else:
         raise PreventUpdate
 
@@ -708,13 +727,15 @@ def update_graph(labitem, patient, submit):
 )
 def update_loinc_datatable(annotation, submit, related, curr_data):
     triggered_ids = dash.callback_context.triggered
-    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or annotation is None:
+    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or not annotation:
         return True, None, []
     df_data = df_loinc.loc[df_loinc['LOINC_NUM'] == annotation]
     data = df_data.to_dict('records')
     columns = [{"name": i, "id": i} for i in df_data.columns]
     if related:
-        df_data = pd.concat([df_data, df_loinc.loc[df_loinc['LOINC_NUM'] == curr_data[related['row_id']]['LOINC_NUM']]])
+        df_data = pd.concat([df_data, df_loinc.loc[
+            df_loinc['LOINC_NUM'] == [each_key for each_key in curr_data if each_key['id'] == related['row_id']][0][
+                'LOINC_NUM']]])
         data = df_data.to_dict('records')
     return False, data, columns
 
@@ -722,18 +743,25 @@ def update_loinc_datatable(annotation, submit, related, curr_data):
 @app.callback(
     Output("related-datatable-outer", "hidden"),
     Output("related-datatable", "data"),
+    Output("before_loading", "hidden"),
+    Output("after_loading", "hidden"),
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
     ],
 )
 def update_related_datatable(annotation, submit):
-    data = df_loinc_new[0:100].to_dict('records')
-
+    if not annotation:
+        return True, None, False, False
+    query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
+    choices = list(df_loinc_new['LONG_COMMON_NAME'])
+    related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100, score_cutoff=85)
+    data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
+    # NLP
     triggered_ids = dash.callback_context.triggered
-    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or annotation is None:
-        return True, None
-    return False, data
+    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
+        return True, None, False, False
+    return False, data, True, True
 
 
 # @app.callback(

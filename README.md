@@ -35,10 +35,10 @@ Files required:
 * A .csv file containing all patient observations
 * A .csv file containing all lab measurements to-be annotated in id-label pairs {id: label}
 * config.yaml:
-    * Results directory
-    * Data directory
-    * Ontology directory (LOINC.csv etc.)
-    * Define up to 3 pairs of lab measurements to plot annotations against
+    * Define results directory
+    * Define data directory
+    * Define ontology directory (location of LOINC.csv etc.)
+    * Define up to 3 pairs of lab measurements to plot annotations against (defaults are indicated)
 
 | ![Home](assets/home.png)          | ![Tabs](assets/tabs.png)          |
 |-----------------------------------|-----------------------------------|
