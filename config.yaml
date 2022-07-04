@@ -1,9 +1,9 @@
 # This YAML exposes the fields defined in the dashboard. Please edit directly.
-directories:
-  results: C:\Users\Justin\PycharmProjects\mimic-iv-dash\results-json
-  data: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data # observations will be split into a file per measurement
+directories: # default relative, can set to absolute path
+  results: results-json
+  data: demo-data # observations will be split into a file per measurement
 loinc:
-  directory: C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data
+  directory: demo-data
   version: 2.72
   type: Core
   loinc-class-type-value: 1

@@ -169,8 +169,9 @@ def generate_control_card():
                 id="upload-outer",
                 children=dcc.Upload(
                     id='upload-data',
+                    disabled=True,  # disabled for now, will have to implement method to replace config with uploaded
                     children=html.Div([
-                        html.P('Drag and Drop or Select Files'),
+                        html.P('Drag and Drop or Select Configuration File'),
                     ]),
                     style={
                         'width': '100%',
