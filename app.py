@@ -175,9 +175,9 @@ def generate_control_card():
         children=[
             html.Div(
                 id="upload-outer",
+                hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
                 children=dcc.Upload(
                     id='upload-data',
-                    hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
                     children=html.Div([
                         html.P('Drag and Drop or Select Configuration File'),
                     ]),
