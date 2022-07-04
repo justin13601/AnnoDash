@@ -9,7 +9,7 @@ Table of Contents
 
 * [Requirements](#requirements)
 * [Usage](#usage)
-* [Demo Data](#demo data)
+* [Demo Data](#demo-data)
 * [License](#license)
 
 Requirements
