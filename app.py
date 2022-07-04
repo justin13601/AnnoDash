@@ -177,7 +177,7 @@ def generate_control_card():
                 id="upload-outer",
                 children=dcc.Upload(
                     id='upload-data',
-                    disabled=True,  # disabled for now, will have to implement method to replace config with uploaded
+                    hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
                     children=html.Div([
                         html.P('Drag and Drop or Select Configuration File'),
                     ]),
@@ -479,6 +479,12 @@ def initialize_download_button(annotated):
     return True
 
 
+def initialize_upload_field(config_exists):
+    if config_exists:
+        return True
+    return False
+
+
 def initialize_all_patients_graph():
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     fig = generate_all_patients_graph(labitems[0]["value"], config=config['graphs']['kwargs'])
@@ -597,6 +603,7 @@ def download_annotations(n_clicks):
                 for filename in filenames:
                     # Add file to zip
                     zipObj.writestr(filename, os.path.basename(filename))
+
     return dcc.send_bytes(write_archive, "annotations.zip")
 
 
