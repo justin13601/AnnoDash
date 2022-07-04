@@ -1,18 +1,18 @@
 atomicwrites==1.4.0
-attrs @ file:///opt/conda/conda-bld/attrs_1642510447205/work
-Bottleneck @ file:///C:/ci/bottleneck_1648029530934/work
-Brotli @ file:///D:/bld/brotli-split_1648883782420/work
+attrs==21.4.0
+Bottleneck==1.3.4
+Brotli==1.0.9
 cachetools==5.2.0
-certifi @ file:///C:/Windows/TEMP/abs_e9b7158a-aa56-4a5b-87b6-c00d295b01fanefpc8_o/croots/recipe/certifi_1655968940823/work/certifi
+certifi==2022.6.15
 charset-normalizer==2.0.12
-click @ file:///D:/bld/click_1651215332191/work
-colorama @ file:///tmp/build/80754af9/colorama_1607707115595/work
-dash @ file:///home/conda/feedstock_root/build_artifacts/dash_1652328999420/work
+click==8.1.3
+colorama==0.4.4
+dash==2.4.1
 dash-renderer==1.9.0
 dash-table==5.0.0
-Flask @ file:///home/conda/feedstock_root/build_artifacts/flask_1651670959703/work
-Flask-Compress @ file:///home/conda/feedstock_root/build_artifacts/flask-compress_1651163502372/work
-fuzzywuzzy @ file:///C:/ci/fuzzywuzzy_1650537313768/work
+Flask==2.1.2
+Flask-Compress==0.0.0
+fuzzywuzzy==0.18.0
 google-api-core==2.8.1
 google-auth==2.6.6
 google-cloud-bigquery==3.1.0
@@ -25,39 +25,42 @@ grpcio==1.46.3
 grpcio-status==1.46.3
 gunicorn==20.1.0
 idna==3.3
-importlib-metadata @ file:///D:/bld/importlib-metadata_1653252994979/work
-iniconfig @ file:///home/linux1/recipes/ci/iniconfig_1610983019677/work
-itsdangerous @ file:///home/conda/feedstock_root/build_artifacts/itsdangerous_1648147185463/work
-Jinja2 @ file:///home/conda/feedstock_root/build_artifacts/jinja2_1651774399431/work
-MarkupSafe @ file:///D:/bld/markupsafe_1648737731599/work
+importlib-metadata==4.11.4
+iniconfig==1.1.1
+itsdangerous==2.1.2
+Jinja2==3.1.2
+MarkupSafe==2.1.1
 mkl-fft==1.3.1
-mkl-random @ file:///C:/ci_310/mkl_random_1643050563308/work
+mkl-random==1.2.2
 mkl-service==2.4.0
-numexpr @ file:///C:/ci_310/numexpr_1642084889105/work
-numpy @ file:///C:/ci/numpy_and_numpy_base_1652784037925/work
-packaging @ file:///tmp/build/80754af9/packaging_1637314298585/work
-pandas @ file:///C:/ci/pandas_1650373461903/work
-plotly @ file:///home/conda/feedstock_root/build_artifacts/plotly_1653649755816/work
-pluggy @ file:///C:/ci/pluggy_1648042746254/work
+numexpr==2.8.1
+numpy==1.22.3
+packaging==21.3
+pandas==1.4.2
+pip==21.2.4
+plotly==5.8.0
+pluggy==1.0.0
 proto-plus==1.20.5
 protobuf==3.20.1
-py @ file:///opt/conda/conda-bld/py_1644396412707/work
+py==1.11.0
 pyarrow==8.0.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
-pyparsing @ file:///tmp/build/80754af9/pyparsing_1635766073266/work
+pyparsing==3.0.4
 pytest==7.1.1
-python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
-python-Levenshtein @ file:///C:/ci_310/python-levenshtein_1642089624127/work
+python-dateutil==2.8.2
+python-Levenshtein==0.12.2
 pytz==2021.3
 PyYAML==6.0
 requests==2.27.1
 rsa==4.8
-scipy @ file:///C:/ci_310/scipy_1642247684282/work
-six @ file:///tmp/build/80754af9/six_1644875935023/work
-tenacity @ file:///home/conda/feedstock_root/build_artifacts/tenacity_1626090218611/work
-tomli @ file:///tmp/build/80754af9/tomli_1637314251069/work
+scipy==1.7.3
+setuptools==61.2.0
+six==1.16.0
+tenacity==8.0.1
+tomli==1.2.2
 urllib3==1.26.9
-Werkzeug @ file:///home/conda/feedstock_root/build_artifacts/werkzeug_1651670883478/work
+Werkzeug==2.1.2
+wheel==0.37.1
 wincertstore==0.2
-zipp @ file:///home/conda/feedstock_root/build_artifacts/zipp_1649012893348/work
+zipp==3.8.0
