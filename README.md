@@ -9,6 +9,7 @@ Table of Contents
 
 * [Requirements](#requirements)
 * [Usage](#usage)
+* [Demo Data](#demo data)
 * [License](#license)
 
 Requirements
@@ -44,9 +45,19 @@ Files required:
 |-----------------------------------|-----------------------------------|
 | ![Annotate](assets/annotate1.png) | ![Annotate](assets/annotate2.png) |
 
-License
+Demo Data
+------------
+Demo data and respective licenses are included in the [demo-data folder](/demo-data).
+
+- MIMIC-IV Clinical Database demo is available on Physionet (Johnson, A., Bulgarelli, L., Pollard, T., Horng, S., Celi, L. A., & Mark, R. (2022). MIMIC-IV Clinical Database Demo (version 1.0). PhysioNet. https://doi.org/10.13026/jwtp-v091).
+
+- LOINC Ontology Codes are available at https://loinc.org.
+
+
+Licenses
 ------------
 Licensed under the [MIT][mit] license.
+
 
 
 [dash]: https://dash.plotly.com/installation
