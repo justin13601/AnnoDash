@@ -25,6 +25,8 @@ from plotly.subplots import make_subplots
 from dash import Dash, html, dcc, dash_table
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
+from flask import Flask, send_file
+from zipfile import ZipFile
 
 import scipy
 import numpy as np
@@ -89,6 +91,12 @@ def load_annotations(path):
     annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
     annotated = [int(each_labitem.strip('.json')) for each_labitem in annotation_files]
     return annotated
+
+
+def download_annotation(annotation):
+    results_folder = 'results-json'
+    path = os.path.join(results_folder, f"{annotation}.json")
+    return send_file(path, as_attachment=True)
 
 
 config_file = 'config.yaml'
@@ -293,8 +301,19 @@ def generate_control_card():
                                      style={'width': '100%', 'color': 'white'},
                                      disabled=False),
             ),
+            html.Br(),
+            html.Div(
+                id="download-annotations-outer",
+                hidden=initialize_download_button(annotated_list),
+                children=[
+                    html.Button(id="download-btn", children="Download annotations.zip", n_clicks=0,
+                                style={'width': '100%', 'color': 'white'},
+                                disabled=False),
+                    dcc.Download(id="download-annotations")
+                ]
+            ),
         ],
-        style={'width': '100%', 'color': 'black'},
+        style={'width': '100%', 'color': 'black'}
     )
 
 
@@ -454,6 +473,12 @@ def query_patients(labitem):
     return patients
 
 
+def initialize_download_button(annotated):
+    if annotated:
+        return False
+    return True
+
+
 def initialize_all_patients_graph():
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     fig = generate_all_patients_graph(labitems[0]["value"], config=config['graphs']['kwargs'])
@@ -555,6 +580,24 @@ def enable_submit_button(annotation):
     if annotation:
         return False
     return True
+
+
+@app.callback(
+    Output('download-annotations', 'data'),
+    [
+        Input('download-btn', 'n_clicks'),
+    ],
+    prevent_initial_call=True,
+)
+def download_annotations(n_clicks):
+    def write_archive(bytes_io):
+        with ZipFile(bytes_io, mode="w") as zipObj:
+            # Iterate over all the files in directory
+            for folderName, subfolders, filenames in os.walk(config['directories']['results']):
+                for filename in filenames:
+                    # Add file to zip
+                    zipObj.writestr(filename, os.path.basename(filename))
+    return dcc.send_bytes(write_archive, "annotations.zip")
 
 
 @app.callback(
