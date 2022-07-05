@@ -176,24 +176,26 @@ def generate_control_card():
             html.Div(
                 id="upload-outer",
                 hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
-                children=dcc.Upload(
-                    id='upload-data',
-                    children=html.Div([
-                        html.P('Drag and Drop or Select Configuration File'),
-                    ]),
-                    style={
-                        'width': '100%',
-                        'height': '60px',
-                        'lineHeight': '60px',
-                        'borderWidth': '1px',
-                        'borderStyle': 'dashed',
-                        'borderRadius': '5px',
-                        'textAlign': 'center',
-                        'borderColor': 'gray'
-                    },
-                ),
+                children=[
+                    dcc.Upload(
+                        id='upload-data',
+                        children=html.Div([
+                            html.P('Drag and Drop or Select Configuration File'),
+                        ]),
+                        style={
+                            'width': '100%',
+                            'height': '60px',
+                            'lineHeight': '60px',
+                            'borderWidth': '1px',
+                            'borderStyle': 'dashed',
+                            'borderRadius': '5px',
+                            'textAlign': 'center',
+                            'borderColor': 'gray'
+                        },
+                    ),
+                    html.Br(),
+                ]
             ),
-            html.Br(),
             html.P("Select Lab Measurement"),
             dcc.Dropdown(
                 id="labitem-select",
@@ -212,7 +214,6 @@ def generate_control_card():
             ),
             html.Br(),
             html.Hr(),
-            html.Br(),
             html.P("Annotate"),
             dcc.Dropdown(
                 id="annotate-select",
@@ -237,76 +238,89 @@ def generate_control_card():
             #     children=html.Button(id="search-btn", children="Search", n_clicks=0,
             #                          style={'width': '100%', 'color': 'white'}),
             # ),
-            html.Br(),
-            html.Br(id='before_loading', hidden=False),
-            dcc.Loading(
-                id="related-loading",
-                type="dot",
-                color='#2c89f2',
-                children=html.Div(
-                    id="related-datatable-outer",
-                    className='related-datable',
-                    hidden=True,
-                    children=dash_table.DataTable(id='related-datatable',
-                                                  data=None,
-                                                  columns=[
-                                                      {'name': ["Related Results", "LOINC_NUM"], 'id': 'LOINC_NUM'},
-                                                      {'name': ["Related Results", "LONG_COMMON_NAME"],
-                                                       'id': 'LONG_COMMON_NAME'}],
-                                                  style_data={
-                                                      'whiteSpace': 'normal',
-                                                      'height': 'auto',
-                                                      'lineHeight': '15px',
-                                                  },
-                                                  style_table={
-                                                      'height': '150px',
-                                                      'overflowY': 'auto'
-                                                  },
-                                                  style_cell={
-                                                      'textAlign': 'left',
-                                                      'backgroundColor': 'transparent'
-                                                  },
-                                                  style_header={
-                                                      'fontWeight': 'bold',
-                                                      'color': '#2c8cff'
-                                                  },
-                                                  style_data_conditional=[
-                                                      {  # 'active' | 'selected'
-                                                          'if': {'state': 'active'},
-                                                          'backgroundColor': 'transparent',
-                                                          'border': '1px solid lightgray'
-                                                      },
-                                                      {
-                                                          'if': {'column_id': 'LOINC_NUM'},
-                                                          'width': '30%'
-                                                      },
-                                                  ],
-                                                  page_size=10,
-                                                  merge_duplicate_headers=True,
-                                                  style_as_list_view=True,
-                                                  css=[
-                                                      {
-                                                          'selector': '.previous-page, .next-page, '
-                                                                      '.first-page, .last-page',
-                                                          'rule': 'color: #2c8cff'}
-                                                  ])
-                ),
+            html.Div(
+                id="annotation-outer",
+                hidden=True,
+                children=[
+                    html.Br(),
+                    html.Br(id='before_loading', hidden=False),
+                    dcc.Loading(
+                        id="related-loading",
+                        type="dot",
+                        color='#2c89f2',
+                        children=[
+                            html.P(html.B(f"Related Results. {html.I('Click on rows for more info.')}")),
+                            html.Div(
+                                id="related-datatable-outer",
+                                className='related-datable',
+                                hidden=False,
+                                children=dash_table.DataTable(id='related-datatable',
+                                                              data=None,
+                                                              columns=[
+                                                                  {'name': "LOINC_NUM",
+                                                                   'id': 'LOINC_NUM'},
+                                                                  {'name': "LONG_COMMON_NAME",
+                                                                   'id': 'LONG_COMMON_NAME'}
+                                                              ],
+                                                              style_data={
+                                                                  'whiteSpace': 'normal',
+                                                                  'height': 'auto',
+                                                                  'lineHeight': '15px',
+                                                              },
+                                                              style_table={
+                                                                  'height': '150px',
+                                                                  'overflowY': 'auto'
+                                                              },
+                                                              style_cell={
+                                                                  'textAlign': 'left',
+                                                                  'backgroundColor': 'transparent'
+                                                              },
+                                                              style_header={
+                                                                  'fontWeight': 'bold',
+                                                                  'color': '#2c8cff'
+                                                              },
+                                                              style_data_conditional=[
+                                                                  {  # 'active' | 'selected'
+                                                                      'if': {'state': 'active'},
+                                                                      'backgroundColor': 'transparent',
+                                                                      'border': '1px solid lightgray'
+                                                                  },
+                                                                  {
+                                                                      'if': {'column_id': 'LOINC_NUM'},
+                                                                      'width': '30%'
+                                                                  },
+                                                              ],
+                                                              page_size=10,
+                                                              merge_duplicate_headers=True,
+                                                              style_as_list_view=True,
+                                                              css=[
+                                                                  {
+                                                                      'selector': '.previous-page, .next-page, '
+                                                                                  '.first-page, .last-page',
+                                                                      'rule': 'color: #2c8cff'}
+                                                              ])
+                            ),
+                        ]
+                    ),
+                    html.Br(id='after_loading', hidden=False),
+                ],
             ),
-            html.Br(id='after_loading', hidden=False),
-            html.Br(),
             html.Div(
                 id="submit-btn-outer",
                 hidden=True,
-                children=html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
-                                     style={'width': '100%', 'color': 'white'},
-                                     disabled=False),
+                children=[
+                    html.Br(),
+                    html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
+                                style={'width': '100%', 'color': 'white'},
+                                disabled=False),
+                ],
             ),
             html.Br(),
             html.Div(
-                id="download-annotations-outer",
+                id="download-outer",
                 hidden=initialize_download_button(annotated_list),
                 children=[
-                    html.Button(id="download-btn", children="Download annotations.zip", n_clicks=0,
+                    html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
                                 style={'width': '100%', 'color': 'white'},
                                 disabled=False),
                     dcc.Download(id="download-annotations")
@@ -589,6 +603,17 @@ def enable_submit_button(annotation):
 
 
 @app.callback(
+    Output('download-outer', 'hidden'),
+    [
+        Input('submit-btn', 'n_clicks'),
+    ],
+    prevent_initial_call=True,
+)
+def enable_download_button(n_clicks):
+    return False
+
+
+@app.callback(
     Output('download-annotations', 'data'),
     [
         Input('download-btn', 'n_clicks'),
@@ -764,6 +789,19 @@ def update_graph(labitem, patient, submit):
 
 
 @app.callback(
+    Output("annotation-outer", "hidden"),
+    [
+        Input("annotate-select", "value"),
+    ],
+)
+def show_related_outer(annotation):
+    if annotation:
+        return False
+    else:
+        return True
+
+
+@app.callback(
     Output("loinc-datatable-outer", "hidden"),
     Output("loinc-datatable", "data"),
     Output("loinc-datatable", "columns"),
@@ -804,14 +842,15 @@ def update_loinc_datatable(annotation, submit, related, curr_data):
 def update_related_datatable(annotation, submit):
     if not annotation:
         return True, None, False, False
+    triggered_ids = dash.callback_context.triggered
+    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
+        return True, None, False, False
+
     query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
     choices = list(df_loinc_new['LONG_COMMON_NAME'])
     related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100, score_cutoff=85)
     data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
-    # NLP
-    triggered_ids = dash.callback_context.triggered
-    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
-        return True, None, False, False
+    # NLP?
     return False, data, True, True
 
 
