@@ -78,8 +78,8 @@ if __name__ == "__main__":
     # save matrix
     pickle.dump(tf_idf_matrix, open("LOINC_tf_idf_matrix_n=10.pkl", "wb"))
 
-    # save vectorizer
-    pickle.dump(vectorizer, open("LOINC_vectorizer_n=10.pkl", "wb"))
+    # save vectorizer vocabulary
+    pickle.dump(vectorizer.vocabulary_, open("LOINC_vectorizer_vocabulary_n=10.pkl", "wb"))
 
     # upload matrix
     # tf_idf_matrix = pickle.load(open("LOINC_tf_idf_matrix_n=10.pkl","rb"))

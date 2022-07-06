@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 from google.cloud import bigquery
 
-from tf_idf_matrix import cosine_similarity, ngrams
+from tf_idf_matrix import cosine_similarity, TfidfVectorizer, ngrams
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -139,7 +139,8 @@ df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 
 # load tf-idf matrix if chosen as scorer:
 if config['loinc']['related']['scorer'] == 'tf-idf':
-    vectorizer = pickle.load(open(os.path.join(PATH_data, 'LOINC_vectorizer_n=10.pkl'), "rb"))
+    vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams, vocabulary=pickle.load(open(os.path.join(PATH_data, 'LOINC_vectorizer_vocabulary_n=10.pkl'), "rb")))
+    vectorizer.fit_transform(list(df_loinc_new['LONG_COMMON_NAME'].unique()))
     tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
 
 annotated_list = load_annotations(PATH_results)
