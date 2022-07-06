@@ -52,6 +52,7 @@ if __name__ == "__main__":
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
     PATH_loinc = config['loinc']['location']
+    PATH_data = config['directories']['data']
     df_loinc = pd.read_csv(os.path.join(PATH_loinc, 'LoincTableCore.csv'), dtype=object)
     df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(1)]
     df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
@@ -76,13 +77,22 @@ if __name__ == "__main__":
     print(tf_idf_matrix.shape)
 
     # save matrix
-    pickle.dump(tf_idf_matrix, open("LOINC_tf_idf_matrix_n=10.pkl", "wb"))
+    # pickle.dump(tf_idf_matrix, open("LOINC_tf_idf_matrix_n=10.pkl", "wb"))
+
+    # save vectorizer
+    # pickle.dump(vectorizer, open("LOINC_vectorizer_n=10.pkl", "wb"))
 
     # save vectorizer vocabulary
-    pickle.dump(vectorizer.vocabulary_, open("LOINC_vectorizer_vocabulary_n=10.pkl", "wb"))
+    # pickle.dump(vectorizer.vocabulary_, open("LOINC_vectorizer_vocabulary_n=10.pkl", "wb"))
 
     # upload matrix
     # tf_idf_matrix = pickle.load(open("LOINC_tf_idf_matrix_n=10.pkl","rb"))
 
     # upload vectorizer
     # vectorizer = pickle.load(open("LOINC_vectorizer_n=10.pkl", "rb"))
+
+    # upload vectorizer
+    # vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams, vocabulary=pickle.load(
+    #     open(os.path.join(PATH_data, 'LOINC_vectorizer_vocabulary_n=10.pkl'), "rb")))
+    # vectorizer.fit_transform(list(df_loinc_new['LONG_COMMON_NAME'].unique()))
+    # tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
