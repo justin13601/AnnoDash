@@ -35,7 +35,7 @@ import numpy as np
 import pandas as pd
 from google.cloud import bigquery
 
-from tf_idf_matrix import ngrams, cosine_similarity
+from tf_idf_matrix import cosine_similarity
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -49,6 +49,25 @@ def big_query(query):
         # row values can be accessed by field name or index
         print("name={}, count={}".format(row[0], row["total_people"]))
     return
+
+
+def ngrams(string, n=10):
+    """
+    Takes an input string, cleans it and converts to ngrams.
+    """
+    string = str(string)
+    string = string.lower()  # lower case
+    string = fix_text(string)  # fix text
+    string = string.encode("ascii", errors="ignore").decode()  # remove non ascii chars
+    chars_to_remove = [")", "(", ".", "|", "[", "]", "{", "}", "'", "-"]
+    rx = '[' + re.escape(''.join(chars_to_remove)) + ']'  # remove punc, brackets etc...
+    string = re.sub(rx, '', string)
+    string = string.replace('&', 'and')
+    string = string.title()  # normalise case - capital at start of each word
+    string = re.sub(' +', ' ', string).strip()  # get rid of multiple spaces and replace with a single
+    string = ' ' + string + ' '  # pad names for ngrams...
+    ngrams = zip(*[string[i:] for i in range(n)])
+    return [''.join(ngram) for ngram in ngrams]
 
 
 ######################################################################################################
