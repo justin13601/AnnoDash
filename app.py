@@ -12,6 +12,8 @@ import csv
 import time
 import json
 import yaml
+import jaro
+import pickle
 from datetime import timedelta, datetime as dt
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
@@ -32,6 +34,8 @@ import scipy
 import numpy as np
 import pandas as pd
 from google.cloud import bigquery
+
+from tf_idf_matrix import ngrams, cosine_similarity
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -109,7 +113,7 @@ else:
 # path
 PATH_data = config['directories']['data']
 PATH_results = config['directories']['results']
-PATH_loinc = config['loinc']['directory']
+PATH_loinc = config['loinc']['location']
 
 df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
@@ -130,6 +134,11 @@ loinc_dict = pd.Series(df_loinc.LONG_COMMON_NAME.values, index=df_loinc.LOINC_NU
 df_loinc_new = pd.DataFrame(
     {'LOINC_NUM': list(loinc_dict.keys()), 'LONG_COMMON_NAME': list(loinc_dict.values())})
 df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
+
+# load tf-idf matrix if chosen as scorer:
+if config['loinc']['related']['scorer'] == 'tf-idf':
+    vectorizer = pickle.load(open(os.path.join(PATH_data, 'LOINC_vectorizer_n=10.pkl'), "rb"))
+    tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
 
 annotated_list = load_annotations(PATH_results)
 unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
@@ -591,6 +600,10 @@ def update_labitem_options(options, labitem):
     return options, next_value
 
 
+class ScorerNotAvailble(Exception):
+    pass
+
+
 ######################################################################################################
 @app.callback(
     Output('submit-btn-outer', 'hidden'),
@@ -851,11 +864,26 @@ def update_related_datatable(annotation, submit):
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
         return True, None, False, False
 
-    query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
-    choices = list(df_loinc_new['LONG_COMMON_NAME'])
-    related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100, score_cutoff=85)
-    data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
-    # NLP?
+    if config['loinc']['related']['scorer'] == 'partial_ratio':
+        query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
+        choices = list(df_loinc_new['LONG_COMMON_NAME'])
+        related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100, score_cutoff=85)
+        data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
+    elif config['loinc']['related']['scorer'] == 'jaro_winkler':
+        query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
+        choices = list(df_loinc_new['LONG_COMMON_NAME'])
+        related = process.extractBests(query, choices, scorer=jaro.jaro_winkler_metric, limit=100, score_cutoff=85)
+        data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
+    elif config['loinc']['related']['scorer'] == 'tf-idf':
+        # NLP: tf-idf
+        query = vectorizer.transform([df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME']])
+        scores = cosine_similarity(tf_idf_matrix, query)
+        df_loinc_new_temp = df_loinc_new
+        df_loinc_new_temp['cosine_score'] = scores
+        df_loinc_new_temp = df_loinc_new_temp.sort_values(by=['cosine_score'], ascending=False)
+        data = df_loinc_new_temp[1:101].to_dict('records')
+    else:
+        raise ScorerNotAvailble("Please define scorer from available options in the configuration file.")
     return False, data, True, True
 
 
