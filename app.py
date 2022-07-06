@@ -7,6 +7,7 @@ Created on May 10, 2022
 """
 
 import os
+import re
 import errno
 import csv
 import time
@@ -17,6 +18,7 @@ import pickle
 from datetime import timedelta, datetime as dt
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
+from ftfy import fix_text
 from collections import defaultdict
 
 import dash
