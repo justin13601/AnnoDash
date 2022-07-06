@@ -39,7 +39,7 @@ metadata:
   name: mimic-iv-dash-development
   labels:
     app: dash-web
-temp:
+temp:   # REMOVE
   test: False
   mimic-iv-version: 2.0
 
