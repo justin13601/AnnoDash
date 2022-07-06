@@ -117,6 +117,9 @@ PATH_data = config['directories']['data']
 PATH_results = config['directories']['results']
 PATH_loinc = config['loinc']['location']
 
+if PATH_data == 'demo-data':
+    print("Demo data selected.")
+
 df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
@@ -137,9 +140,9 @@ df_loinc_new = pd.DataFrame(
     {'LOINC_NUM': list(loinc_dict.keys()), 'LONG_COMMON_NAME': list(loinc_dict.values())})
 df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 
-# load tf-idf matrix if chosen as scorer:
-if config['loinc']['related']['scorer'] == 'tf-idf':
-    vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams, vocabulary=pickle.load(
+# load tf_idf matrix if chosen as scorer:
+if config['loinc']['related']['scorer'] == 'tf_idf':
+    vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams, lowercase=False, vocabulary=pickle.load(
         open(os.path.join(PATH_data, 'LOINC_vectorizer_vocabulary_n=10.pkl'), "rb")))
     vectorizer.fit_transform(list(df_loinc_new['LONG_COMMON_NAME'].unique()))
     tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
@@ -272,11 +275,14 @@ def generate_control_card():
                                 children=dash_table.DataTable(id='related-datatable',
                                                               data=None,
                                                               columns=[
+                                                                  {'name': "",
+                                                                   'id': 'RELEVANCE'},
                                                                   {'name': "LOINC_NUM",
                                                                    'id': 'LOINC_NUM'},
                                                                   {'name': "LONG_COMMON_NAME",
                                                                    'id': 'LONG_COMMON_NAME'}
                                                               ],
+                                                              sort_action='native',
                                                               style_data={
                                                                   'whiteSpace': 'normal',
                                                                   'height': 'auto',
@@ -871,23 +877,38 @@ def update_related_datatable(annotation, submit):
     if config['loinc']['related']['scorer'] == 'partial_ratio':
         query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
         choices = list(df_loinc_new['LONG_COMMON_NAME'])
-        related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100, score_cutoff=85)
-        data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
+        related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100)
+        df_related_score = pd.DataFrame(related[1:], columns=['LONG_COMMON_NAME', 'partial_ratio'])
+        df_related = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])]
+        df_data = df_related.merge(df_related_score, on='LONG_COMMON_NAME')
+        df_data = df_data.sort_values(by=['partial_ratio'], ascending=False)
     elif config['loinc']['related']['scorer'] == 'jaro_winkler':
         query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
         choices = list(df_loinc_new['LONG_COMMON_NAME'])
-        related = process.extractBests(query, choices, scorer=jaro.jaro_winkler_metric, limit=100, score_cutoff=85)
-        data = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])].to_dict('records')
-    elif config['loinc']['related']['scorer'] == 'tf-idf':
-        # NLP: tf-idf
+        related = process.extractBests(query, choices, scorer=jaro.jaro_winkler_metric, limit=100)
+        df_related_score = pd.DataFrame(related[1:], columns=['LONG_COMMON_NAME', 'jaro_winkler_dist'])
+        df_related = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])]
+        df_data = df_related.merge(df_related_score, on='LONG_COMMON_NAME')
+        df_data = df_data.sort_values(by=['jaro_winkler_dist'], ascending=False)
+    elif config['loinc']['related']['scorer'] == 'tf_idf':
+        # NLP: tf_idf
         query = vectorizer.transform([df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME']])
         scores = cosine_similarity(tf_idf_matrix, query)
         df_loinc_new_temp = df_loinc_new
         df_loinc_new_temp['cosine_score'] = scores
         df_loinc_new_temp = df_loinc_new_temp.sort_values(by=['cosine_score'], ascending=False)
-        data = df_loinc_new_temp[1:101].to_dict('records')
+        df_data = df_loinc_new_temp[1:101]
     else:
         raise ScorerNotAvailble("Please define scorer from available options in the configuration file.")
+
+    scores = df_data.iloc[:, 3]
+
+    df_data.loc[(df_data.iloc[:, 3] >= np.percentile(scores, 66)), 'RELEVANCE'] = '🟢'
+    df_data.loc[(df_data.iloc[:, 3] >= np.percentile(scores, 33)) &
+                (df_data.iloc[:, 3] < np.percentile(scores, 66)), 'RELEVANCE'] = '🟡'
+    df_data.loc[(df_data.iloc[:, 3] < np.percentile(scores, 33)), 'RELEVANCE'] = '🟠'
+
+    data = df_data.to_dict('records')
     return False, data, True, True
 
 

@@ -9,7 +9,7 @@ loinc:
   loinc-class-type-value: 1
   loinc-class-type-label: Laboratory Terms
   related:
-    scorer: tf-idf # (partial_ratio, jaro-winkler, tf-idf)
+    scorer: tf_idf # (partial_ratio, jaro_winkler, tf_idf)
 graphs: # options for graphs
   pairs: # standard measurements for tab graph overlays       // allow user to choose num of tabs in future
     pair_one:
