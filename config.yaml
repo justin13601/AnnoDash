@@ -3,11 +3,13 @@ directories: # default relative, can set to absolute path
   results: results-json
   data: demo-data # observations will be split into a file per measurement
 loinc:
-  directory: demo-data
+  location: demo-data
   version: 2.72
   type: Core
   loinc-class-type-value: 1
   loinc-class-type-label: Laboratory Terms
+  related:
+    scorer: jaro-winkler # (partial_ratio, jaro-winkler, tf-idf)
 graphs: # options for graphs
   pairs: # standard measurements for tab graph overlays       // allow user to choose num of tabs in future
     pair_one:
