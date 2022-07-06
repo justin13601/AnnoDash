@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 from google.cloud import bigquery
 
-from tf_idf_matrix import cosine_similarity
+from tf_idf_matrix import cosine_similarity, ngrams
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -1060,5 +1060,4 @@ app.layout = html.Div(
 
 # run
 if __name__ == "__main__":
-    from tf_idf_matrix import ngrams
     app.run_server(port=8888, debug=True)
