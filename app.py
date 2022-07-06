@@ -157,7 +157,7 @@ def description_card():
     return html.Div(
         id="description-card",
         children=[
-            html.H5("Welcome to MIMIC-IV Clinical Dashboard!"),
+            html.H5("Welcome to MIMIC Clinical Dashboard!"),
             html.P(
                 id="intro",
                 children=""
@@ -196,7 +196,7 @@ def generate_control_card():
                     html.Br(),
                 ]
             ),
-            html.P("Select Lab Measurement"),
+            html.P("Select Lab Measurement:"),
             dcc.Dropdown(
                 id="labitem-select",
                 value=initialize_labitem_select()[1],
@@ -204,7 +204,7 @@ def generate_control_card():
                 options=initialize_labitem_select()[0],
             ),
             html.Br(),
-            html.P("Specify Patient (Enables Patient Specific Tabs)"),
+            html.P("Specify Patient (enables patient specific tabs):"),
             dcc.Dropdown(
                 id="patient-select",
                 value=initialize_patient_select()[1],
@@ -214,7 +214,7 @@ def generate_control_card():
             ),
             html.Br(),
             html.Hr(),
-            html.P("Annotate"),
+            html.P("Annotate:"),
             dcc.Dropdown(
                 id="annotate-select",
                 value=None,
@@ -249,7 +249,9 @@ def generate_control_card():
                         type="dot",
                         color='#2c89f2',
                         children=[
-                            html.P(html.B(f"Related Results. {html.I('Click on rows for more info.')}")),
+                            html.P(children=[
+                                html.B('Related Results (click on rows for more info):'),
+                            ]),
                             html.Div(
                                 id="related-datatable-outer",
                                 className='related-datable',
@@ -660,6 +662,8 @@ def reset_annotation(n_clicks, replace_annotation, annotation, labitem, curr_dat
         if replace_annotation['row'] == 1:
             new_annotation = curr_data[replace_annotation['row']]['LOINC_NUM']
             return new_annotation, False, None, [], None, []
+        else:
+            raise PreventUpdate
     elif triggered_id == 'annotate-select.value':
         if not annotation:
             return '', False, None, [], None, []
@@ -802,7 +806,7 @@ def show_related_outer(annotation):
 
 
 @app.callback(
-    Output("loinc-datatable-outer", "hidden"),
+    Output("loinc-results-outer", "hidden"),
     Output("loinc-datatable", "data"),
     Output("loinc-datatable", "columns"),
     [
@@ -842,6 +846,7 @@ def update_loinc_datatable(annotation, submit, related, curr_data):
 def update_related_datatable(annotation, submit):
     if not annotation:
         return True, None, False, False
+
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
         return True, None, False, False
@@ -910,7 +915,6 @@ app.layout = html.Div(
                     id="patient_card",
                     style={'height': '500%'},
                     children=[
-                        html.H4("Patient Records"),
                         dcc.Tabs([
                             dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
                                     value='home-tab',
@@ -970,42 +974,51 @@ app.layout = html.Div(
                                     ]),
                         ], id='tabs', value='home-tab'),
                         html.Br(),
-                        html.Div(
-                            id="loinc-datatable-outer",
-                            className='loinc-datatable',
-                            hidden=True,
-                            children=dash_table.DataTable(id='loinc-datatable',
-                                                          data=None,
-                                                          columns=[],
-                                                          style_data={
-                                                              'whiteSpace': 'normal',
-                                                              'height': 'auto',
-                                                              'lineHeight': '15px',
-                                                          },
-                                                          style_table={
-                                                              'height': 'auto',
-                                                              'overflowY': 'auto'
-                                                          },
-                                                          style_cell={
-                                                              'textAlign': 'left',
-                                                              'backgroundColor': 'transparent',
-                                                              'color': 'black'
-                                                          },
-                                                          style_header={
-                                                              'fontWeight': 'bold',
-                                                              'color': '#2c8cff'
-                                                          },
-                                                          style_data_conditional=[
-                                                              {
-                                                                  'if': {
-                                                                      'state': 'active'  # 'active' | 'selected'
+                        html.Div(id='loinc-results-outer',
+                                 hidden=True,
+                                 children=[
+                                     html.P(children=[
+                                         html.B('Compare Results (click to swap search terms):'),
+                                     ]),
+                                     html.Div(
+                                         id="loinc-datatable-outer",
+                                         className='loinc-datatable',
+                                         hidden=False,
+                                         children=[
+                                             dash_table.DataTable(id='loinc-datatable',
+                                                                  data=None,
+                                                                  columns=[],
+                                                                  style_data={
+                                                                      'whiteSpace': 'normal',
+                                                                      'height': 'auto',
+                                                                      'lineHeight': '15px',
                                                                   },
-                                                                  'backgroundColor': 'transparent',
-                                                                  'border': '1px solid lightgray'
-                                                              }],
-                                                          page_size=10,
-                                                          )
-                        ),
+                                                                  style_table={
+                                                                      'height': 'auto',
+                                                                      'overflowY': 'auto'
+                                                                  },
+                                                                  style_cell={
+                                                                      'textAlign': 'left',
+                                                                      'backgroundColor': 'transparent',
+                                                                      'color': 'black'
+                                                                  },
+                                                                  style_header={
+                                                                      'fontWeight': 'bold',
+                                                                      'color': '#2c8cff'
+                                                                  },
+                                                                  style_data_conditional=[
+                                                                      {
+                                                                          'if': {
+                                                                              'state': 'active'  # 'active' | 'selected'
+                                                                          },
+                                                                          'backgroundColor': 'transparent',
+                                                                          'border': '1px solid lightgray'
+                                                                      }],
+                                                                  page_size=10,
+                                                                  )
+                                         ]
+                                     )]
+                                 ),
                     ],
                 ),
             ],
