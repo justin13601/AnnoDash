@@ -173,11 +173,7 @@ def description_card():
     return html.Div(
         id="description-card",
         children=[
-            html.H5("Welcome to MIMIC Clinical Dashboard!"),
-            html.P(
-                id="intro",
-                children=""
-            ),
+            html.H5(""),
         ],
     )
 
@@ -218,7 +214,6 @@ def generate_control_card():
                 children=[
                     dcc.Clipboard(
                         id='labitem-copy',
-                        target_id="labitem-select",
                         title="Copy Lab Measurement",
                         style={
                             "color": "#c9ddee",
@@ -244,7 +239,6 @@ def generate_control_card():
                 children=[
                     dcc.Clipboard(
                         id='patient-copy',
-                        target_id="patient-select",
                         title="Copy Patient ID",
                         style={
                             "color": "#c9ddee",
@@ -272,7 +266,6 @@ def generate_control_card():
                 children=[
                     dcc.Clipboard(
                         id='annotate-copy',
-                        target_id="annotate-select",
                         title="Copy Annotation",
                         style={
                             "color": "#c9ddee",
@@ -321,7 +314,6 @@ def generate_control_card():
                         children=[
                             dcc.Clipboard(
                                 id='related-copy',
-                                target_id="related-datatable",
                                 title="Copy Related Results",
                                 style={
                                     "color": "#c9ddee",
@@ -681,14 +673,16 @@ class ScorerNotAvailble(Exception):
 
 
 ######################################################################################################
+
+
 @app.callback(
-    Output('labitem-copy-outer', 'hidden'),
-    Output('patient-copy-outer', 'hidden'),
-    Output('annotate-copy-outer', 'hidden'),
+    Output("labitem-copy-outer", "hidden"),
+    Output("patient-copy-outer", "hidden"),
+    Output("annotate-copy-outer", "hidden"),
     [
-        Input('labitem-select', 'value'),
-        Input('patient-select', 'value'),
-        Input('annotate-select', 'value'),
+        Input("labitem-select", "value"),
+        Input("patient-select", "value"),
+        Input("annotate-select", "value"),
     ]
 )
 def show_hide_clipboard(labitem, patient, annotation):
@@ -706,9 +700,9 @@ def show_hide_clipboard(labitem, patient, annotation):
 
 
 @app.callback(
-    Output('submit-btn-outer', 'hidden'),
+    Output("submit-btn-outer", "hidden"),
     [
-        Input('annotate-select', 'value'),
+        Input("annotate-select", "value"),
     ]
 )
 def enable_submit_button(annotation):
@@ -718,9 +712,9 @@ def enable_submit_button(annotation):
 
 
 @app.callback(
-    Output('download-outer', 'hidden'),
+    Output("download-outer", "hidden"),
     [
-        Input('submit-btn', 'n_clicks'),
+        Input("submit-btn", "n_clicks"),
     ],
     prevent_initial_call=True,
 )
@@ -729,9 +723,9 @@ def enable_download_button(n_clicks):
 
 
 @app.callback(
-    Output('download-annotations', 'data'),
+    Output("download-annotations", "data"),
     [
-        Input('download-btn', 'n_clicks'),
+        Input("download-btn", "n_clicks"),
     ],
     prevent_initial_call=True,
 )
@@ -748,20 +742,20 @@ def download_annotations(n_clicks):
 
 
 @app.callback(
-    Output('annotate-select', 'value'),
+    Output("annotate-select", "value"),
     # Output('annotate-text', 'value'),
-    Output('confirm-replace', 'displayed'),
+    Output("confirm-replace", "displayed"),
     Output("related-datatable", "active_cell"),
     Output("related-datatable", "selected_cells"),
     Output("loinc-datatable", "active_cell"),
     Output("loinc-datatable", "selected_cells"),
     [
         Input("submit-btn", "n_clicks"),
-        Input('loinc-datatable', 'active_cell'),
-        Input('annotate-select', 'value'),
+        Input("loinc-datatable", "active_cell"),
+        Input("annotate-select", "value"),
     ],
     [
-        State('labitem-select', 'value'),
+        State("labitem-select", "value"),
         # State('annotate-text', 'value')
         State("loinc-datatable", "data"),
     ]
@@ -806,8 +800,8 @@ def update_tabs_view(patient):
         Input("submit-btn", "n_clicks"),
     ],
     [
-        State('labitem-select', 'value'),
-        State('labitem-select', 'options'),
+        State("labitem-select", "value"),
+        State("labitem-select", "options"),
     ]
 )
 def update_lab_measurement_dropdown(submit, value, options):
@@ -925,7 +919,7 @@ def show_related_outer(annotation):
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
-        Input('related-datatable', 'active_cell'),
+        Input("related-datatable", "active_cell"),
     ],
     [
         State("related-datatable", "data"),
@@ -1036,7 +1030,10 @@ app.layout = html.Div(
         html.Div(
             id="banner",
             className="banner",
-            children=[html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'})],
+            children=[
+                html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
+                html.H5("Welcome to the MIMIC-IV Clinical Dashboard")
+            ],
         ),
         # Left column
         html.Div(
@@ -1121,8 +1118,7 @@ app.layout = html.Div(
                                  hidden=True,
                                  children=[
                                      dcc.Clipboard(
-                                         id='loinc-results-copy',
-                                         target_id="loinc-datatable",
+                                         id='loinc-copy',
                                          title="Copy LOINC Results",
                                          style={
                                              "color": "#c9ddee",

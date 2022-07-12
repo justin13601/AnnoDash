@@ -35,6 +35,9 @@ hr {
 H5 {
     color: #2c8cff;
     font-weight: 300;
+    text-align: center;
+    margin-right: 7%;
+    width: 100%;
 }
 
 H5, H3 {
