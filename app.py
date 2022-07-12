@@ -673,6 +673,79 @@ class ScorerNotAvailble(Exception):
 
 
 ######################################################################################################
+@app.callback(
+    Output("labitem-copy", "content"),
+    [
+        Input("labitem-copy", "n_clicks"),
+    ],
+    [
+        State("labitem-select", "value"),
+    ]
+)
+def copy_labitem(_, labitem):
+    if labitem is None:
+        raise PreventUpdate
+    clipboard = f'{labitem}: {labitemsid_dict[labitem]}'
+    return clipboard
+
+
+@app.callback(
+    Output("patient-copy", "content"),
+    [
+        Input("patient-copy", "n_clicks"),
+    ],
+    [
+        State("patient-select", "value"),
+    ]
+)
+def copy_patient(_, patient):
+    if patient is None:
+        raise PreventUpdate
+    return str(patient)
+
+
+@app.callback(
+    Output("annotate-copy", "content"),
+    [
+        Input("annotate-copy", "n_clicks"),
+    ],
+    [
+        State("annotate-select", "value"),
+    ]
+)
+def copy_annotation(_, annotation):
+    if annotation is None:
+        raise PreventUpdate
+    clipboard = loinc_dict[annotation]
+    return clipboard
+
+
+@app.callback(
+    Output("related-copy", "content"),
+    [
+        Input("related-copy", "n_clicks"),
+    ],
+    [
+        State("related-datatable", "data"),
+    ]
+)
+def copy_related_datatable(_, data):
+    dff = pd.DataFrame(data)
+    return dff.to_csv(index=False)
+
+
+@app.callback(
+    Output("loinc-copy", "content"),
+    [
+        Input("loinc-copy", "n_clicks"),
+    ],
+    [
+        State("loinc-datatable", "data"),
+    ]
+)
+def copy_loinc_datatable(_, data):
+    dff = pd.DataFrame(data)
+    return dff.to_csv(index=False)
 
 
 @app.callback(
