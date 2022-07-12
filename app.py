@@ -212,6 +212,24 @@ def generate_control_card():
                     html.Br(),
                 ]
             ),
+            html.Div(
+                id='labitem-copy-outer',
+                hidden=False,
+                children=[
+                    dcc.Clipboard(
+                        id='labitem-copy',
+                        target_id="labitem-select",
+                        title="Copy Lab Measurement",
+                        style={
+                            "color": "#c9ddee",
+                            "fontSize": 15,
+                            "verticalAlign": "center",
+                            'float': 'right',
+                            'margin': 'auto'
+                        },
+                    )
+                ]
+            ),
             html.P("Select Lab Measurement:"),
             dcc.Dropdown(
                 id="labitem-select",
@@ -220,6 +238,24 @@ def generate_control_card():
                 options=initialize_labitem_select()[0],
             ),
             html.Br(),
+            html.Div(
+                id='patient-copy-outer',
+                hidden=False,
+                children=[
+                    dcc.Clipboard(
+                        id='patient-copy',
+                        target_id="patient-select",
+                        title="Copy Patient ID",
+                        style={
+                            "color": "#c9ddee",
+                            "fontSize": 15,
+                            "verticalAlign": "center",
+                            'float': 'right',
+                            'margin': 'auto'
+                        },
+                    )
+                ]
+            ),
             html.P("Specify Patient (enables patient specific tabs):"),
             dcc.Dropdown(
                 id="patient-select",
@@ -230,6 +266,24 @@ def generate_control_card():
             ),
             html.Br(),
             html.Hr(),
+            html.Div(
+                id='annotate-copy-outer',
+                hidden=True,
+                children=[
+                    dcc.Clipboard(
+                        id='annotate-copy',
+                        target_id="annotate-select",
+                        title="Copy Annotation",
+                        style={
+                            "color": "#c9ddee",
+                            "fontSize": 15,
+                            "verticalAlign": "center",
+                            'float': 'right',
+                            'margin': 'auto'
+                        },
+                    )
+                ]
+            ),
             html.P("Annotate:"),
             dcc.Dropdown(
                 id="annotate-select",
@@ -265,6 +319,18 @@ def generate_control_card():
                         type="dot",
                         color='#2c89f2',
                         children=[
+                            dcc.Clipboard(
+                                id='related-copy',
+                                target_id="related-datatable",
+                                title="Copy Related Results",
+                                style={
+                                    "color": "#c9ddee",
+                                    "fontSize": 15,
+                                    "verticalAlign": "center",
+                                    'float': 'right',
+                                    'margin': 'auto'
+                                },
+                            ),
                             html.P(children=[
                                 html.B('Related Results (click on rows for more info):'),
                             ]),
@@ -615,6 +681,30 @@ class ScorerNotAvailble(Exception):
 
 
 ######################################################################################################
+@app.callback(
+    Output('labitem-copy-outer', 'hidden'),
+    Output('patient-copy-outer', 'hidden'),
+    Output('annotate-copy-outer', 'hidden'),
+    [
+        Input('labitem-select', 'value'),
+        Input('patient-select', 'value'),
+        Input('annotate-select', 'value'),
+    ]
+)
+def show_hide_clipboard(labitem, patient, annotation):
+    show_labitem = True
+    show_patient = True
+    show_annotate = True
+    if labitem:
+        show_labitem = False
+    if patient:
+        show_patient = False
+    if annotation:
+        show_annotate = False
+
+    return show_labitem, show_patient, show_annotate
+
+
 @app.callback(
     Output('submit-btn-outer', 'hidden'),
     [
@@ -1030,6 +1120,18 @@ app.layout = html.Div(
                         html.Div(id='loinc-results-outer',
                                  hidden=True,
                                  children=[
+                                     dcc.Clipboard(
+                                         id='loinc-results-copy',
+                                         target_id="loinc-datatable",
+                                         title="Copy LOINC Results",
+                                         style={
+                                             "color": "#c9ddee",
+                                             "fontSize": 15,
+                                             "verticalAlign": "center",
+                                             'float': 'right',
+                                             'margin': 'auto'
+                                         },
+                                     ),
                                      html.P(children=[
                                          html.B('Compare Results (click to swap search terms):'),
                                      ]),
