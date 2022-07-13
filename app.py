@@ -394,6 +394,24 @@ def generate_control_card():
                                 disabled=False),
                 ],
             ),
+            html.Div(
+                id="skip-outer",
+                hidden=False,
+                children=[
+                    html.Br(),
+                    dcc.RadioItems(
+                        id='skip-radio-items',
+                        options=['Unsure', 'Invalid Source Data', 'Other'],
+                        value='Unsure',
+                        style={'width': '100%', 'color': 'white', 'textAlign': 'center', 'verticalAlign': 'center'},
+                        labelStyle={'margin-right': '30px'},
+                        inline=True,
+                    ),
+                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
+                                style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
+                                disabled=False),
+                ],
+            ),
             html.Br(),
             html.Div(
                 id="download-outer",
