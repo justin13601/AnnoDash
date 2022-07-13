@@ -854,19 +854,6 @@ def reset_annotation(n_clicks, replace_annotation, annotation, labitem, curr_dat
 
 
 @app.callback(
-    Output("tabs", "value"),
-    [
-        Input("patient-select", "value"),
-    ]
-)
-def update_tabs_view(patient):
-    if patient is not None:
-        raise PreventUpdate
-    else:
-        return "home-tab"
-
-
-@app.callback(
     Output("labitem-select", "options"),
     Output("labitem-select", "value"),
     [
@@ -914,6 +901,19 @@ def update_patient_dropdown(labitem, submit):
             return options, disabled, first_patient
         return options, disabled, None
     return options, disabled, None
+
+
+@app.callback(
+    Output("tabs", "value"),
+    [
+        Input("patient-select", "value"),
+    ]
+)
+def update_tabs_view(patient):
+    if patient is not None:
+        raise PreventUpdate
+    else:
+        return "home-tab"
 
 
 @app.callback(
