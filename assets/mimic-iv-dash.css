@@ -41,6 +41,14 @@ hr {
     align-items: center;
 }
 
+#upload-btn Img {
+    transition: opacity 1s ease;
+}
+
+#upload-btn:hover Img {
+    opacity: 30%;
+}
+
 H5 {
     color: #2c8cff;
     font-weight: 300;
