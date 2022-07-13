@@ -32,6 +32,15 @@ hr {
     margin-left: 2%;
 }
 
+.banner Button {
+    position: absolute;
+    height: 3rem;
+    width: auto;
+    margin-left: 91.5%;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
 H5 {
     color: #2c8cff;
     font-weight: 300;
