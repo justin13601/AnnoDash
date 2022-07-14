@@ -1153,8 +1153,16 @@ app.layout = html.Div(
             className="banner",
             children=[
                 html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                html.H5("Welcome to the MIMIC-IV Clinical Dashboard")
-            ],
+                html.H5("Welcome to the MIMIC-IV Clinical Dashboard"),
+                dcc.Upload(
+                    id='upload-data-btn',
+                    children=html.Button(
+                        id='upload-btn',
+                        children=[html.Img(src='assets/upload.png')],
+                        style={'border-width': '0px'}
+                    ),
+                ),
+            ]
         ),
         # Left column
         html.Div(

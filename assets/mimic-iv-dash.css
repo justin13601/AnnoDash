@@ -32,7 +32,7 @@ hr {
     margin-left: 2%;
 }
 
-.banner Button {
+#upload-data-btn {
     position: absolute;
     height: 3rem;
     width: auto;
