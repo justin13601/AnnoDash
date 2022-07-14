@@ -96,7 +96,13 @@ def load_config(file):
 def load_annotations(path):
     annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
     annotated = [int(each_labitem.strip('.json')) for each_labitem in annotation_files]
-    return annotated
+    skipped_list = []
+    for each_file in annotation_files:
+        with open(os.path.join(path, each_file)) as jsonFile:
+            data = json.load(jsonFile)
+            if 'skipped' in data['loincid'].lower().strip():
+                skipped_list.append(int(each_file.strip('.json')))
+    return annotated, skipped_list
 
 
 def download_annotation(annotation):
@@ -147,7 +153,7 @@ if config['loinc']['related']['scorer'] == 'tf_idf':
     vectorizer.fit_transform(list(df_loinc_new['LONG_COMMON_NAME'].unique()))
     tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
 
-annotated_list = load_annotations(PATH_results)
+annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
 
@@ -394,6 +400,24 @@ def generate_control_card():
                                 disabled=False),
                 ],
             ),
+            html.Div(
+                id="skip-outer",
+                hidden=False,
+                children=[
+                    html.Br(),
+                    dcc.RadioItems(
+                        id='skip-radio-items',
+                        options=['Unsure', 'Invalid Source Data', 'Other'],
+                        value='Unsure',
+                        style={'width': '100%', 'color': 'white', 'textAlign': 'center', 'verticalAlign': 'center'},
+                        labelStyle={'margin-right': '30px'},
+                        inline=True,
+                    ),
+                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
+                                style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
+                                disabled=False),
+                ],
+            ),
             html.Br(),
             html.Div(
                 id="download-outer",
@@ -608,7 +632,9 @@ def initialize_tab():
 def initialize_labitem_select():
     options = [
         {"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} if each_id in unannotated_list else
-        {"label": f'{each_id}: {labitemsid_dict[each_id]} ✔', "value": each_id} for each_id in labitemsid_dict
+        {"label": f'{each_id}: {labitemsid_dict[each_id]} ✔', "value": each_id} if each_id in list(
+            set(annotated_list) - set(skipped_list)) else
+        {"label": f'{each_id}: {labitemsid_dict[each_id]} ⚠', "value": each_id} for each_id in labitemsid_dict
     ]
     first_labitem = unannotated_list[0]
     return options, first_labitem
@@ -630,30 +656,46 @@ def initialize_annotate_select():
     return loinc_codes
 
 
-def annotate(labitem, annotation):
-    # labitem_row = df_labitems.query(f'itemid == {labitem}')
-    labitem_dict = {'itemid': labitem,
-                    'label': labitemsid_dict[labitem],
-                    # 'mimic_loinc': labitem_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-labitems
-                    'loincid': annotation,
-                    'loinclabel': loinc_dict[annotation]
-                    }
-
+def annotate(labitem, annotation, skipped=False):
+    if skipped:
+        labitem_dict = {'itemid': labitem,
+                        'label': labitemsid_dict[labitem],
+                        'loincid': f'Skipped: {annotation}',
+                        'loinclabel': 'n/a'
+                        }
+    else:
+        # labitem_row = df_labitems.query(f'itemid == {labitem}')
+        labitem_dict = {'itemid': labitem,
+                        'label': labitemsid_dict[labitem],
+                        # 'mimic_loinc': labitem_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-labitems
+                        'loincid': annotation,
+                        'loinclabel': loinc_dict[annotation]
+                        }
     filename = os.path.join(PATH_results, f"{labitem}.json")
     with open(filename, "w") as outfile:
         json.dump(labitem_dict, outfile, indent=4)
     return
 
 
-def update_labitem_options(options, labitem):
+def update_labitem_options(options, labitem, skipped=False):
     new_value = labitem
     value_location = list(labitemsid_dict.keys()).index(labitem)
-    options[value_location]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ✔'
+    if skipped:
+        options[value_location]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ⚠'
+    else:
+        options[value_location]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ✔'
     if unannotated_list:
         for i in range(value_location, len(options)):
             if i == len(options) - 1:
                 new_value = unannotated_list[0]
             elif options[i]['value'] in unannotated_list:
+                new_value = options[i]['value']
+                break
+    elif skipped_list:
+        for i in range(value_location, len(options)):
+            if i == len(options) - 1:
+                new_value = skipped_list[0]
+            elif options[i]['value'] in skipped_list:
                 new_value = options[i]['value']
                 break
     else:
@@ -817,6 +859,7 @@ def download_annotations(n_clicks):
     Output("loinc-datatable", "selected_cells"),
     [
         Input("submit-btn", "n_clicks"),
+        Input("skip-btn", "n_clicks"),
         Input("loinc-datatable", "active_cell"),
         Input("annotate-select", "value"),
     ],
@@ -824,12 +867,16 @@ def download_annotations(n_clicks):
         State("labitem-select", "value"),
         # State('annotate-text', 'value')
         State("loinc-datatable", "data"),
+        State("skip-radio-items", "value"),
     ]
 )
-def reset_annotation(n_clicks, replace_annotation, annotation, labitem, curr_data):
+def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, labitem, curr_data, skip_reason):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         annotate(labitem, annotation)
+        return '', False, None, [], None, []
+    elif triggered_id == 'skip-btn.n_clicks':
+        annotate(labitem, skip_reason, skipped=True)
         return '', False, None, [], None, []
     elif triggered_id == 'loinc-datatable.active_cell':
         if replace_annotation['row'] == 1:
@@ -847,30 +894,18 @@ def reset_annotation(n_clicks, replace_annotation, annotation, labitem, curr_dat
 
 
 @app.callback(
-    Output("tabs", "value"),
-    [
-        Input("patient-select", "value"),
-    ]
-)
-def update_tabs_view(patient):
-    if patient is not None:
-        raise PreventUpdate
-    else:
-        return "home-tab"
-
-
-@app.callback(
     Output("labitem-select", "options"),
     Output("labitem-select", "value"),
     [
         Input("submit-btn", "n_clicks"),
+        Input("skip-btn", "n_clicks"),
     ],
     [
-        State("labitem-select", "value"),
         State("labitem-select", "options"),
+        State("labitem-select", "value"),
     ]
 )
-def update_lab_measurement_dropdown(submit, value, options):
+def update_lab_measurement_dropdown(submit_n_clicks, skip_n_clicks, options, value):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == '.':
         raise PreventUpdate
@@ -879,6 +914,11 @@ def update_lab_measurement_dropdown(submit, value, options):
         if value in unannotated_list:
             unannotated_list.remove(value)
         options, new_value = update_labitem_options(options, value)
+    elif triggered_id == 'skip-btn.n_clicks':
+        if value in unannotated_list:
+            unannotated_list.remove(value)
+        skipped_list.append(value)
+        options, new_value = update_labitem_options(options, value, skipped=True)
     return options, new_value
 
 
@@ -907,6 +947,19 @@ def update_patient_dropdown(labitem, submit):
             return options, disabled, first_patient
         return options, disabled, None
     return options, disabled, None
+
+
+@app.callback(
+    Output("tabs", "value"),
+    [
+        Input("patient-select", "value"),
+    ]
+)
+def update_tabs_view(patient):
+    if patient is not None:
+        raise PreventUpdate
+    else:
+        return "home-tab"
 
 
 @app.callback(
