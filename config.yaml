@@ -1,8 +1,8 @@
 # This YAML exposes the fields defined in the dashboard. Please edit directly.
 directories: # default relative, can set to absolute path
   results: results-json # directory to store .json annotations
-  concepts: demo-data # directory to concepts that need to be annotated
-  data: demo-data # directory to patient observations (eventually split into 1 file per measurement, labevents for now)
+  concepts: demo-data # directory to concepts to be annotated
+  data: demo-data # directory to patient data (eventually split into 1 file per measurement, labevents for now)
 loinc:
   location: demo-data
   version: 2.72
