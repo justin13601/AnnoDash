@@ -1,7 +1,7 @@
 # This YAML exposes the fields defined in the dashboard. Please edit directly.
 directories: # default relative, can set to absolute path
   results: results-json
-  data: demo-data # observations will be split into a file per measurement
+  data: demo-data # observations will eventually be split into a file per measurement
 loinc:
   location: demo-data
   version: 2.72
