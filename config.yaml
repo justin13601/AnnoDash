@@ -1,7 +1,8 @@
 # This YAML exposes the fields defined in the dashboard. Please edit directly.
 directories: # default relative, can set to absolute path
-  results: results-json
-  data: demo-data # observations will eventually be split into a file per measurement
+  results: results-json # directory to store .json annotations
+  concepts: demo-data # directory to concepts that need to be annotated
+  data: demo-data # directory to patient observations (eventually split into 1 file per measurement, labevents for now)
 loinc:
   location: demo-data
   version: 2.72
@@ -11,7 +12,7 @@ loinc:
   related:
     scorer: tf_idf # (partial_ratio, jaro_winkler, tf_idf)
 graphs: # options for graphs
-  pairs: # standard measurements for tab graph overlays       // allow user to choose num of tabs in future
+  pairs: # standard measurements for tab graph overlays       // eventually allow user to choose num of tabs
     pair_one:
       item_1: 50821
       item_2: 50818
@@ -39,7 +40,7 @@ metadata:
   name: mimic-iv-dash-development
   labels:
     app: dash-web
-temp:   # REMOVE
+temp: # for development
   test: False
   mimic-iv-version: 2.0
 
