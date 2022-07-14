@@ -120,13 +120,14 @@ else:
 
 # path
 PATH_data = config['directories']['data']
+PATH_labitems = config['directories']['concepts']
 PATH_results = config['directories']['results']
 PATH_loinc = config['loinc']['location']
 
 if PATH_data == 'demo-data':
     print("Demo data selected.")
 
-df_labitems = load_data(os.path.join(PATH_data, 'D_LABITEMS.csv'))
+df_labitems = load_data(os.path.join(PATH_labitems, 'D_LABITEMS.csv'))
 df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
@@ -449,8 +450,9 @@ def generate_all_patients_graph(labitem, **kwargs):
     fig = ff.create_distplot(hist_data, group_labels, colors=['rgb(44,140,255)'])
     fig.update_layout(
         title={
-            'text': labitemsid_dict[labitem],
-            'y': 0.95,
+            'text': f"{labitemsid_dict[labitem]}<br><sup>"
+                    f"{list(df_labitems.query(f'itemid == {labitem}').iloc[:, 2:].agg(', '.join, axis=1))[0]}</sup>",
+            'y': 0.905,
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top',
