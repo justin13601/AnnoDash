@@ -394,24 +394,6 @@ def generate_control_card():
                                 disabled=False),
                 ],
             ),
-            html.Div(
-                id="skip-outer",
-                hidden=False,
-                children=[
-                    html.Br(),
-                    dcc.RadioItems(
-                        id='skip-radio-items',
-                        options=['Unsure', 'Invalid Source Data', 'Other'],
-                        value='Unsure',
-                        style={'width': '100%', 'color': 'white', 'textAlign': 'center', 'verticalAlign': 'center'},
-                        labelStyle={'margin-right': '30px'},
-                        inline=True,
-                    ),
-                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
-                                style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
-                                disabled=False),
-                ],
-            ),
             html.Br(),
             html.Div(
                 id="download-outer",
@@ -660,30 +642,23 @@ def annotate(labitem, annotation):
     filename = os.path.join(PATH_results, f"{labitem}.json")
     with open(filename, "w") as outfile:
         json.dump(labitem_dict, outfile, indent=4)
-
-    if labitem in unannotated_list:
-        unannotated_list.remove(labitem)
     return
 
 
 def update_labitem_options(options, labitem):
+    new_value = labitem
+    value_location = list(labitemsid_dict.keys()).index(labitem)
+    options[value_location]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ✔'
     if unannotated_list:
-        next_value = unannotated_list[0]
+        for i in range(value_location, len(options)):
+            if i == len(options) - 1:
+                new_value = unannotated_list[0]
+            elif options[i]['value'] in unannotated_list:
+                new_value = options[i]['value']
+                break
     else:
-        next_value = options[0]['value']
-    for index in range(len(options)):
-        if options[index]['value'] == labitem:
-            # del options[index]
-            options[index]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ✔'
-            if unannotated_list:
-                for next_index in range(index, len(options)):
-                    if options[next_index]['value'] in unannotated_list:
-                        next_value = options[next_index]['value']
-                        break
-                    if next_index == len(options) - 1:
-                        next_value = unannotated_list[0]
-            break
-    return options, next_value
+        new_value = options[0]['value']
+    return options, new_value
 
 
 class ScorerNotAvailble(Exception):
@@ -872,6 +847,19 @@ def reset_annotation(n_clicks, replace_annotation, annotation, labitem, curr_dat
 
 
 @app.callback(
+    Output("tabs", "value"),
+    [
+        Input("patient-select", "value"),
+    ]
+)
+def update_tabs_view(patient):
+    if patient is not None:
+        raise PreventUpdate
+    else:
+        return "home-tab"
+
+
+@app.callback(
     Output("labitem-select", "options"),
     Output("labitem-select", "value"),
     [
@@ -886,12 +874,12 @@ def update_lab_measurement_dropdown(submit, value, options):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == '.':
         raise PreventUpdate
-    curr_options = options
-    new_value = curr_options[0]["value"]
+    new_value = value
     if triggered_id == 'submit-btn.n_clicks':
-        new_options, new_value = update_labitem_options(curr_options, value)
-        curr_options = new_options
-    return curr_options, new_value
+        if value in unannotated_list:
+            unannotated_list.remove(value)
+        options, new_value = update_labitem_options(options, value)
+    return options, new_value
 
 
 @app.callback(
@@ -919,19 +907,6 @@ def update_patient_dropdown(labitem, submit):
             return options, disabled, first_patient
         return options, disabled, None
     return options, disabled, None
-
-
-@app.callback(
-    Output("tabs", "value"),
-    [
-        Input("patient-select", "value"),
-    ]
-)
-def update_tabs_view(patient):
-    if patient is not None:
-        raise PreventUpdate
-    else:
-        return "home-tab"
 
 
 @app.callback(
@@ -1123,12 +1098,7 @@ app.layout = html.Div(
             className="banner",
             children=[
                 html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                html.H5("Welcome to the MIMIC-IV Clinical Dashboard"),
-                html.Button(
-                    id='upload-btn',
-                    children=[html.Img(src='assets/upload.png')],
-                    style={'border-width': '0px'}
-                ),
+                html.H5("Welcome to the MIMIC-IV Clinical Dashboard")
             ],
         ),
         # Left column
