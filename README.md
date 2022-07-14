@@ -24,6 +24,8 @@ The dashboard requires the following to run:
 * [PyYAML][pyyaml]~=6.0
 * [SciPy][scipy]~=1.7.3
 
+All packages are listed in ```requirements.txt```.
+
 Usage
 ------------
 
@@ -33,12 +35,25 @@ python3 app.py
 
 Files required:
 
-* A .csv file containing all patient observations
-* A .csv file containing all lab measurements to-be annotated in id-label pairs {id: label}
-* config.yaml:
+* A .csv file containing all patient observations/data:
+  ```
+  itemid,subject_id,charttime,value
+  52038,123,2150-01-01 10:00:00,5
+  52038,123,2150-01-01 11:00:00,6
+  ...
+  ```
+* A .csv file containing all concepts to be annotated in id-label pairs, {id: label}:
+  ```
+  itemid,label
+  52038,Base Excess
+  52041,pH
+  ...
+  ```
+* The config.yaml:
     * Define results directory
     * Define data directory
-    * Define ontology directory (location of LOINC.csv etc.)
+    * Define concepts directory
+    * Define ontology directory (LOINC.csv etc.)
     * Define up to 3 pairs of lab measurements to plot annotations against (defaults are indicated)
 
 | ![Home](assets/home.png)          | ![Tabs](assets/tabs.png)          |
