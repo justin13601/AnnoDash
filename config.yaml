@@ -40,6 +40,6 @@ metadata:
   labels:
     app: dash-web
 temp:   # REMOVE
-  test: True
+  test: False
   mimic-iv-version: 2.0
 
