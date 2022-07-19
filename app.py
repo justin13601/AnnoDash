@@ -238,6 +238,7 @@ def generate_control_card():
             html.P("Select Lab Measurement:"),
             dcc.Dropdown(
                 id="labitem-select",
+                clearable=False,
                 value=initialize_labitem_select()[1],
                 style={"border-radius": 0},
                 options=initialize_labitem_select()[0],
@@ -417,6 +418,17 @@ def generate_control_card():
                         labelStyle={'margin-right': '30px'},
                         inline=True,
                     ),
+                    html.Div(id='skip-other-outer',
+                             hidden=True,
+                             children=[
+                                 dcc.Input(
+                                     id="skip-other-text",
+                                     placeholder="Reason...",
+                                     debounce=True,
+                                     style={"width": '100%'},
+                                     autoFocus=True,
+                                 ),
+                             ]),
                     html.Button(id="skip-btn", children="Skip", n_clicks=0,
                                 style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
                                 disabled=False),
@@ -433,6 +445,7 @@ def generate_control_card():
                     dcc.Download(id="download-annotations")
                 ]
             ),
+            html.Br(),
         ],
         style={'width': '100%', 'color': 'black'}
     )
@@ -840,6 +853,38 @@ def enable_download_button(n_clicks):
 
 
 @app.callback(
+    Output("skip-other-outer", "hidden"),
+    [
+        Input("skip-radio-items", "value"),
+    ],
+    prevent_initial_call=True,
+)
+def enable_download_button(value):
+    if value == 'Other':
+        return False
+    return True
+
+
+@app.callback(
+    Output("skip-other-text", "value"),
+    Output("skip-radio-items", "value"),
+    [
+        Input("submit-btn", "n_clicks"),
+        Input("skip-btn", "n_clicks"),
+    ],
+    prevent_initial_call=True,
+)
+def clear_reset_skip(submit_n_clicks, skip_n_clicks):
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'submit-btn.n_clicks':
+        return '', "Unsure"
+    elif triggered_id == 'skip-btn.n_clicks':
+        return '', "Unsure"
+    else:
+        raise PreventUpdate
+
+
+@app.callback(
     Output("download-annotations", "data"),
     [
         Input("download-btn", "n_clicks"),
@@ -877,15 +922,20 @@ def download_annotations(n_clicks):
         # State('annotate-text', 'value')
         State("loinc-datatable", "data"),
         State("skip-radio-items", "value"),
+        State("skip-other-text", "value"),
     ]
 )
-def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, labitem, curr_data, skip_reason):
+def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, labitem, curr_data, skip_reason,
+                     other_reason):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         annotate(labitem, annotation)
         return '', False, None, [], None, []
     elif triggered_id == 'skip-btn.n_clicks':
-        annotate(labitem, skip_reason, skipped=True)
+        if skip_reason == 'Other':
+            annotate(labitem, other_reason, skipped=True)
+        else:
+            annotate(labitem, skip_reason, skipped=True)
         return '', False, None, [], None, []
     elif triggered_id == 'loinc-datatable.active_cell':
         if replace_annotation['row'] == 1:
@@ -1038,6 +1088,27 @@ def show_related_outer(annotation):
         return False
     else:
         return True
+
+
+@app.callback(
+    Output("related-datatable", "page_current"),
+    [
+        Input("annotate-select", "value"),
+        Input("submit-btn", "n_clicks"),
+        Input("skip-btn", "n_clicks"),
+        Input("loinc-datatable", "active_cell"),
+    ]
+)
+def reset_related_datatable_page(annotation, _, __, ___):
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'submit-btn.n_clicks':
+        return 0
+    elif triggered_id == 'skip-btn.n_clicks':
+        return 0
+    elif triggered_id == 'loinc-datatable.active_cell':
+        return 0
+    if not annotation:
+        return 0
 
 
 @app.callback(
