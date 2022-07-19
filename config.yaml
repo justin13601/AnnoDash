@@ -41,6 +41,6 @@ metadata:
   labels:
     app: dash-web
 temp: # for development
-  test: True
+  test: False
   mimic-iv-version: 2.0
 
