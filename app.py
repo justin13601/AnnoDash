@@ -9,38 +9,39 @@ Created on May 10, 2022
 import os
 import io
 import re
-import base64
-import errno
 import csv
 import time
 import json
 import yaml
-import jaro
-import pickle
+import errno
+import base64
 from datetime import timedelta, datetime as dt
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
-from ftfy import fix_text
 from collections import defaultdict
+from zipfile import ZipFile
 
-import dash
 import plotly.express as px
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
+import dash
 from dash import Dash, html, dcc, dash_table
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
 from flask import Flask, send_file
-from zipfile import ZipFile
 
 import scipy
 import scipy.sparse as sp
 import numpy as np
 import pandas as pd
+import jaro
+import pickle
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
+from ftfy import fix_text
 from google.cloud import bigquery
 
-from tf_idf_matrix import cosine_similarity, TfidfVectorizer, ngrams
+from tf_idf_matrix import cosine_similarity, TfidfVectorizer
+from related_ontologies.related import ngrams
 
 
 # from callbacks.all_callbacks import callback_manager
