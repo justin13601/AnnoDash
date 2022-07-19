@@ -3,6 +3,7 @@ import os
 import csv
 import time
 import yaml
+import json
 import errno
 
 import pandas as pd
@@ -76,6 +77,11 @@ if __name__ == "__main__":
     print("Time:", t)
     print(tf_idf_matrix.shape)
 
+    # save elementary idf and vocab
+    # np.savetxt('idf_.txt', vectorizer.idf_)
+    # json.dump(vectorizer.vocabulary_, open('vocabulary.json', mode='w'))
+
+    # PICKLE
     # save matrix
     # pickle.dump(tf_idf_matrix, open("LOINC_tf_idf_matrix_n=10.pkl", "wb"))
 

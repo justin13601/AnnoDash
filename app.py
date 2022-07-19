@@ -7,7 +7,9 @@ Created on May 10, 2022
 """
 
 import os
+import io
 import re
+import base64
 import errno
 import csv
 import time
@@ -33,6 +35,7 @@ from flask import Flask, send_file
 from zipfile import ZipFile
 
 import scipy
+import scipy.sparse as sp
 import numpy as np
 import pandas as pd
 from google.cloud import bigquery
@@ -709,6 +712,10 @@ class ScorerNotAvailble(Exception):
     pass
 
 
+class ConfigurationFileError(Exception):
+    pass
+
+
 ######################################################################################################
 @app.callback(
     Output("labitem-copy", "content"),
@@ -1117,6 +1124,30 @@ def update_related_datatable(annotation, submit):
     return False, data, True, True
 
 
+@app.callback(
+    Output("hidden-div", "children"),
+    Output("refresh-url", "href"),
+    [
+        Input("upload-data-btn", "contents"),
+    ],
+    [
+        State("upload-data-btn", "filename"),
+        State("upload-data-btn", "last_modified"),
+    ],
+    prevent_initial_call=True,
+)
+def update_output(contents, filename, last_modified):
+    global config
+    if contents is not None:
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        if 'yaml' in filename:
+            config = yaml.safe_load(decoded)
+        else:
+            raise ConfigurationFileError
+    return None, "/"
+
+
 # @app.callback(
 #     Output("annotate-select", "options"),
 #     [
@@ -1134,177 +1165,184 @@ def update_related_datatable(annotation, submit):
 # annotation_options = initialize_annotate_select()
 
 ######################################################################################################
-app.layout = html.Div(
-    id="app-container",
-    children=[
-        # Replace confirmation
-        html.Div(
-            id="replace-confirmation",
-            children=[
-                dcc.ConfirmDialog(
-                    id='confirm-replace',
-                    message='This measurement has already been annotated. Are you sure you want to replace the '
-                            'existing annotation?',
-                )]
-        ),
-        # Banner
-        html.Div(
-            id="banner",
-            className="banner",
-            children=[
-                html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                html.H5("Welcome to the MIMIC-IV Clinical Dashboard"),
-                dcc.Upload(
-                    id='upload-data-btn',
-                    children=html.Button(
-                        id='upload-btn',
-                        children=[html.Img(src='assets/upload.png')],
-                        style={'border-width': '0px'}
+def serve_layout():
+    return html.Div(
+        id="app-container",
+        children=[
+            dcc.Location(id='refresh-url', refresh=True),
+            html.Div(id='hidden-div', hidden=True),
+            # Replace confirmation
+            html.Div(
+                id="replace-confirmation",
+                children=[
+                    dcc.ConfirmDialog(
+                        id='confirm-replace',
+                        message='This measurement has already been annotated. Are you sure you want to replace the '
+                                'existing annotation?',
+                    )]
+            ),
+            # Banner
+            html.Div(
+                id="banner",
+                className="banner",
+                children=[
+                    html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
+                    html.H5("Welcome to the MIMIC-IV Clinical Dashboard"),
+                    dcc.Upload(
+                        id='upload-data-btn',
+                        children=html.Button(
+                            id='upload-btn',
+                            children=[html.Img(src='assets/upload.png')],
+                            style={'border-width': '0px'}
+                        ),
                     ),
-                ),
-            ]
-        ),
-        # Left column
-        html.Div(
-            id="left-column",
-            className="four columns",
-            children=[description_card(), generate_control_card()] + [
-                html.Div(
-                    ["initial child"], id="output-clientside", style={"display": "none"}
-                )
-            ],
-        ),
-        # Right column
-        html.Div(
-            id="right-column",
-            className="eight columns",
-            children=[
-                # Tabbed graphs
-                html.Div(
-                    id="patient_card",
-                    style={'height': '500%'},
-                    children=[
-                        dcc.Tabs([
-                            dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
-                                    value='home-tab',
-                                    style={'color': '#1a75f9'},
-                                    selected_style={
-                                        'color': '#1a75f9',
-                                        'border-width': '3px'
-                                    },
-                                    children=[
-                                        dcc.Graph(
-                                            style={'height': '375px'},
-                                            id="all_patients_graph",
-                                            figure=initialize_all_patients_graph()
-                                        )
-                                    ]),
-                            dcc.Tab(label=config['graphs']['pairs']['pair_one']['label'], id="blood_gas_tab",
-                                    disabled=initialize_tab(),
-                                    style={'color': '#1a75f9'},
-                                    selected_style={
-                                        'color': '#1a75f9',
-                                        'border-width': '3px'
-                                    },
-                                    children=[
-                                        dcc.Graph(
-                                            style={'height': '375px'},
-                                            id="blood_gas_graph",
-                                            figure=initialize_tab_graph(bg_pair)
-                                        )
-                                    ]),
-                            dcc.Tab(label=config['graphs']['pairs']['pair_two']['label'], id="chemistry_tab",
-                                    disabled=initialize_tab(),
-                                    style={'color': '#1a75f9'},
-                                    selected_style={
-                                        'color': '#1a75f9',
-                                        'border-width': '3px'
-                                    },
-                                    children=[
-                                        dcc.Graph(
-                                            style={'height': '375px'},
-                                            id="chemistry_graph",
-                                            figure=initialize_tab_graph(chem_pair)
-                                        )
-                                    ]),
-                            dcc.Tab(label=config['graphs']['pairs']['pair_three']['label'], id="cbc_tab",
-                                    disabled=initialize_tab(),
-                                    style={'color': '#1a75f9'},
-                                    selected_style={
-                                        'color': '#1a75f9',
-                                        'border-width': '3px'
-                                    },
-                                    children=[
-                                        dcc.Graph(
-                                            style={'height': '375px'},
-                                            id="cbc_graph",
-                                            figure=initialize_tab_graph(cbc_pair)
-                                        )
-                                    ]),
-                        ], id='tabs', value='home-tab'),
-                        html.Br(),
-                        html.Div(id='loinc-results-outer',
-                                 hidden=True,
-                                 children=[
-                                     dcc.Clipboard(
-                                         id='loinc-copy',
-                                         title="Copy LOINC Results",
-                                         style={
-                                             "color": "#c9ddee",
-                                             "fontSize": 15,
-                                             "verticalAlign": "center",
-                                             'float': 'right',
-                                             'margin': 'auto'
-                                         },
-                                     ),
-                                     html.P(children=[
-                                         html.B('Compare Results (click to swap search terms):'),
-                                     ]),
-                                     html.Div(
-                                         id="loinc-datatable-outer",
-                                         className='loinc-datatable',
-                                         hidden=False,
-                                         children=[
-                                             dash_table.DataTable(id='loinc-datatable',
-                                                                  data=None,
-                                                                  columns=[],
-                                                                  style_data={
-                                                                      'whiteSpace': 'normal',
-                                                                      'height': 'auto',
-                                                                      'lineHeight': '15px',
-                                                                  },
-                                                                  style_table={
-                                                                      'height': 'auto',
-                                                                      'overflowY': 'auto'
-                                                                  },
-                                                                  style_cell={
-                                                                      'textAlign': 'left',
-                                                                      'backgroundColor': 'transparent',
-                                                                      'color': 'black'
-                                                                  },
-                                                                  style_header={
-                                                                      'fontWeight': 'bold',
-                                                                      'color': '#2c8cff'
-                                                                  },
-                                                                  style_data_conditional=[
-                                                                      {
-                                                                          'if': {
-                                                                              'state': 'active'  # 'active' | 'selected'
-                                                                          },
+                ]
+            ),
+            # Left column
+            html.Div(
+                id="left-column",
+                className="four columns",
+                children=[description_card(), generate_control_card()] + [
+                    html.Div(
+                        ["initial child"], id="output-clientside", style={"display": "none"}
+                    )
+                ],
+            ),
+            # Right column
+            html.Div(
+                id="right-column",
+                className="eight columns",
+                children=[
+                    # Tabbed graphs
+                    html.Div(
+                        id="patient_card",
+                        style={'height': '500%'},
+                        children=[
+                            dcc.Tabs([
+                                dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
+                                        value='home-tab',
+                                        style={'color': '#1a75f9'},
+                                        selected_style={
+                                            'color': '#1a75f9',
+                                            'border-width': '3px'
+                                        },
+                                        children=[
+                                            dcc.Graph(
+                                                style={'height': '375px'},
+                                                id="all_patients_graph",
+                                                figure=initialize_all_patients_graph()
+                                            )
+                                        ]),
+                                dcc.Tab(label=config['graphs']['pairs']['pair_one']['label'], id="blood_gas_tab",
+                                        disabled=initialize_tab(),
+                                        style={'color': '#1a75f9'},
+                                        selected_style={
+                                            'color': '#1a75f9',
+                                            'border-width': '3px'
+                                        },
+                                        children=[
+                                            dcc.Graph(
+                                                style={'height': '375px'},
+                                                id="blood_gas_graph",
+                                                figure=initialize_tab_graph(bg_pair)
+                                            )
+                                        ]),
+                                dcc.Tab(label=config['graphs']['pairs']['pair_two']['label'], id="chemistry_tab",
+                                        disabled=initialize_tab(),
+                                        style={'color': '#1a75f9'},
+                                        selected_style={
+                                            'color': '#1a75f9',
+                                            'border-width': '3px'
+                                        },
+                                        children=[
+                                            dcc.Graph(
+                                                style={'height': '375px'},
+                                                id="chemistry_graph",
+                                                figure=initialize_tab_graph(chem_pair)
+                                            )
+                                        ]),
+                                dcc.Tab(label=config['graphs']['pairs']['pair_three']['label'], id="cbc_tab",
+                                        disabled=initialize_tab(),
+                                        style={'color': '#1a75f9'},
+                                        selected_style={
+                                            'color': '#1a75f9',
+                                            'border-width': '3px'
+                                        },
+                                        children=[
+                                            dcc.Graph(
+                                                style={'height': '375px'},
+                                                id="cbc_graph",
+                                                figure=initialize_tab_graph(cbc_pair)
+                                            )
+                                        ]),
+                            ], id='tabs', value='home-tab'),
+                            html.Br(),
+                            html.Div(id='loinc-results-outer',
+                                     hidden=True,
+                                     children=[
+                                         dcc.Clipboard(
+                                             id='loinc-copy',
+                                             title="Copy LOINC Results",
+                                             style={
+                                                 "color": "#c9ddee",
+                                                 "fontSize": 15,
+                                                 "verticalAlign": "center",
+                                                 'float': 'right',
+                                                 'margin': 'auto'
+                                             },
+                                         ),
+                                         html.P(children=[
+                                             html.B('Compare Results (click to swap search terms):'),
+                                         ]),
+                                         html.Div(
+                                             id="loinc-datatable-outer",
+                                             className='loinc-datatable',
+                                             hidden=False,
+                                             children=[
+                                                 dash_table.DataTable(id='loinc-datatable',
+                                                                      data=None,
+                                                                      columns=[],
+                                                                      style_data={
+                                                                          'whiteSpace': 'normal',
+                                                                          'height': 'auto',
+                                                                          'lineHeight': '15px',
+                                                                      },
+                                                                      style_table={
+                                                                          'height': 'auto',
+                                                                          'overflowY': 'auto'
+                                                                      },
+                                                                      style_cell={
+                                                                          'textAlign': 'left',
                                                                           'backgroundColor': 'transparent',
-                                                                          'border': '1px solid lightgray'
-                                                                      }],
-                                                                  page_size=10,
-                                                                  )
-                                         ]
-                                     )]
-                                 ),
-                    ],
-                ),
-            ],
-        ),
-    ],
-)
+                                                                          'color': 'black'
+                                                                      },
+                                                                      style_header={
+                                                                          'fontWeight': 'bold',
+                                                                          'color': '#2c8cff'
+                                                                      },
+                                                                      style_data_conditional=[
+                                                                          {
+                                                                              'if': {
+                                                                                  'state': 'active'
+                                                                                  # 'active' | 'selected'
+                                                                              },
+                                                                              'backgroundColor': 'transparent',
+                                                                              'border': '1px solid lightgray'
+                                                                          }],
+                                                                      page_size=10,
+                                                                      )
+                                             ]
+                                         )]
+                                     ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+app.layout = serve_layout
 ######################################################################################################
 
 
