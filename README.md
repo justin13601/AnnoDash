@@ -8,9 +8,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/othneildrew/Best-README-Template">
     <img src="assets/mimic.png" alt="Logo" height="80">
-  </a>
 
   <h3 align="center">MIMIC-IV Clinical Dashboard</h3>
 
