@@ -1087,7 +1087,7 @@ def update_related_datatable(annotation, submit):
         return True, None, False, False
 
     if config['loinc']['related']['scorer'] == 'partial_ratio':
-        query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
+        query = list(loinc_dict[annotation])[0]
         choices = list(df_loinc_new['LONG_COMMON_NAME'])
         related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100)
         df_related_score = pd.DataFrame(related[1:], columns=['LONG_COMMON_NAME', 'partial_ratio'])
@@ -1095,7 +1095,7 @@ def update_related_datatable(annotation, submit):
         df_data = df_related.merge(df_related_score, on='LONG_COMMON_NAME')
         df_data = df_data.sort_values(by=['partial_ratio'], ascending=False)
     elif config['loinc']['related']['scorer'] == 'jaro_winkler':
-        query = list(df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME'])[0]
+        query = list(loinc_dict[annotation])[0]
         choices = list(df_loinc_new['LONG_COMMON_NAME'])
         related = process.extractBests(query, choices, scorer=jaro.jaro_winkler_metric, limit=100)
         df_related_score = pd.DataFrame(related[1:], columns=['LONG_COMMON_NAME', 'jaro_winkler_dist'])
@@ -1104,7 +1104,7 @@ def update_related_datatable(annotation, submit):
         df_data = df_data.sort_values(by=['jaro_winkler_dist'], ascending=False)
     elif config['loinc']['related']['scorer'] == 'tf_idf':
         # NLP: tf_idf
-        query = vectorizer.transform([df_loinc_new.loc[df_loinc_new['LOINC_NUM'] == annotation]['LONG_COMMON_NAME']])
+        query = vectorizer.transform([loinc_dict[annotation]])
         scores = cosine_similarity(tf_idf_matrix, query)
         df_loinc_new_temp = df_loinc_new
         df_loinc_new_temp['cosine_score'] = scores
