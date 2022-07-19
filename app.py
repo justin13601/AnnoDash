@@ -40,8 +40,7 @@ from fuzzywuzzy import process
 from ftfy import fix_text
 from google.cloud import bigquery
 
-from tf_idf_matrix import cosine_similarity, TfidfVectorizer
-from related_ontologies.related import ngrams
+from related_ontologies.related import ngrams, generateRelatedOntologies, TfidfVectorizer, cosine_similarity
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -709,7 +708,7 @@ def update_labitem_options(options, labitem, skipped=False):
     return options, new_value
 
 
-class ScorerNotAvailble(Exception):
+class ScorerNotAvailable(Exception):
     pass
 
 
@@ -1087,32 +1086,20 @@ def update_related_datatable(annotation, submit):
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
         return True, None, False, False
 
+    query = loinc_dict[annotation]
+    choices = list(df_loinc_new['LONG_COMMON_NAME'])
     if config['loinc']['related']['scorer'] == 'partial_ratio':
-        query = list(loinc_dict[annotation])[0]
-        choices = list(df_loinc_new['LONG_COMMON_NAME'])
-        related = process.extractBests(query, choices, scorer=fuzz.partial_ratio, limit=100)
-        df_related_score = pd.DataFrame(related[1:], columns=['LONG_COMMON_NAME', 'partial_ratio'])
-        df_related = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])]
-        df_data = df_related.merge(df_related_score, on='LONG_COMMON_NAME')
-        df_data = df_data.sort_values(by=['partial_ratio'], ascending=False)
+        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_loinc=df_loinc_new)
     elif config['loinc']['related']['scorer'] == 'jaro_winkler':
-        query = list(loinc_dict[annotation])[0]
-        choices = list(df_loinc_new['LONG_COMMON_NAME'])
-        related = process.extractBests(query, choices, scorer=jaro.jaro_winkler_metric, limit=100)
-        df_related_score = pd.DataFrame(related[1:], columns=['LONG_COMMON_NAME', 'jaro_winkler_dist'])
-        df_related = df_loinc_new[df_loinc_new['LONG_COMMON_NAME'].isin([i[0] for i in related[1:]])]
-        df_data = df_related.merge(df_related_score, on='LONG_COMMON_NAME')
-        df_data = df_data.sort_values(by=['jaro_winkler_dist'], ascending=False)
+        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_loinc=df_loinc_new)
     elif config['loinc']['related']['scorer'] == 'tf_idf':
         # NLP: tf_idf
-        query = vectorizer.transform([loinc_dict[annotation]])
-        scores = cosine_similarity(tf_idf_matrix, query)
-        df_loinc_new_temp = df_loinc_new
-        df_loinc_new_temp['cosine_score'] = scores
-        df_loinc_new_temp = df_loinc_new_temp.sort_values(by=['cosine_score'], ascending=False)
-        df_data = df_loinc_new_temp[1:101]
+        df_data = generateRelatedOntologies(query, choices, method='tf_idf',
+                                            df_loinc=df_loinc_new,
+                                            vectorizer=vectorizer,
+                                            tf_idf_matrix=tf_idf_matrix)
     else:
-        raise ScorerNotAvailble("Please define scorer from available options in the configuration file.")
+        raise ScorerNotAvailable("Please define scorer from available options in the configuration file.")
 
     scores = df_data.iloc[:, 3]
 
