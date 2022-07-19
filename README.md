@@ -1,23 +1,72 @@
-# MIMIC-IV Clinical Dashboard
+<div id="top"></div>
 
-Clinical dashboard created using Plotly Dash &amp; MIMIC-IV database.
+[![Python](https://ForTheBadge.com/images/badges/made-with-python.svg)](https://colab.research.google.com/)
+
 
 [![DOI](https://zenodo.org/badge/490904949.svg)](https://zenodo.org/badge/latestdoi/490904949)
 
-Table of Contents
------------------
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/othneildrew/Best-README-Template">
+    <img src="assets/mimic.png" alt="Logo" height="80">
+  </a>
 
-* [Requirements](#requirements)
-* [Usage](#usage)
-* [Demo Data](#demo-data)
-* [License](#license)
+  <h3 align="center">MIMIC-IV Clinical Dashboard</h3>
 
-Requirements
-------------
+  <p align="center">
+Clinical Dashboard for Ontology Annotations    <br />
+    (LOINC, SNOMED-CT)
+  </p>
+</div>
+
+
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about">About</a>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#requirements">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#demo-data">Demo Data</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+</ol>
+</details>
+
+
+
+<!-- ABOUT THE PROJECT -->
+## About
+...
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- GETTING STARTED -->
+## Getting Started
+
+...
+
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+### Requirements
 
 The dashboard requires the following to run:
 
-* [Dash][dash]~=2.4.1
+* [Dash][dash]~=2.6.0
 * [Pandas][pandas]~=1.4.2
 * [Plotly][plotly]~=5.8.0
 * [NumPy][numpy]~=1.22.3
@@ -26,8 +75,23 @@ The dashboard requires the following to run:
 
 All packages are listed in ```requirements.txt```.
 
-Usage
-------------
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+### Installation
+
+Clone:
+   ```sh
+   git clone https://github.com/justin13601/mimic-iv-dash.git
+   ```
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+
+## Usage
 
 ```
 python3 app.py
@@ -60,8 +124,11 @@ Files required:
 |-----------------------------------|-----------------------------------|
 | ![Annotate](assets/annotate1.png) | ![Annotate](assets/annotate2.png) |
 
-Demo Data
-------------
+
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+## Demo Data
 Demo data and respective licenses are included in the [demo-data folder](/demo-data).
 
 - MIMIC-IV Clinical Database demo is available on Physionet (Johnson, A., Bulgarelli, L., Pollard, T., Horng, S., Celi, L. A., & Mark, R. (2022). MIMIC-IV Clinical Database Demo (version 1.0). PhysioNet. https://doi.org/10.13026/jwtp-v091).
@@ -69,10 +136,24 @@ Demo data and respective licenses are included in the [demo-data folder](/demo-d
 - LOINC Ontology Codes are available at https://loinc.org.
 
 
-Licenses
-------------
-Licensed under the [MIT][mit] license.
 
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+<!-- LICENSE -->
+## License
+
+Distributed under the [MIT][mit] License.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- ACKNOWLEDGMENTS -->
+## Acknowledgments
+
+* Alistair Johnson, DPhil | The Hospital for Sick Children
+
+<p align="right">(<a href="#top">back to top</a>)</p>
 
 
 [dash]: https://dash.plotly.com/installation
@@ -88,4 +169,3 @@ Licensed under the [MIT][mit] license.
 [scipy]: https://scipy.org/install/
 
 [mit]: https://opensource.org/licenses/MIT
-
