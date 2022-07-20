@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 import jaro
 import pickle
+import shelve
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 from ftfy import fix_text
@@ -121,11 +122,12 @@ if os.path.exists(config_file):
 else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
-# path
+# paths
 PATH_data = config['directories']['data']
 PATH_labitems = config['directories']['concepts']
 PATH_results = config['directories']['results']
 PATH_loinc = config['loinc']['location']
+PATH_related = config['loinc']['related']['location']
 
 if PATH_data == 'demo-data':
     print("Demo data selected.")
@@ -152,10 +154,10 @@ df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 
 # load tf_idf matrix if chosen as scorer:
 if config['loinc']['related']['scorer'] == 'tf_idf':
-    vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams, lowercase=False, vocabulary=pickle.load(
-        open(os.path.join(PATH_data, 'LOINC_vectorizer_vocabulary_n=10.pkl'), "rb")))
-    vectorizer.fit_transform(list(df_loinc_new['LONG_COMMON_NAME'].unique()))
-    tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
+    with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
+        ngrams = shlv['ngrams']
+        vectorizer = shlv['model']
+        tf_idf_matrix = shlv['tf_idf_matrix']
 
 annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
