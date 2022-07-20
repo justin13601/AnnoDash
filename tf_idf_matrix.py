@@ -5,6 +5,7 @@ import time
 import yaml
 import json
 import errno
+import shelve
 
 import pandas as pd
 import numpy as np
@@ -76,6 +77,12 @@ if __name__ == "__main__":
     t = time.time() - t1
     print("Time:", t)
     print(tf_idf_matrix.shape)
+
+    # save using shelve
+    with shelve.open('tf_idf.shlv', protocol=5) as shlv:
+        shlv['ngrams'] = ngrams
+        shlv['model'] = vectorizer
+        shlv['tf_idf_matrix'] = tf_idf_matrix
 
     # save elementary idf and vocab
     # np.savetxt('idf_.txt', vectorizer.idf_)
