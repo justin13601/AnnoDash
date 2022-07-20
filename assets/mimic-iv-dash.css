@@ -3,11 +3,16 @@
     max-width: none;
 }
 
+html {
+    height: 100%;
+}
+
 body {
     background-color: #272e41;
     color: #9fa6b7;
     font-size: 15px;
-    margin: 3px;
+    height: 100%;
+    margin: 0;
 }
 
 hr {
