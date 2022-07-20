@@ -11,6 +11,7 @@ loinc:
   loinc-class-type-label: Laboratory Terms
   related:
     scorer: tf_idf # (partial_ratio, jaro_winkler, tf_idf)
+    location: demo-data # directory to model files, such as for tf_idf
 graphs: # options for graphs
   pairs: # standard measurements for tab graph overlays       // eventually allow user to choose num of tabs
     pair_one:
