@@ -64,7 +64,7 @@ metadata_dictionary = {
 cfg.metadata = config_dict.FrozenConfigDict(metadata_dictionary)
 
 temp_dictionary = {
-    'test': False,
+    'five_percent_dataset': False,
     'mimic_iv_version': 2.0
 }
 
