@@ -60,6 +60,8 @@ def big_query(query):
 
 
 ######################################################################################################
+# APP #
+######################################################################################################
 app = dash.Dash(
     __name__,
     meta_tags=[
@@ -75,6 +77,8 @@ server = app.server
 app.config.suppress_callback_exceptions = True
 
 
+######################################################################################################
+# DATA #
 ######################################################################################################
 # callback_manager.attach_to_app(app)
 
@@ -178,9 +182,13 @@ for each in config.graphs.pairs.values():
     pairs.append((each['label'], each['item_1'], each['item_2']))
 bg_pair = pairs[0][1:]  # Default PO2 & PCO2, Blood       # Could add FiO2
 chem_pair = pairs[1][1:]  # Default Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
+cbc_pair = pairs[2][
+           1:]  # Default Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
 
 
+######################################################################################################
+# FUNCTIONS #
+######################################################################################################
 def description_card():
     """
     :return: A Div containing dashboard title & descriptions.
@@ -735,6 +743,8 @@ class ConfigurationFileError(Exception):
 
 
 ######################################################################################################
+# CALLBACKS #
+######################################################################################################
 @app.callback(
     Output("labitem-copy", "content"),
     [
@@ -1228,6 +1238,9 @@ def update_output(contents, filename, last_modified):
 # # For dynamic dropdown, also make sure to remove 'options' tag in annotate-select declaration
 # annotation_options = initialize_annotate_select()
 
+
+######################################################################################################
+# PAGE LAYOUT #
 ######################################################################################################
 def serve_layout():
     return html.Div(
