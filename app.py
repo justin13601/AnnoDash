@@ -17,6 +17,7 @@ import errno
 import base64
 from datetime import timedelta, datetime as dt
 from collections import defaultdict
+from ml_collections import config_dict
 from zipfile import ZipFile
 
 import plotly.express as px
@@ -93,7 +94,7 @@ def load_data(path):
 def load_config(file):
     print(f'Loading {file}...')
     with open(file, "r") as f:
-        configurations = yaml.safe_load(f)
+        configurations = yaml.unsafe_load(f)
         print('Done.\n')
         return configurations
 
@@ -124,11 +125,11 @@ else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
 # paths
-PATH_data = config['directories']['data']
-PATH_labitems = config['directories']['concepts']
-PATH_results = config['directories']['results']
-PATH_loinc = config['loinc']['location']
-PATH_related = config['loinc']['related']['location']
+PATH_data = config.directories.data
+PATH_labitems = config.directories.concepts
+PATH_results = config.directories.results
+PATH_loinc = config.ontology.location
+PATH_related = config.ontology.related.location
 
 if PATH_data == 'demo-data':
     print("Demo data selected.")
@@ -138,13 +139,13 @@ df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
 print("Data loaded.\n")
 
 df_loinc = load_data(os.path.join(PATH_loinc, 'LoincTableCore.csv'))
-df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(config['loinc']['loinc-class-type-value'])]
+df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(config.ontology.class_value)]
 df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
 df_loinc.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
               axis=1,
               inplace=True)
-print(f"LOINC codes (CLASSTYPE={config['loinc']['loinc-class-type-value']}, "
-      f"{config['loinc']['loinc-class-type-label']}) loaded and processed.\n")
+print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
+      f"{config.ontology.class_label}) loaded and processed.\n")
 
 labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
 
@@ -154,7 +155,7 @@ df_loinc_new = pd.DataFrame(
 df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 
 # load tf_idf matrix if chosen as scorer:
-if config['loinc']['related']['scorer'] == 'tf_idf':
+if config.ontology.related.scorer == 'tf_idf':
     with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
         ngrams = shlv['ngrams']
         __main__.ngrams = ngrams
@@ -173,11 +174,11 @@ df_labevents["charttime"] = df_labevents["charttime"].apply(
 
 # define labitem pairs for patient specific tabs
 pairs = []
-for each in config['graphs']['pairs'].values():
-    pairs.append((each['item_1'], each['item_2']))
-bg_pair = pairs[0]  # Default PO2 & PCO2, Blood       # Could add FiO2
-chem_pair = pairs[1]  # Default Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = pairs[2]  # Default Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
+for each in config.graphs.pairs.values():
+    pairs.append((each['label'], each['item_1'], each['item_2']))
+bg_pair = pairs[0][1:]  # Default PO2 & PCO2, Blood       # Could add FiO2
+chem_pair = pairs[1][1:]  # Default Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
+cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
 
 
 def description_card():
@@ -477,19 +478,19 @@ def generate_all_patients_graph(labitem, **kwargs):
             'xanchor': 'center',
             'yanchor': 'top',
             'font': dict(
-                family=kwargs['config']['title-font'],
-                size=kwargs['config']['title-size'],
-                color=kwargs['config']['title-color']
+                family=kwargs['config'].title_font,
+                size=kwargs['config'].title_size,
+                color=kwargs['config'].title_color
             )},
         xaxis_title=f"{labitemsid_dict[labitem]} ({units})",
         yaxis_title="",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         font=dict(
-            family=kwargs['config']['text-font'],
-            size=kwargs['config']['text-size'],
-            color=kwargs['config']['text-color']
+            family=kwargs['config'].text_font,
+            size=kwargs['config'].text_size,
+            color=kwargs['config'].text_color
         ),
-        height=kwargs['config']['height'],
+        height=kwargs['config'].height,
         margin=dict(l=50, r=50, t=90, b=20),
     )
     return fig
@@ -543,7 +544,7 @@ def generate_tab_graph(labitem, patient, template_labitems, **kwargs):
 
     fig.update_traces(mode="markers+lines", hovertemplate='Value: %{y:.1f}<extra></extra>')
 
-    if kwargs['config']['spikes']:
+    if kwargs['config'].spikes:
         fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
                          spikemode='across+marker')
         fig.update_yaxes(showspikes=True,
@@ -561,20 +562,20 @@ def generate_tab_graph(labitem, patient, template_labitems, **kwargs):
             'xanchor': 'center',
             'yanchor': 'top',
             'font': dict(
-                family=kwargs['config']['title-font'],
-                size=kwargs['config']['title-size'],
-                color=kwargs['config']['title-color']
+                family=kwargs['config'].title_font,
+                size=kwargs['config'].title_size,
+                color=kwargs['config'].title_color
             )},
         xaxis_title="Time (Hours)",
         font=dict(
-            family=kwargs['config']['text-font'],
-            size=kwargs['config']['text-size'],
-            color=kwargs['config']['text-color']
+            family=kwargs['config'].text_font,
+            size=kwargs['config'].text_size,
+            color=kwargs['config'].text_color
         ),
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
         margin=dict(l=50, r=0, t=90, b=20),
-        height=kwargs['config']['height']
+        height=kwargs['config'].height
     )
     return fig
 
@@ -626,7 +627,7 @@ def initialize_upload_field(config_exists):
 
 def initialize_all_patients_graph():
     labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    fig = generate_all_patients_graph(labitems[0]["value"], config=config['graphs']['kwargs'])
+    fig = generate_all_patients_graph(labitems[0]["value"], config=config.graphs.kwargs)
     return fig
 
 
@@ -637,7 +638,7 @@ def initialize_tab_graph(pair):
         return {}
     first_patient = patients[0]["value"]
     fig = generate_tab_graph(labitems[0]["value"], first_patient, template_labitems=pair,
-                             config=config['graphs']['kwargs'])
+                             config=config.graphs.kwargs)
     return fig
 
 
@@ -673,7 +674,7 @@ def initialize_patient_select():
 
 def initialize_annotate_select():
     loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
-    if config['temp']['test']:
+    if config.temp.test:
         return loinc_codes[2000:4000]
     return loinc_codes
 
@@ -899,7 +900,7 @@ def download_annotations(n_clicks):
     def write_archive(bytes_io):
         with ZipFile(bytes_io, mode="w") as zipObj:
             # Iterate over all the files in directory
-            for folderName, subfolders, filenames in os.walk(config['directories']['results']):
+            for folderName, subfolders, filenames in os.walk(config.directories.results):
                 for filename in filenames:
                     # Add file to zip
                     zipObj.writestr(filename, os.path.basename(filename))
@@ -1063,22 +1064,22 @@ def update_graph(labitem, patient, submit):
                 tabs.append(False)
         disabled = False
         if tabs[0]:
-            tab_bg = (generate_tab_graph(labitem, patient, bg_pair, config=config['graphs']['kwargs']), disabled)
+            tab_bg = (generate_tab_graph(labitem, patient, bg_pair, config=config.graphs.kwargs), disabled)
         else:
             tab_bg = ({}, True)
         if tabs[1]:
-            tab_chem = (generate_tab_graph(labitem, patient, chem_pair, config=config['graphs']['kwargs']), disabled)
+            tab_chem = (generate_tab_graph(labitem, patient, chem_pair, config=config.graphs.kwargs), disabled)
         else:
             tab_chem = ({}, True)
         if tabs[2]:
-            tab_cbc = (generate_tab_graph(labitem, patient, cbc_pair, config=config['graphs']['kwargs']), disabled)
+            tab_cbc = (generate_tab_graph(labitem, patient, cbc_pair, config=config.graphs.kwargs), disabled)
         else:
             tab_cbc = ({}, True)
-        tab_labitem = generate_all_patients_graph(labitem, config=config['graphs']['kwargs'])
+        tab_labitem = generate_all_patients_graph(labitem, config=config.graphs.kwargs)
 
         return tab_labitem, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
     return generate_all_patients_graph(labitem,
-                                       config=config['graphs']['kwargs']), {}, disabled, {}, disabled, {}, disabled
+                                       config=config.graphs.kwargs), {}, disabled, {}, disabled, {}, disabled
 
 
 @app.callback(
@@ -1163,11 +1164,11 @@ def update_related_datatable(annotation, submit):
 
     query = loinc_dict[annotation]
     choices = list(df_loinc_new['LONG_COMMON_NAME'])
-    if config['loinc']['related']['scorer'] == 'partial_ratio':
+    if config.ontology.related.scorer == 'partial_ratio':
         df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_loinc=df_loinc_new)
-    elif config['loinc']['related']['scorer'] == 'jaro_winkler':
+    elif config.ontology.related.scorer == 'jaro_winkler':
         df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_loinc=df_loinc_new)
-    elif config['loinc']['related']['scorer'] == 'tf_idf':
+    elif config.ontology.related.scorer == 'tf_idf':
         # NLP: tf_idf
         df_data = generateRelatedOntologies(query, choices, method='tf_idf',
                                             df_loinc=df_loinc_new,
@@ -1205,7 +1206,7 @@ def update_output(contents, filename, last_modified):
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         if 'yaml' in filename:
-            config = yaml.safe_load(decoded)
+            config = yaml.unsafe_load(decoded)
         else:
             raise ConfigurationFileError
     return None, "/"
@@ -1296,7 +1297,7 @@ def serve_layout():
                                                 figure=initialize_all_patients_graph()
                                             )
                                         ]),
-                                dcc.Tab(label=config['graphs']['pairs']['pair_one']['label'], id="blood_gas_tab",
+                                dcc.Tab(label=pairs[0][0], id="blood_gas_tab",
                                         disabled=initialize_tab(),
                                         style={'color': '#1a75f9'},
                                         selected_style={
@@ -1310,7 +1311,7 @@ def serve_layout():
                                                 figure=initialize_tab_graph(bg_pair)
                                             )
                                         ]),
-                                dcc.Tab(label=config['graphs']['pairs']['pair_two']['label'], id="chemistry_tab",
+                                dcc.Tab(label=pairs[1][0], id="chemistry_tab",
                                         disabled=initialize_tab(),
                                         style={'color': '#1a75f9'},
                                         selected_style={
@@ -1324,7 +1325,7 @@ def serve_layout():
                                                 figure=initialize_tab_graph(chem_pair)
                                             )
                                         ]),
-                                dcc.Tab(label=config['graphs']['pairs']['pair_three']['label'], id="cbc_tab",
+                                dcc.Tab(label=pairs[2][0], id="cbc_tab",
                                         disabled=initialize_tab(),
                                         style={'color': '#1a75f9'},
                                         selected_style={
