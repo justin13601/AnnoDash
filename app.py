@@ -148,6 +148,8 @@ df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
 df_loinc.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
               axis=1,
               inplace=True)
+if config.temp.five_percent_dataset:
+    df_loinc = df_loinc.iloc[2000:4000]
 print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
       f"{config.ontology.class_label}) loaded and processed.\n")
 
@@ -682,7 +684,7 @@ def initialize_patient_select():
 
 def initialize_annotate_select():
     loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
-    if config.temp.test:
+    if config.temp.five_percent_dataset:
         return loinc_codes[2000:4000]
     return loinc_codes
 
