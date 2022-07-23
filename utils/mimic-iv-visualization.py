@@ -79,7 +79,7 @@ def description_card():
 ######################################################################################################
 # path
 PATH_base = os.getcwd()
-PATH_data = os.path.join(PATH_base, "demo-data")
+PATH_data = os.path.join(PATH_base, "../demo-data")
 
 
 # load data

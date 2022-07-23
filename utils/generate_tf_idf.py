@@ -27,10 +27,10 @@ def load_config(file):
 
 # run
 if __name__ == "__main__":
-    config_file = 'config.yaml'
+    config_file = '../config.yaml'
     if os.path.exists(config_file):
         print('Configuration file found.')
-        config = load_config('config.yaml')
+        config = load_config('../config.yaml')
     else:
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
