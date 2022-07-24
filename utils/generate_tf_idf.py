@@ -20,7 +20,7 @@ from related_ontologies.related import ngrams
 def load_config(file):
     print(f'Loading {file}...')
     with open(file, "r") as f:
-        configurations = yaml.safe_load(f)
+        configurations = yaml.unsafe_load(f)
         print('Done.\n')
         return configurations
 
@@ -34,26 +34,27 @@ if __name__ == "__main__":
     else:
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
-    PATH_loinc = config['loinc']['location']
-    PATH_data = config['directories']['data']
-    df_loinc = pd.read_csv(os.path.join(PATH_loinc, 'LoincTableCore.csv'), dtype=object)
-    df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(1)]
-    df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
-    df_loinc.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
-                  axis=1,
-                  inplace=True)
-    print(f"LOINC codes (CLASSTYPE=1, Laboratory Terms Class) loaded and processed.\n")
+    PATH_base = '../'
+    PATH_ontology = os.path.join(PATH_base, config.ontology.location)
+    PATH_data = os.path.join(PATH_base, config.directories.data)
+    df_ontology = pd.read_csv(os.path.join(PATH_ontology, 'LoincTableCore.csv'), dtype=object)
+    df_ontology = df_ontology[df_ontology['CLASSTYPE'] == str(1)]
+    df_ontology.drop(df_ontology[df_ontology.STATUS != 'ACTIVE'].index, inplace=True)
+    df_ontology.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
+                     axis=1,
+                     inplace=True)
+    print(f"Ontology codes (CLASSTYPE=1, Laboratory Terms Class) loaded and processed.\n")
 
-    loinc_dict = pd.Series(df_loinc.LONG_COMMON_NAME.values, index=df_loinc.LOINC_NUM.values).to_dict()
-    df_loinc_new = pd.DataFrame(
-        {'LOINC_NUM': list(loinc_dict.keys()), 'LONG_COMMON_NAME': list(loinc_dict.values())})
-    df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
+    ontology_dict = pd.Series(df_ontology.LONG_COMMON_NAME.values, index=df_ontology.LOINC_NUM.values).to_dict()
+    df_ontology_new = pd.DataFrame(
+        {'LOINC_NUM': list(ontology_dict.keys()), 'LONG_COMMON_NAME': list(ontology_dict.values())})
+    df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 
     t1 = time.time()
-    loinc_names = list(df_loinc_new['LONG_COMMON_NAME'].unique())
+    ontology_names = list(df_ontology_new['LONG_COMMON_NAME'].unique())
 
     vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams)
-    tf_idf_matrix = vectorizer.fit_transform(loinc_names)
+    tf_idf_matrix = vectorizer.fit_transform(ontology_names)
 
     t = time.time() - t1
     print("Time:", t)
@@ -71,22 +72,22 @@ if __name__ == "__main__":
 
     # PICKLE
     # save matrix
-    # pickle.dump(tf_idf_matrix, open("LOINC_tf_idf_matrix_n=10.pkl", "wb"))
+    # pickle.dump(tf_idf_matrix, open("ontology_tf_idf_matrix_n=10.pkl", "wb"))
 
     # save vectorizer
-    # pickle.dump(vectorizer, open("LOINC_vectorizer_n=10.pkl", "wb"))
+    # pickle.dump(vectorizer, open("ontology_vectorizer_n=10.pkl", "wb"))
 
     # save vectorizer vocabulary
-    # pickle.dump(vectorizer.vocabulary_, open("LOINC_vectorizer_vocabulary_n=10.pkl", "wb"))
+    # pickle.dump(vectorizer.vocabulary_, open("ontology_vectorizer_vocabulary_n=10.pkl", "wb"))
 
     # upload matrix
-    # tf_idf_matrix = pickle.load(open("LOINC_tf_idf_matrix_n=10.pkl","rb"))
+    # tf_idf_matrix = pickle.load(open("ontology_tf_idf_matrix_n=10.pkl","rb"))
 
     # upload vectorizer
-    # vectorizer = pickle.load(open("LOINC_vectorizer_n=10.pkl", "rb"))
+    # vectorizer = pickle.load(open("ontology_vectorizer_n=10.pkl", "rb"))
 
     # upload vectorizer
     # vectorizer = TfidfVectorizer(min_df=1, analyzer=ngrams, vocabulary=pickle.load(
-    #     open(os.path.join(PATH_data, 'LOINC_vectorizer_vocabulary_n=10.pkl'), "rb")))
-    # vectorizer.fit_transform(list(df_loinc_new['LONG_COMMON_NAME'].unique()))
-    # tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'LOINC_tf_idf_matrix_n=10.pkl'), "rb"))
+    #     open(os.path.join(PATH_data, 'ontology_vectorizer_vocabulary_n=10.pkl'), "rb")))
+    # vectorizer.fit_transform(list(df_ontology_new['LONG_COMMON_NAME'].unique()))
+    # tf_idf_matrix = pickle.load(open(os.path.join(PATH_data, 'ontology_tf_idf_matrix_n=10.pkl'), "rb"))
