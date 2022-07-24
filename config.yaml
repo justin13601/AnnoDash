@@ -56,31 +56,6 @@ _fields:
         _type_safe: true
     _locked: false
     _type_safe: true
-  metadata: !!python/object:ml_collections.config_dict.config_dict.FrozenConfigDict
-    _configdict: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
-      _convert_dict: true
-      _fields:
-        labels: &id001 !!python/object:ml_collections.config_dict.config_dict.ConfigDict
-          _convert_dict: true
-          _fields:
-            app: dash-web
-          _locked: false
-          _type_safe: true
-        name: mimic-iv-dash-development
-      _locked: false
-      _type_safe: true
-    _convert_dict: true
-    _fields:
-      labels: !!python/object:ml_collections.config_dict.config_dict.FrozenConfigDict
-        _configdict: *id001
-        _convert_dict: true
-        _fields:
-          app: dash-web
-        _locked: false
-        _type_safe: true
-      name: mimic-iv-dash-development
-    _locked: false
-    _type_safe: true
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
@@ -98,14 +73,7 @@ _fields:
       version: 2.72
     _locked: false
     _type_safe: true
-  temp: !!python/object:ml_collections.config_dict.config_dict.FrozenConfigDict
-    _configdict: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
-      _convert_dict: true
-      _fields:
-        five_percent_dataset: false
-        mimic_iv_version: 2.0
-      _locked: false
-      _type_safe: true
+  temp: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
       five_percent_dataset: false
