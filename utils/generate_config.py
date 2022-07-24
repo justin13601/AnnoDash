@@ -52,23 +52,29 @@ cfg.graphs.kwargs.height = 375
 cfg.graphs.kwargs.spikes = True
 
 ########################################
-labels_dictionary = {
-    'app': 'dash-web'
-}
 
-metadata_dictionary = {
-    'name': 'mimic-iv-dash-development',
-    'labels': config_dict.FrozenConfigDict(labels_dictionary)
-}
+cfg.temp = config_dict.ConfigDict()
+cfg.temp.five_percent_dataset = False
+cfg.temp.mimic_iv_version = 2.0
 
-cfg.metadata = config_dict.FrozenConfigDict(metadata_dictionary)
-
-temp_dictionary = {
-    'five_percent_dataset': False,
-    'mimic_iv_version': 2.0
-}
-
-cfg.temp = config_dict.FrozenConfigDict(temp_dictionary)
+########################################
+# labels_dictionary = {
+#     'app': 'dash-web'
+# }
+#
+# metadata_dictionary = {
+#     'name': 'mimic-iv-dash-development',
+#     'labels': config_dict.FrozenConfigDict(labels_dictionary)
+# }
+#
+# cfg.metadata = config_dict.FrozenConfigDict(metadata_dictionary)
+#
+# temp_dictionary = {
+#     'test': True,
+#     'mimic_iv_version': 2.0
+# }
+#
+# cfg.temp = config_dict.FrozenConfigDict(temp_dictionary)
 ########################################
 
 
