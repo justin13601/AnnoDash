@@ -37,9 +37,7 @@ import pandas as pd
 import jaro
 import pickle
 import shelve
-import __main__
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
+from fuzzywuzzy import fuzz, process
 from ftfy import fix_text
 from google.cloud import bigquery
 
@@ -148,8 +146,6 @@ df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
 df_loinc.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
               axis=1,
               inplace=True)
-if config.temp.five_percent_dataset:
-    df_loinc = df_loinc.iloc[2000:4000]
 print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
       f"{config.ontology.class_label}) loaded and processed.\n")
 
@@ -164,7 +160,6 @@ df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
 if config.ontology.related.scorer == 'tf_idf':
     with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
         ngrams = shlv['ngrams']
-        __main__.ngrams = ngrams
         vectorizer = shlv['model']
         tf_idf_matrix = shlv['tf_idf_matrix']
 
