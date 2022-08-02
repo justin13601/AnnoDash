@@ -88,7 +88,7 @@ cfg.temp.mimic_iv_version = 2.0
 ########################################
 
 
-with open('../config2.yaml', 'w') as yaml_file:
+with open('../config.yaml', 'w') as yaml_file:
     yaml.dump(cfg, yaml_file)
 
 print(cfg)
