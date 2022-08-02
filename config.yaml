@@ -4,8 +4,20 @@ _fields:
   directories: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      concepts: demo-data
-      data: demo-data
+      concepts: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          filename: D_LABITEMS.csv
+          location: demo-data
+        _locked: false
+        _type_safe: true
+      data: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          filename: LABEVENTS.csv
+          location: demo-data
+        _locked: false
+        _type_safe: true
       results: results-json
     _locked: false
     _type_safe: true
@@ -20,7 +32,7 @@ _fields:
           text_color: Black
           text_font: verdana
           text_size: 12
-          title_color: Black
+          title_color: Red
           title_font: verdana
           title_size: 25
         _locked: false
@@ -59,25 +71,49 @@ _fields:
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      class_label: Laboratory Terms
-      class_value: 1
+      class_label: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: &id001 !!python/name:builtins.str ''
+        _ops: []
+        _required: false
+        _value: Laboratory Terms
+      class_value: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: !!python/name:builtins.int ''
+        _ops: []
+        _required: false
+        _value: 1
       location: demo-data
+      name: loinc
       related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
         _fields:
-          location: demo-data
+          location: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+            _field_type: *id001
+            _ops: []
+            _required: false
+            _value: demo-data
           scorer: tf_idf
         _locked: false
         _type_safe: true
-      type: Core
-      version: 2.72
+      version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: &id002 !!python/name:builtins.float ''
+        _ops: []
+        _required: false
+        _value: 2.72
     _locked: false
     _type_safe: true
   temp: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      five_percent_dataset: false
-      mimic_iv_version: 2.0
+      five_percent_dataset: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: !!python/name:builtins.bool ''
+        _ops: []
+        _required: false
+        _value: false
+      mimic_iv_version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: *id002
+        _ops: []
+        _required: false
+        _value: 2.0
     _locked: false
     _type_safe: true
 _locked: false
