@@ -28,16 +28,6 @@ def load_data(path):
     return df_data
 
 
-def big_query(query):
-    client = bigquery.Client()
-    query_job = client.query(query)  # API request
-    print("The query data:")
-    for row in query_job:
-        # row values can be accessed by field name or index
-        print("name={}, count={}".format(row[0], row["total_people"]))
-    return
-
-
 if __name__ == "__main__":
     df_labitems = load_data('../demo-data/D_LABITEMS.csv')
     df_labevents = load_data('../demo-data/LABEVENTS.csv')
