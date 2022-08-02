@@ -30,10 +30,10 @@ from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
 from flask import Flask, send_file
 
-import scipy
-import scipy.sparse as sp
 import numpy as np
 import pandas as pd
+import scipy
+import scipy.sparse as sp
 import jaro
 import pickle
 import shelve
@@ -70,7 +70,7 @@ app = dash.Dash(
     ],
 )
 
-app.title = "Clinical Laboratory Data Dashboard"
+app.title = "Clinical Data Annotation Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
 
@@ -80,17 +80,50 @@ app.config.suppress_callback_exceptions = True
 ######################################################################################################
 # callback_manager.attach_to_app(app)
 
+class ScorerNotAvailable(Exception):
+    pass
 
-# load data
+
+class ConfigurationFileError(Exception):
+    pass
+
+
+class OntologyNotSupported(Exception):
+    pass
+
+
 def load_data(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
-    if path == os.path.join(PATH_data, 'LoincTableCore.csv'):
-        df_data = pd.read_csv(path, dtype=object)
-    else:
-        df_data = pd.read_csv(path)
+    items = pd.read_csv(path)
     print('Done.\n')
-    return df_data
+    return items
+
+
+# load data
+def load_ontology(ontology):
+    if ontology == 'loinc':
+        path = os.path.join(PATH_ontology, 'LoincTableCore.csv')
+        filename = os.path.basename(path).strip()
+        print(f'Loading {filename}...')
+        data = pd.read_csv(path, dtype=object)
+        data = data[data['CLASSTYPE'] == str(config.ontology.class_value)]
+        data.drop(data[data.STATUS != 'ACTIVE'].index, inplace=True)
+        data.drop(
+            ['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
+            axis=1,
+            inplace=True)
+        print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
+              f"{config.ontology.class_label}) loaded and processed.\n")
+    elif ontology == 'snomed':
+        path = os.path.join(PATH_ontology, 'sct2_Concept_Snapshot_US1000124_20220301.txt')
+        filename = os.path.basename(path).strip()
+        print(f'Loading {filename}...')
+        data = pd.read_csv(path, names=['id', 'description'], skiprows=1, sep=',')
+    else:
+        raise OntologyNotSupported
+    print('Done.\n')
+    return data
 
 
 def load_config(file):
@@ -103,14 +136,14 @@ def load_config(file):
 
 def load_annotations(path):
     annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
-    annotated = [int(each_labitem.strip('.json')) for each_labitem in annotation_files]
-    skipped_list = []
+    annotated = [int(each_item.strip('.json')) for each_item in annotation_files]
+    skipped = []
     for each_file in annotation_files:
         with open(os.path.join(path, each_file)) as jsonFile:
             data = json.load(jsonFile)
-            if 'skipped' in data['loincid'].lower().strip():
-                skipped_list.append(int(each_file.strip('.json')))
-    return annotated, skipped_list
+            if 'skipped' in data['annotatedid'].lower().strip():
+                skipped.append(int(each_file.strip('.json')))
+    return annotated, skipped
 
 
 def download_annotation(annotation):
@@ -127,34 +160,27 @@ else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
 # paths
-PATH_data = config.directories.data
-PATH_labitems = config.directories.concepts
+PATH_data = config.directories.data.location
+PATH_items = config.directories.concepts.location
 PATH_results = config.directories.results
-PATH_loinc = config.ontology.location
+PATH_ontology = config.ontology.location
 PATH_related = config.ontology.related.location
 
-if PATH_data == 'demo-data':
+if 'demo-data' in PATH_data:
     print("Demo data selected.")
 
-df_labitems = load_data(os.path.join(PATH_labitems, 'D_LABITEMS.csv'))
-df_labevents = load_data(os.path.join(PATH_data, 'LABEVENTS.csv'))
-print("Data loaded.\n")
+df_items = load_data(os.path.join(PATH_items, config.directories.concepts.filename))
+df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
+print("Data & items loaded.\n")
 
-df_loinc = load_data(os.path.join(PATH_loinc, 'LoincTableCore.csv'))
-df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(config.ontology.class_value)]
-df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
-df_loinc.drop(['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
-              axis=1,
-              inplace=True)
-print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
-      f"{config.ontology.class_label}) loaded and processed.\n")
+df_ontology = load_ontology(ontology=config.ontology.name)
 
-labitemsid_dict = pd.Series(df_labitems.label.values, index=df_labitems.itemid.values).to_dict()
+itemsid_dict = pd.Series(df_items.label.values, index=df_items.itemid.values).to_dict()
+ontology_dict = pd.Series(df_ontology.LONG_COMMON_NAME.values, index=df_ontology.LOINC_NUM.values).to_dict()
 
-loinc_dict = pd.Series(df_loinc.LONG_COMMON_NAME.values, index=df_loinc.LOINC_NUM.values).to_dict()
-df_loinc_new = pd.DataFrame(
-    {'LOINC_NUM': list(loinc_dict.keys()), 'LONG_COMMON_NAME': list(loinc_dict.values())})
-df_loinc_new = df_loinc_new.reset_index().rename(columns={"index": "id"})
+df_ontology_new = pd.DataFrame(
+    {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
+df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 
 # load tf_idf matrix if chosen as scorer:
 if config.ontology.related.scorer == 'tf_idf':
@@ -164,16 +190,16 @@ if config.ontology.related.scorer == 'tf_idf':
         tf_idf_matrix = shlv['tf_idf_matrix']
 
 annotated_list, skipped_list = load_annotations(PATH_results)
-unannotated_list = list(set(labitemsid_dict.keys()) - set(annotated_list))
+unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
 
 # Date
 # Format charttime
-df_labevents["charttime"] = df_labevents["charttime"].apply(
+df_events["charttime"] = df_events["charttime"].apply(
     lambda x: dt.strptime(x, "%Y-%m-%d %H:%M:%S")
 )  # String -> Datetime
 
-# define labitem pairs for patient specific tabs
+# define item pairs for patient specific tabs
 pairs = []
 for each in config.graphs.pairs.values():
     pairs.append((each['label'], each['item_1'], each['item_2']))
@@ -229,11 +255,11 @@ def generate_control_card():
                 ]
             ),
             html.Div(
-                id='labitem-copy-outer',
+                id='item-copy-outer',
                 hidden=False,
                 children=[
                     dcc.Clipboard(
-                        id='labitem-copy',
+                        id='item-copy',
                         title="Copy Lab Measurement",
                         style={
                             "color": "#c9ddee",
@@ -247,11 +273,11 @@ def generate_control_card():
             ),
             html.P("Select Lab Measurement:"),
             dcc.Dropdown(
-                id="labitem-select",
+                id="item-select",
                 clearable=False,
-                value=initialize_labitem_select()[1],
+                value=initialize_item_select()[1],
                 style={"border-radius": 0},
-                options=initialize_labitem_select()[0],
+                options=initialize_item_select()[0],
             ),
             html.Br(),
             html.Div(
@@ -356,10 +382,10 @@ def generate_control_card():
                                                               columns=[
                                                                   {'name': "",
                                                                    'id': 'RELEVANCE'},
-                                                                  {'name': "LOINC_NUM",
-                                                                   'id': 'LOINC_NUM'},
-                                                                  {'name': "LONG_COMMON_NAME",
-                                                                   'id': 'LONG_COMMON_NAME'}
+                                                                  {'name': "CODE",
+                                                                   'id': 'CODE'},
+                                                                  {'name': "LABEL",
+                                                                   'id': 'LABEL'}
                                                               ],
                                                               sort_action='native',
                                                               style_data={
@@ -386,7 +412,7 @@ def generate_control_card():
                                                                       'border': '1px solid lightgray'
                                                                   },
                                                                   {
-                                                                      'if': {'column_id': 'LOINC_NUM'},
+                                                                      'if': {'column_id': 'CODE'},
                                                                       'width': '30%'
                                                                   },
                                                               ],
@@ -461,23 +487,37 @@ def generate_control_card():
     )
 
 
-def generate_all_patients_graph(labitem, **kwargs):
-    table = df_labevents.query(f'itemid == {labitem}')
-    table.replace(np.inf, np.nan)
-    table.dropna(subset=['valuenum'], inplace=True)
+def generate_all_patients_graph(item, **kwargs):
+    table = df_events.query(f'itemid == {item}')
     if table.empty:
         return {}
 
-    hist_data = [list(table['valuenum'])]
-    if hist_data == [[]]:
-        return {}
-    units = list(table['valueuom'])[0]
-    group_labels = [f"{labitemsid_dict[labitem]} (%)"]
-    fig = ff.create_distplot(hist_data, group_labels, colors=['rgb(44,140,255)'])
-    fig.update_layout(
-        title={
-            'text': f"{labitemsid_dict[labitem]}<br><sup>"
-                    f"{list(df_labitems.query(f'itemid == {labitem}').iloc[:, 2:].agg(', '.join, axis=1))[0]}</sup>",
+    if table['valuenum'].isnull().values.any():  # text data
+        table['value'] = table['value'].str.upper()
+        table = table.groupby(['value'])['value'].count()
+        df_data = pd.DataFrame(table)
+        units = ''
+        fig = px.bar(df_data, x=df_data.index, y="value", color="value")
+        fig.update_traces(marker_color='rgb(100,169,252)', hovertemplate=None)
+        ylabel = 'Count'
+    else:  # numerical data
+        table.replace(np.inf, np.nan)
+        table.dropna(subset=['valuenum'], inplace=True)
+        hist_data = [list(table['valuenum'])]
+        if hist_data == [[]]:
+            return {}
+        units = f"({list(table['valueuom'])[0]})"
+        group_labels = [f"{itemsid_dict[item]} (%)"]
+        fig = ff.create_distplot(hist_data, group_labels, colors=['rgb(44,140,255)'])
+        ylabel = ''
+
+    df_temp = df_items.query(f'itemid == {item}').dropna(axis=1, how='all')
+    if len(df_temp.columns) > 2:
+        row_dict = df_items.query(f'itemid == {item}').iloc[:, 2:].to_dict(orient='records')[0]
+        metadata = ', '.join([f'{key.capitalize()}: {value}' for key, value in row_dict.items()])
+        title_template = {
+            'text': f"{itemsid_dict[item]}<br><sup>"
+                    f"{metadata}</sup>",
             'y': 0.905,
             'x': 0.5,
             'xanchor': 'center',
@@ -486,9 +526,23 @@ def generate_all_patients_graph(labitem, **kwargs):
                 family=kwargs['config'].title_font,
                 size=kwargs['config'].title_size,
                 color=kwargs['config'].title_color
-            )},
-        xaxis_title=f"{labitemsid_dict[labitem]} ({units})",
-        yaxis_title="",
+            )}
+    else:
+        title_template = {
+            'text': f"{itemsid_dict[item]}",
+            'y': 0.95,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'font': dict(
+                family=kwargs['config'].title_font,
+                size=kwargs['config'].title_size,
+                color=kwargs['config'].title_color
+            )}
+    fig.update_layout(
+        title=title_template,
+        xaxis_title=f"{itemsid_dict[item]} {units}",
+        yaxis_title=ylabel,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         font=dict(
             family=kwargs['config'].text_font,
@@ -501,48 +555,48 @@ def generate_all_patients_graph(labitem, **kwargs):
     return fig
 
 
-def generate_tab_graph(labitem, patient, template_labitems, **kwargs):
-    table_labitem_1 = df_labevents.query(f'itemid == {template_labitems[0]}')
-    table_labitem_2 = df_labevents.query(f'itemid == {template_labitems[1]}')
-    table_labitem_target = df_labevents.query(f'itemid == {labitem}')
-    table_labitem_patient_1 = table_labitem_1.query(f'subject_id == {patient}')
-    table_labitem_patient_2 = table_labitem_2.query(f'subject_id == {patient}')
-    table_labitem_patient_target = table_labitem_target.query(f'subject_id == {patient}')
-    units_1 = list(table_labitem_1['valueuom'])[0]
-    units_2 = list(table_labitem_2['valueuom'])[0]
-    units_target = list(table_labitem_target['valueuom'])[0]
+def generate_tab_graph(item, patient, template_items, **kwargs):
+    table_item_1 = df_events.query(f'itemid == {template_items[0]}')
+    table_item_2 = df_events.query(f'itemid == {template_items[1]}')
+    table_item_target = df_events.query(f'itemid == {item}')
+    table_item_patient_1 = table_item_1.query(f'subject_id == {patient}')
+    table_item_patient_2 = table_item_2.query(f'subject_id == {patient}')
+    table_item_patient_target = table_item_target.query(f'subject_id == {patient}')
+    units_1 = list(table_item_1['valueuom'])[0]
+    units_2 = list(table_item_2['valueuom'])[0]
+    units_target = list(table_item_target['valueuom'])[0]
 
-    if table_labitem_patient_1.empty or table_labitem_patient_2.empty or table_labitem_patient_target.empty:
+    if table_item_patient_1.empty or table_item_patient_2.empty or table_item_patient_target.empty:
         return {}
 
-    start_date = min(min(table_labitem_patient_target['charttime']),
-                     min(table_labitem_patient_target['charttime'])) - timedelta(hours=12)
+    start_date = min(min(table_item_patient_target['charttime']),
+                     min(table_item_patient_target['charttime'])) - timedelta(hours=12)
     end_date = start_date + timedelta(hours=96) + timedelta(hours=12)
 
-    mask_1 = (table_labitem_patient_1['charttime'] > start_date) & (table_labitem_patient_1['charttime'] <= end_date)
-    table_labitem_patient_1 = table_labitem_patient_1.loc[mask_1]
+    mask_1 = (table_item_patient_1['charttime'] > start_date) & (table_item_patient_1['charttime'] <= end_date)
+    table_item_patient_1 = table_item_patient_1.loc[mask_1]
 
-    mask_2 = (table_labitem_patient_2['charttime'] > start_date) & (table_labitem_patient_2['charttime'] <= end_date)
-    table_labitem_patient_2 = table_labitem_patient_2.loc[mask_2]
+    mask_2 = (table_item_patient_2['charttime'] > start_date) & (table_item_patient_2['charttime'] <= end_date)
+    table_item_patient_2 = table_item_patient_2.loc[mask_2]
 
-    mask_plot = (table_labitem_patient_target['charttime'] > start_date) & (
-            table_labitem_patient_target['charttime'] <= end_date)
-    table_labitem_patient_target = table_labitem_patient_target.loc[mask_plot]
+    mask_plot = (table_item_patient_target['charttime'] > start_date) & (
+            table_item_patient_target['charttime'] <= end_date)
+    table_item_patient_target = table_item_patient_target.loc[mask_plot]
 
-    series_names = [labitemsid_dict[template_labitems[0]], labitemsid_dict[template_labitems[1]],
-                    labitemsid_dict[labitem]]
+    series_names = [itemsid_dict[template_items[0]], itemsid_dict[template_items[1]],
+                    itemsid_dict[item]]
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
-        go.Scatter(x=table_labitem_patient_1["charttime"], y=table_labitem_patient_1["valuenum"],
+        go.Scatter(x=table_item_patient_1["charttime"], y=table_item_patient_1["valuenum"],
                    name=f"{series_names[0]} ({units_1})"), secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(x=table_labitem_patient_2["charttime"], y=table_labitem_patient_2["valuenum"],
+        go.Scatter(x=table_item_patient_2["charttime"], y=table_item_patient_2["valuenum"],
                    name=f"{series_names[1]} ({units_2})"), secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(x=table_labitem_patient_target["charttime"], y=table_labitem_patient_target["valuenum"],
+        go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["valuenum"],
                    name=f"{series_names[2]} ({units_target})"),
         secondary_y=True,
     )
@@ -561,7 +615,7 @@ def generate_tab_graph(labitem, patient, template_labitems, **kwargs):
 
     fig.update_layout(
         title={
-            'text': f"{labitemsid_dict[labitem]}",
+            'text': f"{itemsid_dict[item]}",
             'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
@@ -585,11 +639,11 @@ def generate_tab_graph(labitem, patient, template_labitems, **kwargs):
     return fig
 
 
-def query_patients(labitem):
-    list_of_labitems = [labitem, bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
+def query_patients(item):
+    list_of_items = [item, bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
     list_of_patient_sets = []
-    for each_labitem in list_of_labitems:
-        table = df_labevents.query(f'itemid == {each_labitem}')
+    for each_item in list_of_items:
+        table = df_events.query(f'itemid == {each_item}')
         list_of_patient_sets.append(set(table['subject_id'].unique()))
 
     map_reduce_list = []
@@ -631,87 +685,88 @@ def initialize_upload_field(config_exists):
 
 
 def initialize_all_patients_graph():
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    fig = generate_all_patients_graph(labitems[0]["value"], config=config.graphs.kwargs)
+    items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
+    fig = generate_all_patients_graph(items[0]["value"], config=config.graphs.kwargs)
     return fig
 
 
 def initialize_tab_graph(pair):
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    patients = query_patients(labitems[0]["value"])
+    items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
+    patients = query_patients(items[0]["value"])
     if not patients[0]:
         return {}
     first_patient = patients[0]["value"]
-    fig = generate_tab_graph(labitems[0]["value"], first_patient, template_labitems=pair,
+    fig = generate_tab_graph(items[0]["value"], first_patient, template_items=pair,
                              config=config.graphs.kwargs)
     return fig
 
 
 def initialize_tab():
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    patients = query_patients(labitems[0]["value"])
+    items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
+    patients = query_patients(items[0]["value"])
     if not patients[0]:
         return True
     first_patient = patients[0]["value"]
-    disabled = update_graph(labitems[0]["value"], first_patient, submit=0)[2]
+    disabled = update_graph(items[0]["value"], first_patient, submit=0)[2]
     return disabled
 
 
-def initialize_labitem_select():
+def initialize_item_select():
     options = [
-        {"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} if each_id in unannotated_list else
-        {"label": f'{each_id}: {labitemsid_dict[each_id]} ✔', "value": each_id} if each_id in list(
+        {"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} if each_id in unannotated_list else
+        {"label": f'{each_id}: {itemsid_dict[each_id]} ✔', "value": each_id} if each_id in list(
             set(annotated_list) - set(skipped_list)) else
-        {"label": f'{each_id}: {labitemsid_dict[each_id]} ⚠', "value": each_id} for each_id in labitemsid_dict
+        {"label": f'{each_id}: {itemsid_dict[each_id]} ⚠', "value": each_id} for each_id in itemsid_dict
     ]
-    first_labitem = unannotated_list[0]
-    return options, first_labitem
+    first_item = unannotated_list[0]
+    return options, first_item
 
 
 def initialize_patient_select():
-    labitems = [{"label": f'{each_id}: {labitemsid_dict[each_id]}', "value": each_id} for each_id in labitemsid_dict]
-    options = query_patients(labitems[0]["value"])
+    items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in itemsid_dict]
+    options = query_patients(items[0]["value"])
     if not options:
         return [], None
-    first_labitem = options[0]["value"]
-    return options, first_labitem
+    first_item = options[0]["value"]
+    return options, first_item
 
 
 def initialize_annotate_select():
-    loinc_codes = [{"label": f'{each_code}: {loinc_dict[each_code]}', "value": each_code} for each_code in loinc_dict]
+    ontology_codes = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for each_code in ontology_dict]
     if config.temp.five_percent_dataset:
-        return loinc_codes[2000:4000]
-    return loinc_codes
+        return ontology_codes[2000:4000]
+    return ontology_codes
 
 
-def annotate(labitem, annotation, skipped=False):
+def annotate(item, annotation, skipped=False):
     if skipped:
-        labitem_dict = {'itemid': labitem,
-                        'label': labitemsid_dict[labitem],
-                        'loincid': f'Skipped: {annotation}',
-                        'loinclabel': 'n/a'
-                        }
+        item_dict = {'itemid': item,
+                     'label': itemsid_dict[item],
+                     'ontology': config.ontology.name,
+                     'annotatedid': f'Skipped: {annotation}',
+                     'annotatedlabel': 'n/a'
+                     }
     else:
-        # labitem_row = df_labitems.query(f'itemid == {labitem}')
-        labitem_dict = {'itemid': labitem,
-                        'label': labitemsid_dict[labitem],
-                        # 'mimic_loinc': labitem_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-labitems
-                        'loincid': annotation,
-                        'loinclabel': loinc_dict[annotation]
-                        }
-    filename = os.path.join(PATH_results, f"{labitem}.json")
+        # item_row = df_items.query(f'itemid == {item}')
+        item_dict = {'itemid': item,
+                     'label': itemsid_dict[item],
+                     # 'mimic_loinc': item_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-items
+                     'annotatedid': annotation,
+                     'annotatedlabel': ontology_dict[annotation]
+                     }
+    filename = os.path.join(PATH_results, f"{item}.json")
     with open(filename, "w") as outfile:
-        json.dump(labitem_dict, outfile, indent=4)
+        json.dump(item_dict, outfile, indent=4)
     return
 
 
-def update_labitem_options(options, labitem, skipped=False):
-    new_value = labitem
-    value_location = list(labitemsid_dict.keys()).index(labitem)
+def update_item_options(options, item, skipped=False):
+    new_value = item
+    value_location = list(itemsid_dict.keys()).index(item)
     if skipped:
-        options[value_location]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ⚠'
+        options[value_location]['label'] = f'{item}: {itemsid_dict[item]} ⚠'
     else:
-        options[value_location]['label'] = f'{labitem}: {labitemsid_dict[labitem]} ✔'
+        options[value_location]['label'] = f'{item}: {itemsid_dict[item]} ✔'
     if unannotated_list:
         for i in range(value_location, len(options)):
             if i == len(options) - 1:
@@ -731,30 +786,22 @@ def update_labitem_options(options, labitem, skipped=False):
     return options, new_value
 
 
-class ScorerNotAvailable(Exception):
-    pass
-
-
-class ConfigurationFileError(Exception):
-    pass
-
-
 ######################################################################################################
 # CALLBACKS #
 ######################################################################################################
 @app.callback(
-    Output("labitem-copy", "content"),
+    Output("item-copy", "content"),
     [
-        Input("labitem-copy", "n_clicks"),
+        Input("item-copy", "n_clicks"),
     ],
     [
-        State("labitem-select", "value"),
+        State("item-select", "value"),
     ]
 )
-def copy_labitem(_, labitem):
-    if labitem is None:
+def copy_item(_, item):
+    if item is None:
         raise PreventUpdate
-    clipboard = f'{labitem}: {labitemsid_dict[labitem]}'
+    clipboard = f'{item}: {itemsid_dict[item]}'
     return clipboard
 
 
@@ -785,7 +832,7 @@ def copy_patient(_, patient):
 def copy_annotation(_, annotation):
     if annotation is None:
         raise PreventUpdate
-    clipboard = loinc_dict[annotation]
+    clipboard = ontology_dict[annotation]
     return clipboard
 
 
@@ -804,41 +851,41 @@ def copy_related_datatable(_, data):
 
 
 @app.callback(
-    Output("loinc-copy", "content"),
+    Output("ontology-copy", "content"),
     [
-        Input("loinc-copy", "n_clicks"),
+        Input("ontology-copy", "n_clicks"),
     ],
     [
-        State("loinc-datatable", "data"),
+        State("ontology-datatable", "data"),
     ]
 )
-def copy_loinc_datatable(_, data):
+def copy_ontology_datatable(_, data):
     dff = pd.DataFrame(data)
     return dff.to_csv(index=False)
 
 
 @app.callback(
-    Output("labitem-copy-outer", "hidden"),
+    Output("item-copy-outer", "hidden"),
     Output("patient-copy-outer", "hidden"),
     Output("annotate-copy-outer", "hidden"),
     [
-        Input("labitem-select", "value"),
+        Input("item-select", "value"),
         Input("patient-select", "value"),
         Input("annotate-select", "value"),
     ]
 )
-def show_hide_clipboard(labitem, patient, annotation):
-    show_labitem = True
+def show_hide_clipboard(item, patient, annotation):
+    show_item = True
     show_patient = True
     show_annotate = True
-    if labitem:
-        show_labitem = False
+    if item:
+        show_item = False
     if patient:
         show_patient = False
     if annotation:
         show_annotate = False
 
-    return show_labitem, show_patient, show_annotate
+    return show_item, show_patient, show_annotate
 
 
 @app.callback(
@@ -921,37 +968,37 @@ def download_annotations(n_clicks):
     Output("confirm-replace", "displayed"),
     Output("related-datatable", "active_cell"),
     Output("related-datatable", "selected_cells"),
-    Output("loinc-datatable", "active_cell"),
-    Output("loinc-datatable", "selected_cells"),
+    Output("ontology-datatable", "active_cell"),
+    Output("ontology-datatable", "selected_cells"),
     [
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
-        Input("loinc-datatable", "active_cell"),
+        Input("ontology-datatable", "active_cell"),
         Input("annotate-select", "value"),
     ],
     [
-        State("labitem-select", "value"),
+        State("item-select", "value"),
         # State('annotate-text', 'value')
-        State("loinc-datatable", "data"),
+        State("ontology-datatable", "data"),
         State("skip-radio-items", "value"),
         State("skip-other-text", "value"),
     ]
 )
-def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, labitem, curr_data, skip_reason,
+def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, item, curr_data, skip_reason,
                      other_reason):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
-        annotate(labitem, annotation)
+        annotate(item, annotation)
         return '', False, None, [], None, []
     elif triggered_id == 'skip-btn.n_clicks':
         if skip_reason == 'Other':
-            annotate(labitem, other_reason, skipped=True)
+            annotate(item, other_reason, skipped=True)
         else:
-            annotate(labitem, skip_reason, skipped=True)
+            annotate(item, skip_reason, skipped=True)
         return '', False, None, [], None, []
-    elif triggered_id == 'loinc-datatable.active_cell':
+    elif triggered_id == 'ontology-datatable.active_cell':
         if replace_annotation['row'] == 1:
-            new_annotation = curr_data[replace_annotation['row']]['LOINC_NUM']
+            new_annotation = list(curr_data[replace_annotation['row']].values())[0]
             return new_annotation, False, None, [], None, []
         else:
             raise PreventUpdate
@@ -965,15 +1012,15 @@ def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotat
 
 
 @app.callback(
-    Output("labitem-select", "options"),
-    Output("labitem-select", "value"),
+    Output("item-select", "options"),
+    Output("item-select", "value"),
     [
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
     ],
     [
-        State("labitem-select", "options"),
-        State("labitem-select", "value"),
+        State("item-select", "options"),
+        State("item-select", "value"),
     ]
 )
 def update_lab_measurement_dropdown(submit_n_clicks, skip_n_clicks, options, value):
@@ -984,12 +1031,12 @@ def update_lab_measurement_dropdown(submit_n_clicks, skip_n_clicks, options, val
     if triggered_id == 'submit-btn.n_clicks':
         if value in unannotated_list:
             unannotated_list.remove(value)
-        options, new_value = update_labitem_options(options, value)
+        options, new_value = update_item_options(options, value)
     elif triggered_id == 'skip-btn.n_clicks':
         if value in unannotated_list:
             unannotated_list.remove(value)
         skipped_list.append(value)
-        options, new_value = update_labitem_options(options, value, skipped=True)
+        options, new_value = update_item_options(options, value, skipped=True)
     return options, new_value
 
 
@@ -998,20 +1045,23 @@ def update_lab_measurement_dropdown(submit_n_clicks, skip_n_clicks, options, val
     Output("patient-select", "disabled"),
     Output("patient-select", "value"),
     [
-        Input("labitem-select", "value"),
+        Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_patient_dropdown(labitem, submit):
+def update_patient_dropdown(item, submit):
     options = []
     disabled = True
 
-    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    # triggered_id = dash.callback_context.triggered[0]['prop_id']
     # if triggered_id == 'next-btn.n_clicks':
     #     return
 
-    if labitem:
-        options = query_patients(labitem)
+    if item:
+        table = df_events.query(f'itemid == {item}')
+        if table['valuenum'].isnull().values.any():
+            return options, disabled, None
+        options = query_patients(item)
         disabled = False
         if options:
             first_patient = options[0]["value"]
@@ -1042,50 +1092,50 @@ def update_tabs_view(patient):
     Output("cbc_graph", "figure"),
     Output("cbc_tab", "disabled"),
     [
-        Input("labitem-select", "value"),
+        Input("item-select", "value"),
         Input("patient-select", "value"),
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_graph(labitem, patient, submit):
+def update_graph(item, patient, submit):
     disabled = True
 
-    if labitem is None:
+    if item is None:
         return {}, {}, disabled, {}, disabled, {}, disabled
 
     if patient:
-        list_of_labitems = [bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
-        labitem_exists = []
+        list_of_items = [bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
+        item_exists = []
         tabs = []
-        for each_labitem in list_of_labitems:
-            table = df_labevents.query(f'itemid == {each_labitem}')
-            patients_with_labitem = set(table['subject_id'].unique())
-            if patient in patients_with_labitem:
-                labitem_exists.append(True)
+        for each_item in list_of_items:
+            table = df_events.query(f'itemid == {each_item}')
+            patients_with_item = set(table['subject_id'].unique())
+            if patient in patients_with_item:
+                item_exists.append(True)
             else:
-                labitem_exists.append(False)
-        for i in range(0, len(labitem_exists), 2):
-            if labitem_exists[i] and labitem_exists[i + 1]:
+                item_exists.append(False)
+        for i in range(0, len(item_exists), 2):
+            if item_exists[i] and item_exists[i + 1]:
                 tabs.append(True)
             else:
                 tabs.append(False)
         disabled = False
         if tabs[0]:
-            tab_bg = (generate_tab_graph(labitem, patient, bg_pair, config=config.graphs.kwargs), disabled)
+            tab_bg = (generate_tab_graph(item, patient, bg_pair, config=config.graphs.kwargs), disabled)
         else:
             tab_bg = ({}, True)
         if tabs[1]:
-            tab_chem = (generate_tab_graph(labitem, patient, chem_pair, config=config.graphs.kwargs), disabled)
+            tab_chem = (generate_tab_graph(item, patient, chem_pair, config=config.graphs.kwargs), disabled)
         else:
             tab_chem = ({}, True)
         if tabs[2]:
-            tab_cbc = (generate_tab_graph(labitem, patient, cbc_pair, config=config.graphs.kwargs), disabled)
+            tab_cbc = (generate_tab_graph(item, patient, cbc_pair, config=config.graphs.kwargs), disabled)
         else:
             tab_cbc = ({}, True)
-        tab_labitem = generate_all_patients_graph(labitem, config=config.graphs.kwargs)
+        tab_item = generate_all_patients_graph(item, config=config.graphs.kwargs)
 
-        return tab_labitem, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
-    return generate_all_patients_graph(labitem,
+        return tab_item, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
+    return generate_all_patients_graph(item,
                                        config=config.graphs.kwargs), {}, disabled, {}, disabled, {}, disabled
 
 
@@ -1108,7 +1158,7 @@ def show_related_outer(annotation):
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
-        Input("loinc-datatable", "active_cell"),
+        Input("ontology-datatable", "active_cell"),
     ]
 )
 def reset_related_datatable_page(annotation, _, __, ___):
@@ -1117,16 +1167,16 @@ def reset_related_datatable_page(annotation, _, __, ___):
         return 0
     elif triggered_id == 'skip-btn.n_clicks':
         return 0
-    elif triggered_id == 'loinc-datatable.active_cell':
+    elif triggered_id == 'ontology-datatable.active_cell':
         return 0
     if not annotation:
         return 0
 
 
 @app.callback(
-    Output("loinc-results-outer", "hidden"),
-    Output("loinc-datatable", "data"),
-    Output("loinc-datatable", "columns"),
+    Output("ontology-results-outer", "hidden"),
+    Output("ontology-datatable", "data"),
+    Output("ontology-datatable", "columns"),
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
@@ -1136,17 +1186,17 @@ def reset_related_datatable_page(annotation, _, __, ___):
         State("related-datatable", "data"),
     ]
 )
-def update_loinc_datatable(annotation, submit, related, curr_data):
+def update_ontology_datatable(annotation, submit, related, curr_data):
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or not annotation:
         return True, None, []
-    df_data = df_loinc.loc[df_loinc['LOINC_NUM'] == annotation]
+    df_data = df_ontology.loc[df_ontology['LOINC_NUM'] == annotation]
     data = df_data.to_dict('records')
     columns = [{"name": i, "id": i} for i in df_data.columns]
     if related:
-        df_data = pd.concat([df_data, df_loinc.loc[
-            df_loinc['LOINC_NUM'] == [each_key for each_key in curr_data if each_key['id'] == related['row_id']][0][
-                'LOINC_NUM']]])
+        df_data = pd.concat([df_data, df_ontology.loc[
+            df_ontology['LOINC_NUM'] == [each_key for each_key in curr_data if each_key['id'] == related['row_id']][0][
+                'CODE']]])
         data = df_data.to_dict('records')
     return False, data, columns
 
@@ -1169,16 +1219,16 @@ def update_related_datatable(annotation, submit):
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
         return True, None, False, False
 
-    query = loinc_dict[annotation]
-    choices = list(df_loinc_new['LONG_COMMON_NAME'])
+    query = ontology_dict[annotation]
+    choices = list(df_ontology_new['LABEL'])
     if config.ontology.related.scorer == 'partial_ratio':
-        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_loinc=df_loinc_new)
+        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology_new)
     elif config.ontology.related.scorer == 'jaro_winkler':
-        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_loinc=df_loinc_new)
+        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology_new)
     elif config.ontology.related.scorer == 'tf_idf':
         # NLP: tf_idf
         df_data = generateRelatedOntologies(query, choices, method='tf_idf',
-                                            df_loinc=df_loinc_new,
+                                            df_ontology=df_ontology_new,
                                             vectorizer=vectorizer,
                                             tf_idf_matrix=tf_idf_matrix)
     else:
@@ -1207,7 +1257,7 @@ def update_related_datatable(annotation, submit):
     ],
     prevent_initial_call=True,
 )
-def update_output(contents, filename, last_modified):
+def update_config(contents, filename, last_modified):
     global config
     if contents is not None:
         content_type, content_string = contents.split(',')
@@ -1245,6 +1295,12 @@ def serve_layout():
         children=[
             dcc.Location(id='refresh-url', refresh=True),
             html.Div(id='hidden-div', hidden=True),
+            dcc.Store(id='df_items-store', data=df_items.to_json()),
+            dcc.Store(id='df_events-store', data=df_events.to_json()),
+            dcc.Store(id='df_ontology-store', data=df_ontology.to_json()),
+            dcc.Store(id='df_ontology_new-store', data=df_ontology_new.to_json()),
+            dcc.Store(id='itemsid_dict-store', data=json.dumps(itemsid_dict)),
+            dcc.Store(id='ontology_dict-store', data=json.dumps(ontology_dict)),
             # Replace confirmation
             html.Div(
                 id="replace-confirmation",
@@ -1351,12 +1407,12 @@ def serve_layout():
                                         ]),
                             ], id='tabs', value='home-tab'),
                             html.Br(),
-                            html.Div(id='loinc-results-outer',
+                            html.Div(id='ontology-results-outer',
                                      hidden=True,
                                      children=[
                                          dcc.Clipboard(
-                                             id='loinc-copy',
-                                             title="Copy LOINC Results",
+                                             id='ontology-copy',
+                                             title="Copy ontology Results",
                                              style={
                                                  "color": "#c9ddee",
                                                  "fontSize": 15,
@@ -1369,11 +1425,11 @@ def serve_layout():
                                              html.B('Compare Results (click to swap search terms):'),
                                          ]),
                                          html.Div(
-                                             id="loinc-datatable-outer",
-                                             className='loinc-datatable',
+                                             id="ontology-datatable-outer",
+                                             className='ontology-datatable',
                                              hidden=False,
                                              children=[
-                                                 dash_table.DataTable(id='loinc-datatable',
+                                                 dash_table.DataTable(id='ontology-datatable',
                                                                       data=None,
                                                                       columns=[],
                                                                       style_data={
