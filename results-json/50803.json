@@ -1,6 +1,7 @@
 {
     "itemid": 50803,
     "label": "Calculated Bicarbonate, Whole Blood",
-    "loincid": "Skipped: Invalid Source Data",
-    "loinclabel": "n/a"
+    "ontology": "loinc",
+    "annotatedid": "Skipped: Invalid Source Data",
+    "annotatedlabel": "n/a"
 }

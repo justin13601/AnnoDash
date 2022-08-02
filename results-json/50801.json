@@ -1,6 +1,7 @@
 {
     "itemid": 50801,
     "label": "Alveolar-arterial Gradient",
-    "loincid": "100003-3",
-    "loinclabel": "Team communication is maintained throughout care"
+    "ontology": "loinc",
+    "annotatedid": "100003-3",
+    "annotatedlabel": "Team communication is maintained throughout care"
 }
