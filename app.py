@@ -1269,6 +1269,9 @@ def update_related_datatable(annotation, submit):
     prevent_initial_call=True,
 )
 def update_config(contents, filename, last_modified):
+    print("\n---------------------")
+    print("UPDATING DASHBOARD...")
+    print("---------------------\n")
     global config
     global df_items, df_events, df_ontology, df_ontology_new
     global itemsid_dict, ontology_dict
