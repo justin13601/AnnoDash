@@ -92,12 +92,24 @@ class OntologyNotSupported(Exception):
     pass
 
 
-def load_data(path):
+def load_items(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
     items = pd.read_csv(path)
     print('Done.\n')
     return items
+
+
+def load_data(path):
+    filename = os.path.basename(path).strip()
+    print(f'Loading {filename}...')
+    data = pd.read_csv(path)
+    # Date, format charttime
+    data["charttime"] = data["charttime"].apply(
+        lambda x: dt.strptime(x, "%Y-%m-%d %H:%M:%S")
+    )  # String -> Datetime
+    print('Done.\n')
+    return data
 
 
 # load data
@@ -169,7 +181,7 @@ PATH_related = config.ontology.related.location
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
 
-df_items = load_data(os.path.join(PATH_items, config.directories.concepts.filename))
+df_items = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
 df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
 print("Data & items loaded.\n")
 
@@ -193,20 +205,13 @@ annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
 
-# Date
-# Format charttime
-df_events["charttime"] = df_events["charttime"].apply(
-    lambda x: dt.strptime(x, "%Y-%m-%d %H:%M:%S")
-)  # String -> Datetime
-
 # define item pairs for patient specific tabs
 pairs = []
 for each in config.graphs.pairs.values():
     pairs.append((each['label'], each['item_1'], each['item_2']))
-bg_pair = pairs[0][1:]  # Default PO2 & PCO2, Blood       # Could add FiO2
-chem_pair = pairs[1][1:]  # Default Creatinine & Potassium, Blood         # Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = pairs[2][
-           1:]  # Default Hemoglobin & WBC, Blood        # Could add RBC (the one with space) -> no observations :(
+bg_pair = pairs[0][1:]  # Default PO2 & PCO2, Blood; Could add FiO2
+chem_pair = pairs[1][1:]  # Default Creatinine & Potassium, Blood; Could also use Sodium & Glucose (overlay 4?)
+cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the one with space) -> no observations :(
 
 
 ######################################################################################################
@@ -260,7 +265,7 @@ def generate_control_card():
                 children=[
                     dcc.Clipboard(
                         id='item-copy',
-                        title="Copy Lab Measurement",
+                        title="Copy Concept/Item",
                         style={
                             "color": "#c9ddee",
                             "fontSize": 15,
@@ -271,7 +276,7 @@ def generate_control_card():
                     )
                 ]
             ),
-            html.P("Select Lab Measurement:"),
+            html.P("Select Concept/Item:"),
             dcc.Dropdown(
                 id="item-select",
                 clearable=False,
@@ -491,7 +496,6 @@ def generate_all_patients_graph(item, **kwargs):
     table = df_events.query(f'itemid == {item}')
     if table.empty:
         return {}
-
     if table['valuenum'].isnull().values.any():  # text data
         table['value'] = table['value'].str.upper()
         table = table.groupby(['value'])['value'].count()
@@ -732,7 +736,8 @@ def initialize_patient_select():
 
 
 def initialize_annotate_select():
-    ontology_codes = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for each_code in ontology_dict]
+    ontology_codes = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for each_code in
+                      ontology_dict]
     if config.temp.five_percent_dataset:
         return ontology_codes[2000:4000]
     return ontology_codes
@@ -1023,7 +1028,7 @@ def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotat
         State("item-select", "value"),
     ]
 )
-def update_lab_measurement_dropdown(submit_n_clicks, skip_n_clicks, options, value):
+def update_item_dropdown(submit_n_clicks, skip_n_clicks, options, value):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == '.':
         raise PreventUpdate
@@ -1248,6 +1253,12 @@ def update_related_datatable(annotation, submit):
 @app.callback(
     Output("hidden-div", "children"),
     Output("refresh-url", "href"),
+    # Output("df_items-store", "data"),
+    # Output("df_events-store", "data"),
+    # Output("df_ontology-store", "data"),
+    # Output("df_ontology_new-store", "data"),
+    # Output("itemsid_dict-store", "data"),
+    # Output("ontology_dict-store", "data"),
     [
         Input("upload-data-btn", "contents"),
     ],
@@ -1259,6 +1270,12 @@ def update_related_datatable(annotation, submit):
 )
 def update_config(contents, filename, last_modified):
     global config
+    global df_items, df_events, df_ontology, df_ontology_new
+    global itemsid_dict, ontology_dict
+    global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
+    global ngrams, vectorizer, tf_idf_matrix
+    global annotated_list, skipped_list, unannotated_list
+    global pairs, bg_pair, chem_pair, cbc_pair
     if contents is not None:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
@@ -1266,7 +1283,51 @@ def update_config(contents, filename, last_modified):
             config = yaml.unsafe_load(decoded)
         else:
             raise ConfigurationFileError
-    return None, "/"
+
+        PATH_data = config.directories.data.location
+        PATH_items = config.directories.concepts.location
+        PATH_results = config.directories.results
+        PATH_ontology = config.ontology.location
+        PATH_related = config.ontology.related.location
+
+        if 'demo-data' in PATH_data:
+            print("Demo data selected.")
+
+        if config.ontology.related.scorer == 'tf_idf':
+            with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
+                ngrams = shlv['ngrams']
+                vectorizer = shlv['model']
+                tf_idf_matrix = shlv['tf_idf_matrix']
+
+        df_items = load_items(os.path.join(config.directories.concepts.location, config.directories.concepts.filename))
+        df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
+        print("Data & items loaded.\n")
+
+        df_ontology = load_ontology(ontology=config.ontology.name)
+
+        itemsid_dict = pd.Series(df_items.label.values, index=df_items.itemid.values).to_dict()
+        ontology_dict = pd.Series(df_ontology.LONG_COMMON_NAME.values, index=df_ontology.LOINC_NUM.values).to_dict()
+
+        df_ontology_new = pd.DataFrame(
+            {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
+        df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
+
+        annotated_list, skipped_list = load_annotations(PATH_results)
+        unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
+        unannotated_list.sort()
+
+        # define item pairs for patient specific tabs
+        pairs = []
+        for each in config.graphs.pairs.values():
+            pairs.append((each['label'], each['item_1'], each['item_2']))
+        bg_pair = pairs[0][1:]
+        chem_pair = pairs[1][1:]
+        cbc_pair = pairs[2][1:]
+
+    else:
+        raise ConfigurationFileError
+
+    return None, "/"  # , df_items.to_json(), json.dumps(itemsid_dict)
 
 
 # @app.callback(
@@ -1295,12 +1356,12 @@ def serve_layout():
         children=[
             dcc.Location(id='refresh-url', refresh=True),
             html.Div(id='hidden-div', hidden=True),
-            dcc.Store(id='df_items-store', data=df_items.to_json()),
-            dcc.Store(id='df_events-store', data=df_events.to_json()),
-            dcc.Store(id='df_ontology-store', data=df_ontology.to_json()),
-            dcc.Store(id='df_ontology_new-store', data=df_ontology_new.to_json()),
-            dcc.Store(id='itemsid_dict-store', data=json.dumps(itemsid_dict)),
-            dcc.Store(id='ontology_dict-store', data=json.dumps(ontology_dict)),
+            # dcc.Store(id='df_items-store'),
+            # dcc.Store(id='df_events-store'),
+            # dcc.Store(id='df_ontology-store'),
+            # dcc.Store(id='df_ontology_new-store'),
+            # dcc.Store(id='itemsid_dict-store'),
+            # dcc.Store(id='ontology_dict-store'),
             # Replace confirmation
             html.Div(
                 id="replace-confirmation",
