@@ -51,7 +51,7 @@ cfg.graphs.pairs.pair_three.item_2 = 51300
 cfg.graphs.pairs.pair_three.label = 'Complete Blood Count'
 cfg.graphs.kwargs = config_dict.ConfigDict()
 cfg.graphs.kwargs.title_font = 'verdana'
-cfg.graphs.kwargs.title_color = 'Red'
+cfg.graphs.kwargs.title_color = 'Black'
 cfg.graphs.kwargs.title_size = 25
 cfg.graphs.kwargs.text_font = 'verdana'
 cfg.graphs.kwargs.text_color = 'Black'
@@ -63,7 +63,7 @@ cfg.graphs.kwargs.spikes = True
 
 cfg.temp = config_dict.ConfigDict()
 cfg.temp.five_percent_dataset = config_dict.placeholder(bool)
-cfg.temp.five_percent_dataset = True
+cfg.temp.five_percent_dataset = False
 cfg.temp.mimic_iv_version = config_dict.placeholder(float)
 cfg.temp.mimic_iv_version = 2.0
 
