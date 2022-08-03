@@ -32,7 +32,7 @@ _fields:
           text_color: Black
           text_font: verdana
           text_size: 12
-          title_color: Red
+          title_color: Black
           title_font: verdana
           title_size: 25
         _locked: false
