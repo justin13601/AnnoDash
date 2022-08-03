@@ -96,8 +96,9 @@ def load_items(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
     items = pd.read_csv(path)
+    dictionary = pd.Series(items[items.columns[1]].values, index=items[items.columns[0]].values).to_dict()
     print('Done.\n')
-    return items
+    return items, dictionary
 
 
 def load_data(path):
@@ -125,17 +126,22 @@ def load_ontology(ontology):
             ['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
             axis=1,
             inplace=True)
+        dictionary = pd.Series(data.LONG_COMMON_NAME.values, index=data.LOINC_NUM.values).to_dict()
         print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
               f"{config.ontology.class_label}) loaded and processed.\n")
     elif ontology == 'snomed':
-        path = os.path.join(PATH_ontology, 'sct2_Concept_Snapshot_US1000124_20220301.txt')
+        path = os.path.join(PATH_ontology, 'sct2_Description_Snapshot-en_US1000124_20220301.txt')
         filename = os.path.basename(path).strip()
         print(f'Loading {filename}...')
-        data = pd.read_csv(path, names=['id', 'description'], skiprows=1, sep=',')
+        data = pd.read_csv(path, sep='\t')
+        data = data.loc[data['active'] == 1]
+        data = data.sort_values('effectiveTime').drop_duplicates('conceptId', keep='last')
+        dictionary = pd.Series(data.term.values, index=data.conceptId.values).to_dict()
+        print(f"SNOMED-CT codes loaded and processed.\n")
     else:
         raise OntologyNotSupported
     print('Done.\n')
-    return data
+    return data, dictionary
 
 
 def load_config(file):
@@ -167,7 +173,7 @@ def download_annotation(annotation):
 config_file = 'config.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
-    config = load_config('config.yaml')
+    config = load_config(config_file)
 else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
@@ -181,18 +187,16 @@ PATH_related = config.ontology.related.location
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
 
-df_items = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
 df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
-print("Data & items loaded.\n")
 
-df_ontology = load_ontology(ontology=config.ontology.name)
+df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
+print("Data loaded.\n")
 
-itemsid_dict = pd.Series(df_items.label.values, index=df_items.itemid.values).to_dict()
-ontology_dict = pd.Series(df_ontology.LONG_COMMON_NAME.values, index=df_ontology.LOINC_NUM.values).to_dict()
-
+df_ontology, ontology_dict = load_ontology(ontology=config.ontology.name)
 df_ontology_new = pd.DataFrame(
     {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
 df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
+print('Ontology loaded.\n')
 
 # load tf_idf matrix if chosen as scorer:
 if config.ontology.related.scorer == 'tf_idf':
@@ -1302,18 +1306,16 @@ def update_config(contents, filename, last_modified):
                 vectorizer = shlv['model']
                 tf_idf_matrix = shlv['tf_idf_matrix']
 
-        df_items = load_items(os.path.join(config.directories.concepts.location, config.directories.concepts.filename))
         df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
-        print("Data & items loaded.\n")
 
-        df_ontology = load_ontology(ontology=config.ontology.name)
+        df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
+        print("Data loaded.\n")
 
-        itemsid_dict = pd.Series(df_items.label.values, index=df_items.itemid.values).to_dict()
-        ontology_dict = pd.Series(df_ontology.LONG_COMMON_NAME.values, index=df_ontology.LOINC_NUM.values).to_dict()
-
+        df_ontology, ontology_dict = load_ontology(ontology=config.ontology.name)
         df_ontology_new = pd.DataFrame(
             {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
         df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
+        print('Ontology loaded.\n')
 
         annotated_list, skipped_list = load_annotations(PATH_results)
         unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
