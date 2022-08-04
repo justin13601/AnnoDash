@@ -500,11 +500,8 @@ def generate_all_patients_graph(item, **kwargs):
     table = df_events.query(f'itemid == {item}')
     if table.empty:
         return {}
-    num_text_events = 0
-    for each_event in table['value']:
-        if re.search('-?[0-9]+\.?[0-9]*', each_event) is None:
-            num_text_events += 1
-    if num_text_events / table['value'].shape[0] > 0.5:
+    df_temp = pd.to_numeric(table['value'], errors='coerce')
+    if df_temp.isna().sum().sum() / df_temp.shape[0] > 0.5:
         table['value'] = table['value'].str.upper()
         table = table.groupby(['value'])['value'].count()
         df_data = pd.DataFrame(table)
@@ -568,7 +565,7 @@ def generate_all_patients_graph(item, **kwargs):
         title=title_template,
         xaxis_title=f"{itemsid_dict[item]} {units}",
         yaxis_title=ylabel,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor='rgba(0,0,0,0)'),
         font=dict(
             family=kwargs['config'].text_font,
             size=kwargs['config'].text_size,
@@ -660,7 +657,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
             color=kwargs['config'].text_color
         ),
         hovermode="x",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95, bgcolor='rgba(0,0,0,0)'),
         margin=dict(l=50, r=0, t=90, b=20),
         height=kwargs['config'].height
     )
@@ -1090,11 +1087,8 @@ def update_patient_dropdown(item, submit):
         table = df_events.query(f'itemid == {item}')
         if table.empty:
             return options, disabled, None
-        num_text_events = 0
-        for each_event in table['value']:
-            if re.search('-?[0-9]+\.?[0-9]*', each_event) is None:
-                num_text_events += 1
-        if num_text_events / table['value'].shape[0] > 0.5:
+        df_temp = pd.to_numeric(table['value'], errors='coerce')
+        if df_temp.isna().sum().sum() / df_temp.shape[0] > 0.5:
             return options, disabled, None
         options = query_patients(item)
         disabled = False
