@@ -500,7 +500,6 @@ def generate_all_patients_graph(item, **kwargs):
     table = df_events.query(f'itemid == {item}')
     if table.empty:
         return {}
-
     num_text_events = 0
     for each_event in table['value']:
         if re.search('-?[0-9]+\.?[0-9]*', each_event) is None:
@@ -1089,6 +1088,8 @@ def update_patient_dropdown(item, submit):
 
     if item:
         table = df_events.query(f'itemid == {item}')
+        if table.empty:
+            return options, disabled, None
         num_text_events = 0
         for each_event in table['value']:
             if re.search('-?[0-9]+\.?[0-9]*', each_event) is None:
