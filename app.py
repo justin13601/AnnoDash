@@ -280,7 +280,7 @@ def generate_control_card():
                     )
                 ]
             ),
-            html.P("Select Concept/Item:"),
+            html.P("Select Concept:"),
             dcc.Dropdown(
                 id="item-select",
                 clearable=False,
@@ -333,7 +333,7 @@ def generate_control_card():
                     )
                 ]
             ),
-            html.P("Annotate:"),
+            html.P("Select Annotation:"),
             dcc.Dropdown(
                 id="annotate-select",
                 value=None,
@@ -500,18 +500,36 @@ def generate_all_patients_graph(item, **kwargs):
     table = df_events.query(f'itemid == {item}')
     if table.empty:
         return {}
-    if table['valuenum'].isnull().values.any():  # text data
+
+    num_text_events = 0
+    for each_event in table['value']:
+        if re.search('-?[0-9]+\.?[0-9]*', each_event) is None:
+            num_text_events += 1
+    if num_text_events / table['value'].shape[0] > 0.5:
         table['value'] = table['value'].str.upper()
         table = table.groupby(['value'])['value'].count()
         df_data = pd.DataFrame(table)
         units = ''
-        fig = px.bar(df_data, x=df_data.index, y="value", color="value")
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            name="Count",
+            x=df_data.index,
+            y=df_data["value"],
+            hovertemplate=
+            '%{y}' +
+            '<br>Percent: %{text}',
+            text=round((df_data["value"] / sum(df_data["value"]) * 100), 2).astype(str) + '%',
+        ))
+        fig.update_xaxes(showspikes=True, spikecolor="black", spikethickness=1, spikedash='dot',
+                         spikemode='across+marker')
+        fig.update_layout(hovermode="x unified")
         fig.update_traces(marker_color='rgb(100,169,252)', hovertemplate=None)
         ylabel = 'Count'
     else:  # numerical data
         table.replace(np.inf, np.nan)
-        table.dropna(subset=['valuenum'], inplace=True)
-        hist_data = [list(table['valuenum'])]
+        table['value'] = pd.to_numeric(table['value'], errors='coerce')
+        table.dropna(subset=['value'], inplace=True)
+        hist_data = [list(table['value'])]
         if hist_data == [[]]:
             return {}
         units = f"({list(table['valueuom'])[0]})"
@@ -565,8 +583,11 @@ def generate_all_patients_graph(item, **kwargs):
 
 def generate_tab_graph(item, patient, template_items, **kwargs):
     table_item_1 = df_events.query(f'itemid == {template_items[0]}')
+    table_item_1['value'] = pd.to_numeric(table_item_1['value'], errors='coerce')
     table_item_2 = df_events.query(f'itemid == {template_items[1]}')
+    table_item_2['value'] = pd.to_numeric(table_item_2['value'], errors='coerce')
     table_item_target = df_events.query(f'itemid == {item}')
+    table_item_target['value'] = pd.to_numeric(table_item_target['value'], errors='coerce')
     table_item_patient_1 = table_item_1.query(f'subject_id == {patient}')
     table_item_patient_2 = table_item_2.query(f'subject_id == {patient}')
     table_item_patient_target = table_item_target.query(f'subject_id == {patient}')
@@ -596,15 +617,15 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
-        go.Scatter(x=table_item_patient_1["charttime"], y=table_item_patient_1["valuenum"],
+        go.Scatter(x=table_item_patient_1["charttime"], y=table_item_patient_1["value"],
                    name=f"{series_names[0]} ({units_1})"), secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(x=table_item_patient_2["charttime"], y=table_item_patient_2["valuenum"],
+        go.Scatter(x=table_item_patient_2["charttime"], y=table_item_patient_2["value"],
                    name=f"{series_names[1]} ({units_2})"), secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["valuenum"],
+        go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["value"],
                    name=f"{series_names[2]} ({units_target})"),
         secondary_y=True,
     )
@@ -1068,7 +1089,11 @@ def update_patient_dropdown(item, submit):
 
     if item:
         table = df_events.query(f'itemid == {item}')
-        if table['valuenum'].isnull().values.any():
+        num_text_events = 0
+        for each_event in table['value']:
+            if re.search('-?[0-9]+\.?[0-9]*', each_event) is None:
+                num_text_events += 1
+        if num_text_events / table['value'].shape[0] > 0.5:
             return options, disabled, None
         options = query_patients(item)
         disabled = False
