@@ -97,11 +97,11 @@ python3 app.py
 
 Files required:
 
-* A .csv file containing all patient observations/data:
+* A .csv file containing all patient observations/data (missingness allowed):
   ```
-  itemid,subject_id,charttime,value
-  52038,123,2150-01-01 10:00:00,5
-  52038,123,2150-01-01 11:00:00,6
+  itemid,subject_id,charttime,value,valueuom
+  52038,123,2150-01-01 10:00:00,5,mEq/L
+  52038,123,2150-01-01 11:00:00,6,ug/mL
   ...
   ```
 * A .csv file containing all concepts to be annotated in id-label pairs, {id: label}:
