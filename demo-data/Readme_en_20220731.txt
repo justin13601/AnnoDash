@@ -1,0 +1,73 @@
+The SNOMED CT International Edition release is provided in UTF-8 encoded tab-delimited flat files which can be imported into any database or other software application.  SNOMED CT is not software.
+
+The SNOMED CT files are designed as relational tables with each line in the file representing a row in the table. The first row of each table contains column headings. All other rows contain data.
+
+The SNOMED CT International Edition release is delivered to IHTSDO Member National Centers and authorized Affiliate Licensees via Internet download.  
+
+© International Health Terminology Standards Development Organisation 2002-2022.  All rights reserved.  SNOMED CT® was originally created by the College of American Pathologists.  "SNOMED" and "SNOMED CT" are registered trademarks of International Health Terminology Standards Development Organisation, trading as SNOMED International.
+
+SNOMED CT has been created by combining SNOMED RT and a computer based nomenclature and classification known as Clinical Terms Version 3, formerly known as Read Codes Version 3, which was created on behalf of the UK Department of Health and is Crown copyright.
+
+This document forms part of the International Edition release of SNOMED CT® distributed by SNOMED International, which is subject to the SNOMED CT® Affiliate License, details of which may be found at  https://www.snomed.org/snomed-ct/get-snomed.
+
+Directory listing:
+
+    SnomedCT_InternationalRF2_PRODUCTION_20220731T120000Z
+        Snapshot
+            Terminology
+                sct2_Concept_Snapshot_INT_20220731.txt
+                sct2_Description_Snapshot-en_INT_20220731.txt
+                sct2_StatedRelationship_Snapshot_INT_20220731.txt
+                sct2_Relationship_Snapshot_INT_20220731.txt
+                sct2_RelationshipConcreteValues_Snapshot_INT_20220731.txt
+                sct2_Identifier_Snapshot_INT_20220731.txt
+                sct2_TextDefinition_Snapshot-en_INT_20220731.txt
+                sct2_sRefset_OWLExpressionSnapshot_INT_20220731.txt
+            Refset
+                Content
+                    der2_cRefset_AssociationSnapshot_INT_20220731.txt
+                    der2_cRefset_AttributeValueSnapshot_INT_20220731.txt
+                    der2_Refset_SimpleSnapshot_INT_20220731.txt
+                Map
+                    der2_sRefset_SimpleMapSnapshot_INT_20220731.txt
+                    der2_iisssccRefset_ExtendedMapSnapshot_INT_20220731.txt
+                Language
+                    der2_cRefset_LanguageSnapshot-en_INT_20220731.txt
+                Metadata
+                    der2_cciRefset_RefsetDescriptorSnapshot_INT_20220731.txt
+                    der2_ssRefset_ModuleDependencySnapshot_INT_20220731.txt
+                    der2_ciRefset_DescriptionTypeSnapshot_INT_20220731.txt
+                    der2_sssssssRefset_MRCMDomainSnapshot_INT_20220731.txt
+                    der2_cissccRefset_MRCMAttributeDomainSnapshot_INT_20220731.txt
+                    der2_ssccRefset_MRCMAttributeRangeSnapshot_INT_20220731.txt
+                    der2_cRefset_MRCMModuleScopeSnapshot_INT_20220731.txt
+        Full
+            Terminology
+                sct2_Concept_Full_INT_20220731.txt
+                sct2_Description_Full-en_INT_20220731.txt
+                sct2_StatedRelationship_Full_INT_20220731.txt
+                sct2_Relationship_Full_INT_20220731.txt
+                sct2_RelationshipConcreteValues_Full_INT_20220731.txt
+                sct2_Identifier_Full_INT_20220731.txt
+                sct2_TextDefinition_Full-en_INT_20220731.txt
+                sct2_sRefset_OWLExpressionFull_INT_20220731.txt
+            Refset
+                Content
+                    der2_cRefset_AssociationFull_INT_20220731.txt
+                    der2_cRefset_AttributeValueFull_INT_20220731.txt
+                    der2_Refset_SimpleFull_INT_20220731.txt
+                Map
+                    der2_sRefset_SimpleMapFull_INT_20220731.txt
+                    der2_iisssccRefset_ExtendedMapFull_INT_20220731.txt
+                Language
+                    der2_cRefset_LanguageFull-en_INT_20220731.txt
+                Metadata
+                    der2_cciRefset_RefsetDescriptorFull_INT_20220731.txt
+                    der2_ssRefset_ModuleDependencyFull_INT_20220731.txt
+                    der2_ciRefset_DescriptionTypeFull_INT_20220731.txt
+                    der2_sssssssRefset_MRCMDomainFull_INT_20220731.txt
+                    der2_cissccRefset_MRCMAttributeDomainFull_INT_20220731.txt
+                    der2_ssccRefset_MRCMAttributeRangeFull_INT_20220731.txt
+                    der2_cRefset_MRCMModuleScopeFull_INT_20220731.txt
+        Readme_en_20220731.txt
+        release_package_information.json
