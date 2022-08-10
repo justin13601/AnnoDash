@@ -21,3 +21,5 @@ elif ontology == "snomed":
     print(f"Filtering SNOMED-CT codes at level: {ontology_sub}.")
     pymedtermino.LANGUAGE = "en"
     pymedtermino.REMOVE_SUPPRESSED_CONCEPTS = True
+
+    df_snomed_new.to_csv('../SNOMED_CT_Observable_Entity.csv', index=False)

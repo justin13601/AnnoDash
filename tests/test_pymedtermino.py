@@ -68,7 +68,7 @@ df_snomed_new = df_snomed.loc[df_snomed['observable_entity'] == True]
 df_snomed_new.drop(columns=['observable_entity'])
 print(df_snomed_new.shape)
 
-df_snomed['label'] = df_snomed['id'].apply(get_term_from_code)
+df_snomed_new['label'] = df_snomed_new['id'].apply(get_term_from_code)
 print(df_snomed_new.shape)
 
 label_column = df_snomed_new.pop('label')
