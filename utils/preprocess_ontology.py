@@ -65,7 +65,7 @@ if ontology == "loinc":
         axis=1,
         inplace=True)
 
-    save_file = f'../LOINC_ClassType_{ontology_sub}.csv'
+    save_file = f'../LoincClassType_{ontology_sub}.csv'
     df_loinc.to_csv(save_file, index=False)
 
 elif ontology == "snomed":
