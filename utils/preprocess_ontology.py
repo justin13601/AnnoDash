@@ -65,6 +65,9 @@ if ontology == "loinc":
         axis=1,
         inplace=True)
 
+    df_loinc.columns = ['id' if x == 'LOINC_NUM' else x for x in df_loinc.columns]
+    df_loinc.columns = ['label' if x == 'LONG_COMMON_NAME' else x for x in df_loinc.columns]
+
     save_file = f'../LoincClassType_{ontology_sub}.csv'
     df_loinc.to_csv(save_file, index=False)
 
