@@ -109,7 +109,7 @@ _fields:
         _field_type: !!python/name:builtins.bool ''
         _ops: []
         _required: false
-        _value: true
+        _value: false
       mimic_iv_version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
         _field_type: *id002
         _ops: []
