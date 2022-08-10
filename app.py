@@ -70,7 +70,7 @@ app = dash.Dash(
     ],
 )
 
-app.title = "Clinical Data Annotation Dashboard"
+app.title = "MIMIC-Dash: A Clinical Terminology Annotation Dashboard"
 server = app.server
 app.config.suppress_callback_exceptions = True
 
@@ -116,28 +116,21 @@ def load_data(path):
 # load data
 def load_ontology(ontology):
     if ontology == 'loinc':
-        path = os.path.join(PATH_ontology, 'LoincTableCore.csv')
+        path = os.path.join(PATH_ontology, config.ontology.filename)
         filename = os.path.basename(path).strip()
         print(f'Loading {filename}...')
         data = pd.read_csv(path, dtype=object)
-        data = data[data['CLASSTYPE'] == str(config.ontology.class_value)]
-        data.drop(data[data.STATUS != 'ACTIVE'].index, inplace=True)
-        data.drop(
-            ['CLASSTYPE', 'STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
-            axis=1,
-            inplace=True)
         dictionary = pd.Series(data.LONG_COMMON_NAME.values, index=data.LOINC_NUM.values).to_dict()
         print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
               f"{config.ontology.class_label}) loaded and processed.\n")
     elif ontology == 'snomed':
-        path = os.path.join(PATH_ontology, 'sct2_Description_Snapshot-en_US1000124_20220301.txt')
+        path = os.path.join(PATH_ontology, config.ontology.filename)
         filename = os.path.basename(path).strip()
         print(f'Loading {filename}...')
         data = pd.read_csv(path, sep='\t')
-        data = data.loc[data['active'] == 1]
-        data = data.sort_values('effectiveTime').drop_duplicates('conceptId', keep='last')
         dictionary = pd.Series(data.term.values, index=data.conceptId.values).to_dict()
-        print(f"SNOMED-CT codes loaded and processed.\n")
+        print(f"SNOMED-CT codes (Hierarchy={config.ontology.class_value}, "
+              f"{config.ontology.class_label}) loaded and processed.\n")
     else:
         raise OntologyNotSupported
     print('Done.\n')
@@ -759,8 +752,8 @@ def initialize_patient_select():
 def initialize_annotate_select():
     ontology_codes = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for each_code in
                       ontology_dict]
-    if config.temp.five_percent_dataset: # for testing
-        target_codes_for_demo = ['2069-3', '1959-6', '5767-9', '5778-6'] # bicarbonate, chloride, urine color and app.
+    if config.temp.five_percent_dataset:  # for testing
+        target_codes_for_demo = ['2069-3', '1959-6', '5767-9', '5778-6']  # bicarbonate, chloride, urine color and app.
         ontology_codes_temp_for_demo = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for
                                         each_code in ontology_dict if each_code in target_codes_for_demo]
         ontology_codes_temp_for_demo_2 = ontology_codes[2000:4000]
@@ -1415,7 +1408,7 @@ def serve_layout():
                 className="banner",
                 children=[
                     html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                    html.H5("Welcome to the MIMIC-IV Clinical Dashboard"),
+                    html.H5("Welcome to the MIMIC-IV Clinical Annotation Dashboard"),
                     dcc.Upload(
                         id='upload-data-btn',
                         children=html.Button(
