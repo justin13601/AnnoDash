@@ -53,7 +53,7 @@ class InvalidHierarchyLevelSNOMEDCT(Exception):
 if ontology == "loinc":
     if ontology_sub not in [1, 2, 3, 4]:
         raise InvalidClassTypeLOINC
-    print(f"Filtering LOINC codes for classtype: {ontology_sub}.")
+    print(f"Filtering LOINC codes for classtype: {ontology_sub}...")
 
     df_loinc = pd.read_csv(path, dtype=object)
     df_loinc = df_loinc[df_loinc['CLASSTYPE'] == str(ontology_sub)]
@@ -69,7 +69,7 @@ if ontology == "loinc":
 elif ontology == "snomed":
     if not isinstance(ontology_sub, int):
         raise InvalidHierarchyLevelSNOMEDCT
-    print(f"Filtering SNOMED-CT codes for: {ontology_sub} ({SNOMEDCT[ontology_sub].term}).")
+    print(f"Filtering SNOMED-CT codes for: {ontology_sub} ({SNOMEDCT[ontology_sub].term})...")
 
     pymedtermino.LANGUAGE = "en"
     pymedtermino.REMOVE_SUPPRESSED_CONCEPTS = True
