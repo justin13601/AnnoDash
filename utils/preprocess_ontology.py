@@ -3,6 +3,7 @@
 # Saves preprocessed .csv file for input into config.yaml and MIMIC-Dash
 
 import os
+import time
 import numpy as np
 import pandas as pd
 import pymedtermino
@@ -50,6 +51,7 @@ class InvalidHierarchyLevelSNOMEDCT(Exception):
     pass
 
 
+start = time.time()
 if ontology == "loinc":
     if ontology_sub not in [1, 2, 3, 4]:
         raise InvalidClassTypeLOINC
@@ -80,15 +82,18 @@ elif ontology == "snomed":
 
     df_snomed['ontology_sub'] = df_snomed['id'].apply(is_part_of_class)
     df_snomed = df_snomed.loc[df_snomed['ontology_sub'] == True]
-    df_snomed.drop(columns=['ontology_sub'])
+    df_snomed = df_snomed.drop(columns=['ontology_sub'])
 
     df_snomed['label'] = df_snomed['id'].apply(get_term_from_code)
     label_column = df_snomed.pop('label')
     df_snomed.insert(1, 'label', label_column)
 
-    save_file = '../SNOMED_CT_Observable_Entity.csv'
+    save_file = f'../SNOMED_CT_Hierarchy_{ontology_sub}.csv'
     df_snomed.to_csv(save_file, index=False)
 else:
     raise InvalidOntology
 
+end = time.time()
+total_time = end - start
+print(f"\nTime taken: {total_time}\n")
 print(f"Done. Saved at {save_file}")
