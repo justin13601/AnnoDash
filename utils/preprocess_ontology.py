@@ -1,6 +1,6 @@
 # Util script to preprocess ontologies
 # Accepts LOINC .csv files or SNOMED-CT .txt files
-# Saves preprocessed .csv file for input into config.yaml and MIMIC-Dash
+# Saves preprocessed .csv file for input into generate_config.py and generate_tf_idf.py for MIMIC-Dash
 
 import os
 import time
