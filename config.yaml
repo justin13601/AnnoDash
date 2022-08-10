@@ -81,7 +81,7 @@ _fields:
         _ops: []
         _required: false
         _value: 1
-      filename: LoincTableCore.csv
+      filename: LoincClassType_1.csv
       location: demo-data
       name: loinc
       related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
@@ -109,7 +109,7 @@ _fields:
         _field_type: !!python/name:builtins.bool ''
         _ops: []
         _required: false
-        _value: false
+        _value: true
       mimic_iv_version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
         _field_type: *id002
         _ops: []
