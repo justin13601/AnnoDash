@@ -23,6 +23,7 @@ cfg.directories.data.filename = 'LABEVENTS.csv'
 
 cfg.ontology = config_dict.ConfigDict()
 cfg.ontology.location = 'demo-data'
+cfg.ontology.filename = 'LoincTableCore.csv'
 cfg.ontology.name = 'loinc'
 cfg.ontology.version = config_dict.placeholder(float)
 cfg.ontology.version = 2.72
