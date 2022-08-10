@@ -759,8 +759,16 @@ def initialize_patient_select():
 def initialize_annotate_select():
     ontology_codes = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for each_code in
                       ontology_dict]
-    if config.temp.five_percent_dataset:
-        return ontology_codes[2000:4000]
+    if config.temp.five_percent_dataset: # for testing
+        target_codes_for_demo = ['2069-3', '1959-6', '5767-9', '5778-6'] # bicarbonate, chloride, urine color and app.
+        ontology_codes_temp_for_demo = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for
+                                        each_code in ontology_dict if each_code in target_codes_for_demo]
+        ontology_codes_temp_for_demo_2 = ontology_codes[2000:4000]
+        for aLis1 in ontology_codes_temp_for_demo:
+            if aLis1 not in ontology_codes_temp_for_demo_2:
+                ontology_codes_temp_for_demo_2.append(aLis1)
+        return ontology_codes_temp_for_demo_2
+        # return ontology_codes[2000:4000] 
     return ontology_codes
 
 
@@ -1103,10 +1111,14 @@ def update_patient_dropdown(item, submit):
     Output("tabs", "value"),
     [
         Input("patient-select", "value"),
+        Input("submit-btn", "n_clicks"),
     ]
 )
-def update_tabs_view(patient):
-    if patient is not None:
+def update_tabs_view(patient, submit_n_clicks):
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'submit-btn.n_clicks':
+        return "home-tab"
+    elif patient is not None:
         raise PreventUpdate
     else:
         return "home-tab"
