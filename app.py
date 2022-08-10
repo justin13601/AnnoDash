@@ -115,21 +115,13 @@ def load_data(path):
 
 # load data
 def load_ontology(ontology):
-    if ontology == 'loinc':
+    if ontology == 'snomed' or ontology == 'loinc':
         path = os.path.join(PATH_ontology, config.ontology.filename)
         filename = os.path.basename(path).strip()
         print(f'Loading {filename}...')
         data = pd.read_csv(path, dtype=object)
-        dictionary = pd.Series(data.LONG_COMMON_NAME.values, index=data.LOINC_NUM.values).to_dict()
-        print(f"LOINC codes (CLASSTYPE={config.ontology.class_value}, "
-              f"{config.ontology.class_label}) loaded and processed.\n")
-    elif ontology == 'snomed':
-        path = os.path.join(PATH_ontology, config.ontology.filename)
-        filename = os.path.basename(path).strip()
-        print(f'Loading {filename}...')
-        data = pd.read_csv(path, sep='\t')
-        dictionary = pd.Series(data.term.values, index=data.conceptId.values).to_dict()
-        print(f"SNOMED-CT codes (Hierarchy={config.ontology.class_value}, "
+        dictionary = pd.Series(data.label.values, index=data.id.values).to_dict()
+        print(f"LOINC codes (FilteredBy={config.ontology.class_value}, "
               f"{config.ontology.class_label}) loaded and processed.\n")
     else:
         raise OntologyNotSupported
@@ -1224,12 +1216,12 @@ def update_ontology_datatable(annotation, submit, related, curr_data):
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or not annotation:
         return True, None, []
-    df_data = df_ontology.loc[df_ontology['LOINC_NUM'] == annotation]
+    df_data = df_ontology.loc[df_ontology['id'] == annotation]
     data = df_data.to_dict('records')
     columns = [{"name": i, "id": i} for i in df_data.columns]
     if related:
         df_data = pd.concat([df_data, df_ontology.loc[
-            df_ontology['LOINC_NUM'] == [each_key for each_key in curr_data if each_key['id'] == related['row_id']][0][
+            df_ontology['id'] == [each_key for each_key in curr_data if each_key['id'] == related['row_id']][0][
                 'CODE']]])
         data = df_data.to_dict('records')
     return False, data, columns
