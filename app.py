@@ -101,13 +101,20 @@ def load_items(path):
     return items, dictionary
 
 
+def tryConvertDate(dates):
+    try:
+        return dt.strptime(dates, "%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return dates
+
+
 def load_data(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
     data = pd.read_csv(path)
     # Date, format charttime
     data["charttime"] = data["charttime"].apply(
-        lambda x: dt.strptime(x, "%Y-%m-%d %H:%M:%S")
+        lambda x: tryConvertDate(x)
     )  # String -> Datetime
     print('Done.\n')
     return data
@@ -139,13 +146,15 @@ def load_config(file):
 
 def load_annotations(path):
     annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
-    annotated = [int(each_item.strip('.json')) for each_item in annotation_files]
+    annotated = [int(each_item.strip('.json')) for each_item in annotation_files if
+                 int(each_item.strip('.json')) in list(itemsid_dict.keys())]
     skipped = []
     for each_file in annotation_files:
-        with open(os.path.join(path, each_file)) as jsonFile:
-            data = json.load(jsonFile)
-            if 'skipped' in data['annotatedid'].lower().strip():
-                skipped.append(int(each_file.strip('.json')))
+        if int(each_file.strip('.json')) in list(itemsid_dict.keys()):
+            with open(os.path.join(path, each_file)) as jsonFile:
+                data = json.load(jsonFile)
+                if 'skipped' in data['annotatedid'].lower().strip():
+                    skipped.append(int(each_file.strip('.json')))
     return annotated, skipped
 
 
@@ -652,6 +661,9 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
 def query_patients(item):
     list_of_items = [item, bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
     list_of_patient_sets = []
+    target_table = df_events.query(f'itemid == {item}')
+    if target_table.empty:
+        return []
     for each_item in list_of_items:
         table = df_events.query(f'itemid == {each_item}')
         list_of_patient_sets.append(set(table['subject_id'].unique()))
@@ -703,7 +715,10 @@ def initialize_all_patients_graph():
 def initialize_tab_graph(pair):
     items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     patients = query_patients(items[0]["value"])
-    if not patients[0]:
+    try:
+        if not patients[0]:
+            return {}
+    except IndexError:
         return {}
     first_patient = patients[0]["value"]
     fig = generate_tab_graph(items[0]["value"], first_patient, template_items=pair,
@@ -714,7 +729,10 @@ def initialize_tab_graph(pair):
 def initialize_tab():
     items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     patients = query_patients(items[0]["value"])
-    if not patients[0]:
+    try:
+        if not patients[0]:
+            return True
+    except IndexError:
         return True
     first_patient = patients[0]["value"]
     disabled = update_graph(items[0]["value"], first_patient, submit=0)[2]
@@ -728,7 +746,7 @@ def initialize_item_select():
             set(annotated_list) - set(skipped_list)) else
         {"label": f'{each_id}: {itemsid_dict[each_id]} ⚠', "value": each_id} for each_id in itemsid_dict
     ]
-    first_item = unannotated_list[0]
+    first_item = [each_id for each_id in list(itemsid_dict.keys()) if each_id in unannotated_list][0]
     return options, first_item
 
 
@@ -737,8 +755,8 @@ def initialize_patient_select():
     options = query_patients(items[0]["value"])
     if not options:
         return [], None
-    first_item = options[0]["value"]
-    return options, first_item
+    first_patient = options[0]["value"]
+    return options, first_patient
 
 
 def initialize_annotate_select():
