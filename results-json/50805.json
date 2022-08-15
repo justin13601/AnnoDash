@@ -1,7 +1,7 @@
 {
     "itemid": 50805,
     "label": "Carboxyhemoglobin",
-    "ontology": "loinc",
-    "annotatedid": "12940-3",
-    "annotatedlabel": "Thyrotropin [Units/volume] in Serum or Plasma --30 minutes pre XXX challenge"
+    "ontology": null,
+    "annotatedid": "Skipped: Unsure",
+    "annotatedlabel": "n/a"
 }

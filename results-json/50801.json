@@ -1,7 +1,7 @@
 {
     "itemid": 50801,
     "label": "Alveolar-arterial Gradient",
-    "ontology": "loinc",
-    "annotatedid": "100003-3",
-    "annotatedlabel": "Team communication is maintained throughout care"
+    "ontology": null,
+    "annotatedid": "13181-3",
+    "annotatedlabel": "Bahia grass IgG Ab [Units/volume] in Serum"
 }

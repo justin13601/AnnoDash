@@ -1,7 +1,7 @@
 {
     "itemid": 50803,
     "label": "Calculated Bicarbonate, Whole Blood",
-    "ontology": "loinc",
-    "annotatedid": "Skipped: Invalid Source Data",
-    "annotatedlabel": "n/a"
+    "ontology": null,
+    "annotatedid": "14627-4",
+    "annotatedlabel": "Bicarbonate [Moles/volume] in Venous blood"
 }
