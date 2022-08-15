@@ -8,7 +8,7 @@ html {
 }
 
 body {
-    background-color: #272e41;
+    background-color: #171c28;
     color: #9fa6b7;
     font-size: 15px;
     height: 100%;
@@ -23,7 +23,7 @@ hr {
     height: 5.5rem;
     margin-bottom: 1rem;
     padding: 2rem 2.25rem 0rem;
-    background-color: #171b26;
+    background-image: linear-gradient(#353944, #171c28 30%);
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -89,7 +89,7 @@ P {
 }
 
 #right-column {
-    background-color: #272e41;
+    background-color: #171c28;
     padding: 0rem 2rem;
     min-height: calc(100vh - 5.5rem);
 }
