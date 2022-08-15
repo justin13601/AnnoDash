@@ -22,19 +22,12 @@ cfg.directories.data.location = 'demo-data'
 cfg.directories.data.filename = 'LABEVENTS.csv'
 
 cfg.ontology = config_dict.ConfigDict()
-cfg.ontology.location = 'demo-data'
+cfg.ontology.location = 'ontology'
 cfg.ontology.filename = 'LoincClassType_1.csv'
-cfg.ontology.name = 'loinc'
-cfg.ontology.version = config_dict.placeholder(float)
-cfg.ontology.version = 2.72
-cfg.ontology.class_value = config_dict.placeholder(int)
-cfg.ontology.class_value = 1
-cfg.ontology.class_label = config_dict.placeholder(str)
-cfg.ontology.class_label = 'Laboratory Terms'
 cfg.ontology.related = config_dict.ConfigDict()
 cfg.ontology.related.scorer = 'tf_idf'
 cfg.ontology.related.location = config_dict.placeholder(str)
-cfg.ontology.related.location = 'demo-data'
+cfg.ontology.related.location = 'ontology'
 
 cfg.graphs = config_dict.ConfigDict()
 cfg.graphs.pairs = config_dict.ConfigDict()
@@ -64,7 +57,7 @@ cfg.graphs.kwargs.spikes = True
 
 cfg.temp = config_dict.ConfigDict()
 cfg.temp.five_percent_dataset = config_dict.placeholder(bool)
-cfg.temp.five_percent_dataset = False
+cfg.temp.five_percent_dataset = True
 cfg.temp.mimic_iv_version = config_dict.placeholder(float)
 cfg.temp.mimic_iv_version = 2.0
 
