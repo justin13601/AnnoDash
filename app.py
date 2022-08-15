@@ -121,18 +121,29 @@ def load_data(path):
 
 
 # load data
-def load_ontology(ontology):
-    if ontology == 'snomed' or ontology == 'loinc':
-        path = os.path.join(PATH_ontology, config.ontology.filename)
-        filename = os.path.basename(path).strip()
-        print(f'Loading {filename}...')
-        data = pd.read_csv(path, dtype=object)
-        dictionary = pd.Series(data.label.values, index=data.id.values).to_dict()
-        print(f"LOINC codes (FilteredBy={config.ontology.class_value}, "
-              f"{config.ontology.class_label}) loaded and processed.\n")
-    else:
+def load_ontologies():
+    print(f'Loading available ontologies:')
+    ontology_files = [each_file for each_file in os.listdir(PATH_ontology) if each_file.endswith('.csv')]
+    ontologies = {}
+    for each_file in ontology_files:
+        if 'LoincClassType_' in each_file or 'SNOMED_CT_Hierarchy_' in each_file:
+            print(f'Loading {each_file}...')
+            path = os.path.join(PATH_ontology, each_file)
+            data = pd.read_csv(path, dtype=object)
+            dictionary = pd.Series(data.label.values, index=data.id.values).to_dict()
+            ontologies[each_file.strip('.csv')] = (data, dictionary)
+    if not ontologies:
         raise OntologyNotSupported
     print('Done.\n')
+    return ontologies
+
+
+def select_ontology(ontology):
+    if ontology not in list_of_ontologies.keys():
+        raise OntologyNotSupported
+    data = list_of_ontologies[ontology][0]
+    dictionary = list_of_ontologies[ontology][1]
+    print(f"{ontology} codes processed and selected.\n")
     return data, dictionary
 
 
@@ -184,13 +195,15 @@ if 'demo-data' in PATH_data:
 df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
 
 df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
-print("Data loaded.\n")
+print("Data ready.\n")
 
-df_ontology, ontology_dict = load_ontology(ontology=config.ontology.name)
+list_of_ontologies = load_ontologies()
+default_ontology = config.ontology.filename.strip('.csv')
+df_ontology, ontology_dict = select_ontology(default_ontology)
 df_ontology_new = pd.DataFrame(
     {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
 df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
-print('Ontology loaded.\n')
+print('Ontology ready.\n')
 
 # load tf_idf matrix if chosen as scorer:
 if config.ontology.related.scorer == 'tf_idf':
@@ -215,279 +228,10 @@ cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the o
 ######################################################################################################
 # FUNCTIONS #
 ######################################################################################################
-def description_card():
-    """
-    :return: A Div containing dashboard title & descriptions.
-    """
-    return html.Div(
-        id="description-card",
-        children=[
-            html.H5(""),
-        ],
-    )
-
-
-def generate_control_card():
-    """
-    :return: A Div containing controls for graphs.
-    """
-    return html.Div(
-        id="control-card",
-        children=[
-            html.Div(
-                id="upload-outer",
-                hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
-                children=[
-                    dcc.Upload(
-                        id='upload-data',
-                        children=html.Div([
-                            html.P('Drag and Drop or Select Configuration File'),
-                        ]),
-                        style={
-                            'width': '100%',
-                            'height': '60px',
-                            'lineHeight': '60px',
-                            'borderWidth': '1px',
-                            'borderStyle': 'dashed',
-                            'borderRadius': '5px',
-                            'textAlign': 'center',
-                            'borderColor': 'gray'
-                        },
-                    ),
-                    html.Br(),
-                ]
-            ),
-            html.Div(
-                id='item-copy-outer',
-                hidden=False,
-                children=[
-                    dcc.Clipboard(
-                        id='item-copy',
-                        title="Copy Concept/Item",
-                        style={
-                            "color": "#c9ddee",
-                            "fontSize": 15,
-                            "verticalAlign": "center",
-                            'float': 'right',
-                            'margin': 'auto'
-                        },
-                    )
-                ]
-            ),
-            html.P("Select Concept:"),
-            dcc.Dropdown(
-                id="item-select",
-                clearable=False,
-                value=initialize_item_select()[1],
-                style={"border-radius": 0},
-                options=initialize_item_select()[0],
-            ),
-            html.Br(),
-            html.Div(
-                id='patient-copy-outer',
-                hidden=False,
-                children=[
-                    dcc.Clipboard(
-                        id='patient-copy',
-                        title="Copy Patient ID",
-                        style={
-                            "color": "#c9ddee",
-                            "fontSize": 15,
-                            "verticalAlign": "center",
-                            'float': 'right',
-                            'margin': 'auto'
-                        },
-                    )
-                ]
-            ),
-            html.P("Specify Patient (enables patient specific tabs):"),
-            dcc.Dropdown(
-                id="patient-select",
-                value=initialize_patient_select()[1],
-                style={"border-radius": 0},
-                options=initialize_patient_select()[0],
-                disabled=False,
-            ),
-            html.Br(),
-            html.Hr(),
-            html.Div(
-                id='annotate-copy-outer',
-                hidden=True,
-                children=[
-                    dcc.Clipboard(
-                        id='annotate-copy',
-                        title="Copy Annotation",
-                        style={
-                            "color": "#c9ddee",
-                            "fontSize": 15,
-                            "verticalAlign": "center",
-                            'float': 'right',
-                            'margin': 'auto'
-                        },
-                    )
-                ]
-            ),
-            html.P("Select Annotation:"),
-            dcc.Dropdown(
-                id="annotate-select",
-                value=None,
-                optionHeight=65,
-                placeholder='Start typing...',
-                style={"border-radius": 0},
-                options=initialize_annotate_select(),
-            ),
-            # html.Div(
-            #     children=dcc.Input(
-            #         id="annotate-text",
-            #         placeholder="Annotation...",
-            #         debounce=True,
-            #         style={"width": 390},
-            #         autoFocus=True,
-            #     ),
-            # ),
-            # html.Br(),
-            # html.Div(
-            #     id="search-btn-outer",
-            #     children=html.Button(id="search-btn", children="Search", n_clicks=0,
-            #                          style={'width': '100%', 'color': 'white'}),
-            # ),
-            html.Div(
-                id="annotation-outer",
-                hidden=True,
-                children=[
-                    html.Br(),
-                    html.Br(id='before_loading', hidden=False),
-                    dcc.Loading(
-                        id="related-loading",
-                        type="dot",
-                        color='#2c89f2',
-                        children=[
-                            dcc.Clipboard(
-                                id='related-copy',
-                                title="Copy Related Results",
-                                style={
-                                    "color": "#c9ddee",
-                                    "fontSize": 15,
-                                    "verticalAlign": "center",
-                                    'float': 'right',
-                                    'margin': 'auto'
-                                },
-                            ),
-                            html.P(children=[
-                                html.B('Related Results (click on rows for more info):'),
-                            ]),
-                            html.Div(
-                                id="related-datatable-outer",
-                                className='related-datable',
-                                hidden=False,
-                                children=dash_table.DataTable(id='related-datatable',
-                                                              data=None,
-                                                              columns=[
-                                                                  {'name': "",
-                                                                   'id': 'RELEVANCE'},
-                                                                  {'name': "CODE",
-                                                                   'id': 'CODE'},
-                                                                  {'name': "LABEL",
-                                                                   'id': 'LABEL'}
-                                                              ],
-                                                              sort_action='native',
-                                                              style_data={
-                                                                  'whiteSpace': 'normal',
-                                                                  'height': 'auto',
-                                                                  'lineHeight': '15px',
-                                                              },
-                                                              style_table={
-                                                                  'height': '150px',
-                                                                  'overflowY': 'auto'
-                                                              },
-                                                              style_cell={
-                                                                  'textAlign': 'left',
-                                                                  'backgroundColor': 'transparent'
-                                                              },
-                                                              style_header={
-                                                                  'fontWeight': 'bold',
-                                                                  'color': '#2c8cff'
-                                                              },
-                                                              style_data_conditional=[
-                                                                  {  # 'active' | 'selected'
-                                                                      'if': {'state': 'active'},
-                                                                      'backgroundColor': 'transparent',
-                                                                      'border': '1px solid lightgray'
-                                                                  },
-                                                                  {
-                                                                      'if': {'column_id': 'CODE'},
-                                                                      'width': '30%'
-                                                                  },
-                                                              ],
-                                                              page_size=10,
-                                                              merge_duplicate_headers=True,
-                                                              style_as_list_view=True,
-                                                              css=[
-                                                                  {
-                                                                      'selector': '.previous-page, .next-page, '
-                                                                                  '.first-page, .last-page',
-                                                                      'rule': 'color: #2c8cff'}
-                                                              ])
-                            ),
-                        ]
-                    ),
-                    html.Br(id='after_loading', hidden=False),
-                ],
-            ),
-            html.Div(
-                id="submit-btn-outer",
-                hidden=True,
-                children=[
-                    html.Br(),
-                    html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
-                                style={'width': '100%', 'color': 'white'},
-                                disabled=False),
-                ],
-            ),
-            html.Div(
-                id="skip-outer",
-                hidden=False,
-                children=[
-                    html.Br(),
-                    dcc.RadioItems(
-                        id='skip-radio-items',
-                        options=['Unsure', 'Invalid Source Data', 'Other'],
-                        value='Unsure',
-                        style={'width': '100%', 'color': 'white', 'textAlign': 'center', 'verticalAlign': 'center'},
-                        labelStyle={'margin-right': '30px'},
-                        inline=True,
-                    ),
-                    html.Div(id='skip-other-outer',
-                             hidden=True,
-                             children=[
-                                 dcc.Input(
-                                     id="skip-other-text",
-                                     placeholder="Reason...",
-                                     debounce=True,
-                                     style={"width": '100%'},
-                                     autoFocus=True,
-                                 ),
-                             ]),
-                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
-                                style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
-                                disabled=False),
-                ],
-            ),
-            html.Br(),
-            html.Div(
-                id="download-outer",
-                hidden=initialize_download_button(annotated_list),
-                children=[
-                    html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
-                                style={'width': '100%', 'color': 'white'},
-                                disabled=False),
-                    dcc.Download(id="download-annotations")
-                ]
-            ),
-            html.Br(),
-        ],
-        style={'width': '100%', 'color': 'black'}
-    )
+def generate_ontology_options():
+    ontology_options = [{"label": each_ontology, "value": each_ontology} for each_ontology in
+                        list_of_ontologies.keys()]
+    return ontology_options
 
 
 def generate_all_patients_graph(item, **kwargs):
@@ -775,11 +519,11 @@ def initialize_annotate_select():
     return ontology_codes
 
 
-def annotate(item, annotation, skipped=False):
+def annotate(item, annotation, ontology, skipped=False):
     if skipped:
         item_dict = {'itemid': item,
                      'label': itemsid_dict[item],
-                     'ontology': config.ontology.name,
+                     'ontology': ontology,
                      'annotatedid': f'Skipped: {annotation}',
                      'annotatedlabel': 'n/a'
                      }
@@ -787,6 +531,7 @@ def annotate(item, annotation, skipped=False):
         # item_row = df_items.query(f'itemid == {item}')
         item_dict = {'itemid': item,
                      'label': itemsid_dict[item],
+                     'ontology': ontology,
                      # 'mimic_loinc': item_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-items
                      'annotatedid': annotation,
                      'annotatedlabel': ontology_dict[annotation]
@@ -1019,19 +764,20 @@ def download_annotations(n_clicks):
         State("ontology-datatable", "data"),
         State("skip-radio-items", "value"),
         State("skip-other-text", "value"),
+        State("ontology-select", "value"),
     ]
 )
 def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, item, curr_data, skip_reason,
-                     other_reason):
+                     other_reason, ontology):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
-        annotate(item, annotation)
+        annotate(item, annotation, ontology)
         return '', False, None, [], None, []
     elif triggered_id == 'skip-btn.n_clicks':
         if skip_reason == 'Other':
-            annotate(item, other_reason, skipped=True)
+            annotate(item, other_reason, ontology, skipped=True)
         else:
-            annotate(item, skip_reason, skipped=True)
+            annotate(item, skip_reason, ontology, skipped=True)
         return '', False, None, [], None, []
     elif triggered_id == 'ontology-datatable.active_cell':
         if replace_annotation['row'] == 1:
@@ -1312,6 +1058,7 @@ def update_config(contents, filename, last_modified):
     print("UPDATING DASHBOARD...")
     print("---------------------\n")
     global config
+    global list_of_ontologies, default_ontology
     global df_items, df_events, df_ontology, df_ontology_new
     global itemsid_dict, ontology_dict
     global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
@@ -1346,7 +1093,9 @@ def update_config(contents, filename, last_modified):
         df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
         print("Data loaded.\n")
 
-        df_ontology, ontology_dict = load_ontology(ontology=config.ontology.name)
+        list_of_ontologies = load_ontologies()
+        default_ontology = config.ontology.filename.strip('.csv')
+        df_ontology, ontology_dict = select_ontology(default_ontology)
         df_ontology_new = pd.DataFrame(
             {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
         df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
@@ -1390,6 +1139,281 @@ def update_config(contents, filename, last_modified):
 ######################################################################################################
 # PAGE LAYOUT #
 ######################################################################################################
+def description_card():
+    """
+    :return: A Div containing dashboard title & descriptions.
+    """
+    return html.Div(
+        id="description-card",
+        children=[
+            html.H5(""),
+        ],
+    )
+
+
+def generate_control_card():
+    """
+    :return: A Div containing controls for graphs.
+    """
+    return html.Div(
+        id="control-card",
+        children=[
+            html.Div(
+                id="upload-outer",
+                hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
+                children=[
+                    dcc.Upload(
+                        id='upload-data',
+                        children=html.Div([
+                            html.P('Drag and Drop or Select Configuration File'),
+                        ]),
+                        style={
+                            'width': '100%',
+                            'height': '60px',
+                            'lineHeight': '60px',
+                            'borderWidth': '1px',
+                            'borderStyle': 'dashed',
+                            'borderRadius': '5px',
+                            'textAlign': 'center',
+                            'borderColor': 'gray'
+                        },
+                    ),
+                    html.Br(),
+                ]
+            ),
+            html.Div(
+                id='item-copy-outer',
+                hidden=False,
+                children=[
+                    dcc.Clipboard(
+                        id='item-copy',
+                        title="Copy Concept/Item",
+                        style={
+                            "color": "#c9ddee",
+                            "fontSize": 15,
+                            "verticalAlign": "center",
+                            'float': 'right',
+                            'margin': 'auto'
+                        },
+                    )
+                ]
+            ),
+            html.P("Select Concept:"),
+            dcc.Dropdown(
+                id="item-select",
+                clearable=False,
+                value=initialize_item_select()[1],
+                style={"border-radius": 0},
+                options=initialize_item_select()[0],
+            ),
+            html.Br(),
+            html.Div(
+                id='patient-copy-outer',
+                hidden=False,
+                children=[
+                    dcc.Clipboard(
+                        id='patient-copy',
+                        title="Copy Patient ID",
+                        style={
+                            "color": "#c9ddee",
+                            "fontSize": 15,
+                            "verticalAlign": "center",
+                            'float': 'right',
+                            'margin': 'auto'
+                        },
+                    )
+                ]
+            ),
+            html.P("Specify Patient (enables patient specific tabs):"),
+            dcc.Dropdown(
+                id="patient-select",
+                value=initialize_patient_select()[1],
+                style={"border-radius": 0},
+                options=initialize_patient_select()[0],
+                disabled=False,
+            ),
+            html.Br(),
+            html.Hr(),
+            html.Div(
+                id='annotate-copy-outer',
+                hidden=True,
+                children=[
+                    dcc.Clipboard(
+                        id='annotate-copy',
+                        title="Copy Annotation",
+                        style={
+                            "color": "#c9ddee",
+                            "fontSize": 15,
+                            "verticalAlign": "center",
+                            'float': 'right',
+                            'margin': 'auto'
+                        },
+                    )
+                ]
+            ),
+            html.P("Select Annotation:"),
+            dcc.Dropdown(
+                id="annotate-select",
+                value=None,
+                optionHeight=65,
+                placeholder='Start typing...',
+                style={"border-radius": 0},
+                options=initialize_annotate_select(),
+            ),
+            # html.Div(
+            #     children=dcc.Input(
+            #         id="annotate-text",
+            #         placeholder="Annotation...",
+            #         debounce=True,
+            #         style={"width": 390},
+            #         autoFocus=True,
+            #     ),
+            # ),
+            # html.Br(),
+            # html.Div(
+            #     id="search-btn-outer",
+            #     children=html.Button(id="search-btn", children="Search", n_clicks=0,
+            #                          style={'width': '100%', 'color': 'white'}),
+            # ),
+            html.Div(
+                id="annotation-outer",
+                hidden=True,
+                children=[
+                    html.Br(),
+                    html.Br(id='before_loading', hidden=False),
+                    dcc.Loading(
+                        id="related-loading",
+                        type="dot",
+                        color='#2c89f2',
+                        children=[
+                            dcc.Clipboard(
+                                id='related-copy',
+                                title="Copy Related Results",
+                                style={
+                                    "color": "#c9ddee",
+                                    "fontSize": 15,
+                                    "verticalAlign": "center",
+                                    'float': 'right',
+                                    'margin': 'auto'
+                                },
+                            ),
+                            html.P(children=[
+                                html.B('Related Results (click on rows for more info):'),
+                            ]),
+                            html.Div(
+                                id="related-datatable-outer",
+                                className='related-datable',
+                                hidden=False,
+                                children=dash_table.DataTable(id='related-datatable',
+                                                              data=None,
+                                                              columns=[
+                                                                  {'name': "",
+                                                                   'id': 'RELEVANCE'},
+                                                                  {'name': "CODE",
+                                                                   'id': 'CODE'},
+                                                                  {'name': "LABEL",
+                                                                   'id': 'LABEL'}
+                                                              ],
+                                                              sort_action='native',
+                                                              style_data={
+                                                                  'whiteSpace': 'normal',
+                                                                  'height': 'auto',
+                                                                  'lineHeight': '15px',
+                                                              },
+                                                              style_table={
+                                                                  'height': '150px',
+                                                                  'overflowY': 'auto'
+                                                              },
+                                                              style_cell={
+                                                                  'textAlign': 'left',
+                                                                  'backgroundColor': 'transparent'
+                                                              },
+                                                              style_header={
+                                                                  'fontWeight': 'bold',
+                                                                  'color': '#2c8cff'
+                                                              },
+                                                              style_data_conditional=[
+                                                                  {  # 'active' | 'selected'
+                                                                      'if': {'state': 'active'},
+                                                                      'backgroundColor': 'transparent',
+                                                                      'border': '1px solid lightgray'
+                                                                  },
+                                                                  {
+                                                                      'if': {'column_id': 'CODE'},
+                                                                      'width': '30%'
+                                                                  },
+                                                              ],
+                                                              page_size=10,
+                                                              merge_duplicate_headers=True,
+                                                              style_as_list_view=True,
+                                                              css=[
+                                                                  {
+                                                                      'selector': '.previous-page, .next-page, '
+                                                                                  '.first-page, .last-page',
+                                                                      'rule': 'color: #2c8cff'}
+                                                              ])
+                            ),
+                        ]
+                    ),
+                    html.Br(id='after_loading', hidden=False),
+                ],
+            ),
+            html.Div(
+                id="submit-btn-outer",
+                hidden=True,
+                children=[
+                    html.Br(),
+                    html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
+                                style={'width': '100%', 'color': 'white'},
+                                disabled=False),
+                ],
+            ),
+            html.Div(
+                id="skip-outer",
+                hidden=False,
+                children=[
+                    html.Br(),
+                    dcc.RadioItems(
+                        id='skip-radio-items',
+                        options=['Unsure', 'Invalid Source Data', 'Other'],
+                        value='Unsure',
+                        style={'width': '100%', 'color': 'white', 'textAlign': 'center', 'verticalAlign': 'center'},
+                        labelStyle={'margin-right': '30px'},
+                        inline=True,
+                    ),
+                    html.Div(id='skip-other-outer',
+                             hidden=True,
+                             children=[
+                                 dcc.Input(
+                                     id="skip-other-text",
+                                     placeholder="Reason...",
+                                     debounce=True,
+                                     style={"width": '100%'},
+                                     autoFocus=True,
+                                 ),
+                             ]),
+                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
+                                style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
+                                disabled=False),
+                ],
+            ),
+            html.Br(),
+            html.Div(
+                id="download-outer",
+                hidden=initialize_download_button(annotated_list),
+                children=[
+                    html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
+                                style={'width': '100%', 'color': 'white'},
+                                disabled=False),
+                    dcc.Download(id="download-annotations")
+                ]
+            ),
+            html.Br(),
+        ],
+        style={'width': '100%', 'color': 'black'}
+    )
+
+
 def serve_layout():
     return html.Div(
         id="app-container",
@@ -1418,7 +1442,14 @@ def serve_layout():
                 className="banner",
                 children=[
                     html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                    html.H5("Welcome to the MIMIC-IV Clinical Annotation Dashboard"),
+                    html.H5("Welcome to MIMIC-Dash"),
+                    dcc.Dropdown(
+                        id="ontology-select",
+                        value=default_ontology,
+                        options=generate_ontology_options(),
+                        disabled=False,
+                        style={'position': 'relative', 'right': '5%', 'bottom': '2px'}
+                    ),
                     dcc.Upload(
                         id='upload-data-btn',
                         children=html.Button(
