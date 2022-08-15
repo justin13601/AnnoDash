@@ -15,13 +15,14 @@ from pymedtermino.snomedct import *
 ontology = "snomed"
 
 # For LOINC, enter classtype (int) ex: 1
-# For SNOMED, enter hierarchy level (int) ex: 363787002 (Observable Entity) or 15220000 (Laboratory Test)
-ontology_sub = 15220000
+# For SNOMED, enter hierarchy level (int) ex:
+# 363787002 (Observable Entity), 15220000 (Laboratory Test), 404684003 (Clinical Finding)
+ontology_sub = 404684003
 
 # Ontology file/directory
 # ex: 'LoincTableCore.csv' or 'sct2_Concept_Snapshot_INT_20220731.txt'
 file_name = 'sct2_Concept_Snapshot_INT_20220731.txt'
-dir = r'C:\Users\Justin\PycharmProjects\mimic-iv-dash\demo-data'
+dir = r'C:\Users\Justin\PycharmProjects\mimic-iv-dash\ontology\SNOMED-CT'
 path = os.path.join(dir, file_name)
 
 
@@ -68,7 +69,7 @@ if ontology == "loinc":
     df_loinc.columns = ['id' if x == 'LOINC_NUM' else x for x in df_loinc.columns]
     df_loinc.columns = ['label' if x == 'LONG_COMMON_NAME' else x for x in df_loinc.columns]
 
-    save_file = f'../LoincClassType_{ontology_sub}.csv'
+    save_file = f'../ontology/LOINC/LoincClassType_{ontology_sub}.csv'
     df_loinc.to_csv(save_file, index=False)
 
 elif ontology == "snomed":
@@ -91,7 +92,7 @@ elif ontology == "snomed":
     label_column = df_snomed.pop('label')
     df_snomed.insert(1, 'label', label_column)
 
-    save_file = f'../SNOMED_CT_Hierarchy_{ontology_sub}.csv'
+    save_file = f'../ontology/SNOMED-CT/SNOMED_CT_Hierarchy_{ontology_sub}.csv'
     df_snomed.to_csv(save_file, index=False)
 else:
     raise InvalidOntology
