@@ -23,7 +23,7 @@ hr {
     height: 5.5rem;
     margin-bottom: 1rem;
     padding: 2rem 2.25rem 0rem;
-    background-image: linear-gradient(#353944, #171c28 30%);
+    background-image: linear-gradient(#353944, #171c28 80%);
     display: flex;
     flex-direction: row;
     align-items: center;
