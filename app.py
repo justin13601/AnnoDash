@@ -139,10 +139,16 @@ def load_ontologies():
 
 
 def select_ontology(ontology):
+    global df_ontology, ontology_dict, df_ontology_new
     if ontology not in list_of_ontologies.keys():
         raise OntologyNotSupported
     data = list_of_ontologies[ontology][0]
     dictionary = list_of_ontologies[ontology][1]
+    df_ontology = data
+    ontology_dict = dictionary
+    df_ontology_new = pd.DataFrame(
+        {'CODE': list(dictionary.keys()), 'LABEL': list(dictionary.values())})
+    df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
     print(f"{ontology} codes processed and selected.\n")
     return data, dictionary
 
@@ -187,7 +193,7 @@ PATH_data = config.directories.data.location
 PATH_items = config.directories.concepts.location
 PATH_results = config.directories.results
 PATH_ontology = config.ontology.location
-PATH_related = config.ontology.related.location
+PATH_related = config.ontology.related
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
@@ -205,12 +211,15 @@ df_ontology_new = pd.DataFrame(
 df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 print('Ontology ready.\n')
 
-# load tf_idf matrix if chosen as scorer:
-if config.ontology.related.scorer == 'tf_idf':
-    with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
-        ngrams = shlv['ngrams']
-        vectorizer = shlv['model']
-        tf_idf_matrix = shlv['tf_idf_matrix']
+# load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
+if 'LoincClassType_1' in list_of_ontologies:
+    try:
+        with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
+            ngrams = shlv['ngrams']
+            vectorizer = shlv['model']
+            tf_idf_matrix = shlv['tf_idf_matrix']
+    except FileNotFoundError:
+        print("Vectorizer shelve files not found, TF-IDF will not be available for LoincClassType_1.")
 
 annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
@@ -229,9 +238,23 @@ cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the o
 # FUNCTIONS #
 ######################################################################################################
 def generate_ontology_options():
-    ontology_options = [{"label": each_ontology, "value": each_ontology} for each_ontology in
+    ontology_options = [{"label": each_ontology.replace('_', ' '), "value": each_ontology} for each_ontology in
                         list_of_ontologies.keys()]
     return ontology_options
+
+
+def generate_scorer_options(ontology):
+    if ontology == 'LoincClassType_1':
+        options = ["tf_idf", "partial_ratio", "jaro_winkler"]
+    elif 'LoincClassType' in ontology:
+        options = ["partial_ratio", "jaro_winkler"]
+    elif 'SNOMED' in ontology:
+        options = ["partial_ratio", "jaro_winkler", "UMLS"]
+    else:
+        raise OntologyNotSupported
+
+    scorer_options = [{"label": each_scorer.replace('_', ' '), "value": each_scorer} for each_scorer in options]
+    return scorer_options
 
 
 def generate_all_patients_graph(item, **kwargs):
@@ -568,6 +591,13 @@ def update_item_options(options, item, skipped=False):
     return options, new_value
 
 
+def update_ontology(ontology):
+    _, new_ontology_dict = select_ontology(ontology)
+    ontology_codes = [{"label": f'{each_code}: {new_ontology_dict[each_code]}', "value": each_code} for each_code in
+                      new_ontology_dict]
+    return ontology_codes
+
+
 ######################################################################################################
 # CALLBACKS #
 ######################################################################################################
@@ -746,6 +776,7 @@ def download_annotations(n_clicks):
 
 @app.callback(
     Output("annotate-select", "value"),
+    Output("annotate-select", "options"),
     # Output('annotate-text', 'value'),
     Output("confirm-replace", "displayed"),
     Output("related-datatable", "active_cell"),
@@ -757,6 +788,7 @@ def download_annotations(n_clicks):
         Input("skip-btn", "n_clicks"),
         Input("ontology-datatable", "active_cell"),
         Input("annotate-select", "value"),
+        Input("ontology-select", "value"),
     ],
     [
         State("item-select", "value"),
@@ -764,34 +796,50 @@ def download_annotations(n_clicks):
         State("ontology-datatable", "data"),
         State("skip-radio-items", "value"),
         State("skip-other-text", "value"),
-        State("ontology-select", "value"),
+        State("annotate-select", "options"),
     ]
 )
-def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, item, curr_data, skip_reason,
-                     other_reason, ontology):
+def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, ontology, item, curr_data,
+                     skip_reason,
+                     other_reason, annotation_options):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         annotate(item, annotation, ontology)
-        return '', False, None, [], None, []
+        return None, annotation_options, False, None, [], None, []
     elif triggered_id == 'skip-btn.n_clicks':
         if skip_reason == 'Other':
             annotate(item, other_reason, ontology, skipped=True)
         else:
             annotate(item, skip_reason, ontology, skipped=True)
-        return '', False, None, [], None, []
+        return None, annotation_options, False, None, [], None, []
     elif triggered_id == 'ontology-datatable.active_cell':
         if replace_annotation['row'] == 1:
             new_annotation = list(curr_data[replace_annotation['row']].values())[0]
-            return new_annotation, False, None, [], None, []
+            return new_annotation, annotation_options, False, None, [], None, []
         else:
             raise PreventUpdate
+    elif triggered_id == 'ontology-select.value':
+        new_annotation_options = update_ontology(ontology)
+        return None, new_annotation_options, False, None, [], None, []
     elif triggered_id == 'annotate-select.value':
         if not annotation:
-            return '', False, None, [], None, []
+            return None, annotation_options, False, None, [], None, []
         else:
             raise PreventUpdate
     else:
         raise PreventUpdate
+
+
+@app.callback(
+    Output("scorer-select", "value"),
+    Output("scorer-select", "options"),
+    [
+        Input("ontology-select", "value"),
+    ]
+)
+def update_scorer_select(ontology):
+    scorer_options = generate_scorer_options(ontology)
+    return scorer_options[0]["value"], scorer_options
 
 
 @app.callback(
@@ -999,9 +1047,10 @@ def update_ontology_datatable(annotation, submit, related, curr_data):
     [
         Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
+        Input("scorer-select", "value"),
     ],
 )
-def update_related_datatable(annotation, submit):
+def update_related_datatable(annotation, submit, scorer):
     if not annotation:
         return True, None, False, False
 
@@ -1011,18 +1060,18 @@ def update_related_datatable(annotation, submit):
 
     query = ontology_dict[annotation]
     choices = list(df_ontology_new['LABEL'])
-    if config.ontology.related.scorer == 'partial_ratio':
+    if scorer == 'partial_ratio':
         df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology_new)
-    elif config.ontology.related.scorer == 'jaro_winkler':
+    elif scorer == 'jaro_winkler':
         df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology_new)
-    elif config.ontology.related.scorer == 'tf_idf':
+    elif scorer == 'tf_idf':
         # NLP: tf_idf
         df_data = generateRelatedOntologies(query, choices, method='tf_idf',
                                             df_ontology=df_ontology_new,
                                             vectorizer=vectorizer,
                                             tf_idf_matrix=tf_idf_matrix)
     else:
-        raise ScorerNotAvailable("Please define scorer from available options in the configuration file.")
+        raise ScorerNotAvailable()
 
     scores = df_data.iloc[:, 3]
 
@@ -1082,11 +1131,15 @@ def update_config(contents, filename, last_modified):
         if 'demo-data' in PATH_data:
             print("Demo data selected.")
 
-        if config.ontology.related.scorer == 'tf_idf':
-            with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
-                ngrams = shlv['ngrams']
-                vectorizer = shlv['model']
-                tf_idf_matrix = shlv['tf_idf_matrix']
+        # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
+        if 'LoincClassType_1' in list_of_ontologies:
+            try:
+                with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
+                    ngrams = shlv['ngrams']
+                    vectorizer = shlv['model']
+                    tf_idf_matrix = shlv['tf_idf_matrix']
+            except FileNotFoundError:
+                print("Vectorizer shelve files not found, TF-IDF will not be available for LoincClassType_1.")
 
         df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
 
@@ -1442,13 +1495,34 @@ def serve_layout():
                 className="banner",
                 children=[
                     html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                    html.H5("Welcome to MIMIC-Dash"),
-                    dcc.Dropdown(
-                        id="ontology-select",
-                        value=default_ontology,
-                        options=generate_ontology_options(),
-                        disabled=False,
-                        style={'position': 'relative', 'right': '5%', 'bottom': '2px'}
+                    html.H5(""),
+                    html.Div(children=[
+                        dcc.Dropdown(
+                            id="ontology-select",
+                            value=default_ontology,
+                            options=generate_ontology_options(),
+                            disabled=False,
+                            optionHeight=65,
+                            clearable=False,
+                            style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
+                                   'color': 'black'}
+                        ),
+                    ],
+                        style={'width': '25%', 'margin-right': '6%'}
+                    ),
+                    html.Div(children=[
+                        dcc.Dropdown(
+                            id="scorer-select",
+                            value=default_ontology,
+                            options=[],
+                            disabled=False,
+                            optionHeight=65,
+                            clearable=False,
+                            style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
+                                   'color': 'black'}
+                        ),
+                    ],
+                        style={'width': '8%', 'position': 'relative', 'right': '5%', 'float': 'right'}
                     ),
                     dcc.Upload(
                         id='upload-data-btn',
