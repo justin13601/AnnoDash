@@ -24,10 +24,8 @@ cfg.directories.data.filename = 'LABEVENTS.csv'
 cfg.ontology = config_dict.ConfigDict()
 cfg.ontology.location = 'ontology'
 cfg.ontology.filename = 'LoincClassType_1.csv'
-cfg.ontology.related = config_dict.ConfigDict()
-cfg.ontology.related.scorer = 'tf_idf'
-cfg.ontology.related.location = config_dict.placeholder(str)
-cfg.ontology.related.location = 'ontology'
+cfg.ontology.related = config_dict.placeholder(str)
+cfg.ontology.related = 'ontology/related'
 
 cfg.graphs = config_dict.ConfigDict()
 cfg.graphs.pairs = config_dict.ConfigDict()
