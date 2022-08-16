@@ -1,3 +1,6 @@
+# REQUIRES config.yaml FROM generate_config.py.
+# REQUIRES PREPROCESSED ONTOLOGY FILES FROM preprocess_ontology.py -> WIP.
+
 import re
 import os
 import csv
