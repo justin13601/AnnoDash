@@ -71,35 +71,13 @@ _fields:
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      class_label: !!python/object:ml_collections.config_dict.config_dict.FieldReference
-        _field_type: &id001 !!python/name:builtins.str ''
-        _ops: []
-        _required: false
-        _value: Laboratory Terms
-      class_value: !!python/object:ml_collections.config_dict.config_dict.FieldReference
-        _field_type: !!python/name:builtins.int ''
-        _ops: []
-        _required: false
-        _value: 1
       filename: LoincClassType_1.csv
-      location: demo-data
-      name: loinc
-      related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
-        _convert_dict: true
-        _fields:
-          location: !!python/object:ml_collections.config_dict.config_dict.FieldReference
-            _field_type: *id001
-            _ops: []
-            _required: false
-            _value: demo-data
-          scorer: tf_idf
-        _locked: false
-        _type_safe: true
-      version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
-        _field_type: &id002 !!python/name:builtins.float ''
+      location: ontology
+      related: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: !!python/name:builtins.str ''
         _ops: []
         _required: false
-        _value: 2.72
+        _value: ontology/related
     _locked: false
     _type_safe: true
   temp: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
@@ -111,7 +89,7 @@ _fields:
         _required: false
         _value: false
       mimic_iv_version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
-        _field_type: *id002
+        _field_type: !!python/name:builtins.float ''
         _ops: []
         _required: false
         _value: 2.0
