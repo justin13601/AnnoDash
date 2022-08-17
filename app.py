@@ -15,6 +15,7 @@ import json
 import yaml
 import errno
 import base64
+import requests
 from datetime import timedelta, datetime as dt
 from collections import defaultdict
 from ml_collections import config_dict
@@ -25,9 +26,11 @@ import plotly.graph_objs as go
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
 import dash
+import dash_bootstrap_components as dbc
 from dash import Dash, html, dcc, dash_table
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
+from dash.dash import no_update
 from flask import Flask, send_file
 
 import numpy as np
@@ -193,7 +196,7 @@ PATH_data = config.directories.data.location
 PATH_items = config.directories.concepts.location
 PATH_results = config.directories.results
 PATH_ontology = config.ontology.location
-PATH_related = config.ontology.related
+PATH_related = config.ontology.related.location
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
@@ -212,7 +215,7 @@ df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 print('Ontology ready.\n')
 
 # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
-if 'LoincClassType_1' in list_of_ontologies:
+if 'LoincClassType_1' in list_of_ontologies.keys():
     try:
         with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
             ngrams = shlv['ngrams']
@@ -228,7 +231,7 @@ unannotated_list.sort()
 # define item pairs for patient specific tabs
 pairs = []
 for each in config.graphs.pairs.values():
-    pairs.append((each['label'], each['item_1'], each['item_2']))
+    pairs.append((each['label'], each['items'][0], each['items'][1]))
 bg_pair = pairs[0][1:]  # Default PO2 & PCO2, Blood; Could add FiO2
 chem_pair = pairs[1][1:]  # Default Creatinine & Potassium, Blood; Could also use Sodium & Glucose (overlay 4?)
 cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the one with space) -> no observations :(
@@ -326,7 +329,7 @@ def generate_all_patients_graph(item, **kwargs):
         title=title_template,
         xaxis_title=f"{itemsid_dict[item]} {units}",
         yaxis_title=ylabel,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor='rgba(0,0,0,0)'),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95, bgcolor='rgba(0,0,0,0)'),
         font=dict(
             family=kwargs['config'].text_font,
             size=kwargs['config'].text_size,
@@ -538,7 +541,7 @@ def initialize_annotate_select():
             if aLis1 not in ontology_codes_temp_for_demo_2:
                 ontology_codes_temp_for_demo_2.append(aLis1)
         return ontology_codes_temp_for_demo_2
-        # return ontology_codes[2000:4000] 
+        # return ontology_codes[2000:4000]
     return ontology_codes
 
 
@@ -730,7 +733,7 @@ def enable_download_button(n_clicks):
     ],
     prevent_initial_call=True,
 )
-def enable_download_button(value):
+def show_skip_other(value):
     if value == 'Other':
         return False
     return True
@@ -778,7 +781,6 @@ def download_annotations(n_clicks):
     Output("annotate-select", "value"),
     Output("annotate-select", "options"),
     # Output('annotate-text', 'value'),
-    Output("confirm-replace", "displayed"),
     Output("related-datatable", "active_cell"),
     Output("related-datatable", "selected_cells"),
     Output("ontology-datatable", "active_cell"),
@@ -800,30 +802,29 @@ def download_annotations(n_clicks):
     ]
 )
 def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, ontology, item, curr_data,
-                     skip_reason,
-                     other_reason, annotation_options):
+                     skip_reason, other_reason, annotation_options):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         annotate(item, annotation, ontology)
-        return None, annotation_options, False, None, [], None, []
+        return None, no_update, None, [], None, []
     elif triggered_id == 'skip-btn.n_clicks':
         if skip_reason == 'Other':
             annotate(item, other_reason, ontology, skipped=True)
         else:
             annotate(item, skip_reason, ontology, skipped=True)
-        return None, annotation_options, False, None, [], None, []
+        return None, no_update, None, [], None, []
     elif triggered_id == 'ontology-datatable.active_cell':
         if replace_annotation['row'] == 1:
             new_annotation = list(curr_data[replace_annotation['row']].values())[0]
-            return new_annotation, annotation_options, False, None, [], None, []
+            return new_annotation, no_update, None, [], None, []
         else:
             raise PreventUpdate
     elif triggered_id == 'ontology-select.value':
         new_annotation_options = update_ontology(ontology)
-        return None, new_annotation_options, False, None, [], None, []
+        return None, new_annotation_options, None, [], None, []
     elif triggered_id == 'annotate-select.value':
         if not annotation:
-            return None, annotation_options, False, None, [], None, []
+            return None, no_update, None, [], None, []
         else:
             raise PreventUpdate
     else:
@@ -1049,8 +1050,11 @@ def update_ontology_datatable(annotation, submit, related, curr_data):
         Input("submit-btn", "n_clicks"),
         Input("scorer-select", "value"),
     ],
+    [
+        State("item-select", "value"),
+    ]
 )
-def update_related_datatable(annotation, submit, scorer):
+def update_related_datatable(annotation, submit, scorer, item):
     if not annotation:
         return True, None, False, False
 
@@ -1070,6 +1074,17 @@ def update_related_datatable(annotation, submit, scorer):
                                             df_ontology=df_ontology_new,
                                             vectorizer=vectorizer,
                                             tf_idf_matrix=tf_idf_matrix)
+    elif scorer == 'UMLS':
+        results = generateRelatedOntologies(query, choices, method='UMLS', apikey=config.ontology.related.umls_apikey)
+        query_2 = itemsid_dict[item]
+        results_2 = generateRelatedOntologies(query_2, choices, method='UMLS',
+                                              apikey=config.ontology.related.umls_apikey)
+        results_all = results + results_2
+        df_data = pd.DataFrame.from_records(results_all, columns=['LABEL', 'CODE'])
+        df_data['SCORES'] = np.array([100] * len(df_data['CODE']))
+        df_data['id'] = np.arange(len(df_data['CODE']))
+        col_id = df_data.pop('id')
+        df_data.insert(0, col_id.name, col_id)
     else:
         raise ScorerNotAvailable()
 
@@ -1132,7 +1147,7 @@ def update_config(contents, filename, last_modified):
             print("Demo data selected.")
 
         # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
-        if 'LoincClassType_1' in list_of_ontologies:
+        if 'LoincClassType_1' in list_of_ontologies.keys():
             try:
                 with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
                     ngrams = shlv['ngrams']
@@ -1160,8 +1175,8 @@ def update_config(contents, filename, last_modified):
 
         # define item pairs for patient specific tabs
         pairs = []
-        for each in config.graphs.pairs.values():
-            pairs.append((each['label'], each['item_1'], each['item_2']))
+        for each_pair in config.graphs.pairs.values():
+            pairs.append((each_pair['label'], each_pair['items'][0], each_pair['items'][1]))
         bg_pair = pairs[0][1:]
         chem_pair = pairs[1][1:]
         cbc_pair = pairs[2][1:]
@@ -1341,7 +1356,7 @@ def generate_control_card():
                         children=[
                             dcc.Clipboard(
                                 id='related-copy',
-                                title="Copy Related Results",
+                                title="Copy Suggested Results",
                                 style={
                                     "color": "#c9ddee",
                                     "fontSize": 15,
@@ -1351,7 +1366,7 @@ def generate_control_card():
                                 },
                             ),
                             html.P(children=[
-                                html.B('Related Results (click on rows for more info):'),
+                                html.B('Suggested Results (click on rows for more info):'),
                             ]),
                             html.Div(
                                 id="related-datatable-outer",
@@ -1397,6 +1412,7 @@ def generate_control_card():
                                                                   },
                                                               ],
                                                               page_size=10,
+                                                              # virtualization=True,
                                                               merge_duplicate_headers=True,
                                                               style_as_list_view=True,
                                                               css=[
@@ -1473,6 +1489,10 @@ def serve_layout():
         children=[
             dcc.Location(id='refresh-url', refresh=True),
             html.Div(id='hidden-div', hidden=True),
+            dbc.Tooltip(
+                "My Cooler Hover Tooltip",
+                target="tooltip-all-patients-graph-title",
+            ),
             # dcc.Store(id='df_items-store'),
             # dcc.Store(id='df_events-store'),
             # dcc.Store(id='df_ontology-store'),
@@ -1528,7 +1548,7 @@ def serve_layout():
                         id='upload-data-btn',
                         children=html.Button(
                             id='upload-btn',
-                            children=[html.Img(src='assets/upload.png')],
+                            children=[html.Img(src='assets/upload.png', title="Upload config.yaml")],
                             style={'border-width': '0px'}
                         ),
                     ),
@@ -1560,7 +1580,7 @@ def serve_layout():
                                         style={'color': '#1a75f9'},
                                         selected_style={
                                             'color': '#1a75f9',
-                                            'border-width': '3px'
+                                            'border-top-width': '3px'
                                         },
                                         children=[
                                             dcc.Graph(
@@ -1574,7 +1594,7 @@ def serve_layout():
                                         style={'color': '#1a75f9'},
                                         selected_style={
                                             'color': '#1a75f9',
-                                            'border-width': '3px'
+                                            'border-top-width': '3px'
                                         },
                                         children=[
                                             dcc.Graph(
@@ -1588,7 +1608,7 @@ def serve_layout():
                                         style={'color': '#1a75f9'},
                                         selected_style={
                                             'color': '#1a75f9',
-                                            'border-width': '3px'
+                                            'border-top-width': '3px'
                                         },
                                         children=[
                                             dcc.Graph(
@@ -1602,7 +1622,7 @@ def serve_layout():
                                         style={'color': '#1a75f9'},
                                         selected_style={
                                             'color': '#1a75f9',
-                                            'border-width': '3px'
+                                            'border-top-width': '3px'
                                         },
                                         children=[
                                             dcc.Graph(
