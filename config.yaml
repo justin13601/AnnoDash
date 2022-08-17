@@ -43,24 +43,27 @@ _fields:
           pair_one: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
-              item_1: 50821
-              item_2: 50818
+              items: !!python/tuple
+              - 50821
+              - 50818
               label: Blood Gas
             _locked: false
             _type_safe: true
           pair_three: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
-              item_1: 51222
-              item_2: 51300
+              items: !!python/tuple
+              - 51222
+              - 51300
               label: Complete Blood Count
             _locked: false
             _type_safe: true
           pair_two: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
-              item_1: 50912
-              item_2: 50971
+              items: !!python/tuple
+              - 50912
+              - 50971
               label: Chemistry
             _locked: false
             _type_safe: true
@@ -73,11 +76,21 @@ _fields:
     _fields:
       filename: LoincClassType_1.csv
       location: ontology
-      related: !!python/object:ml_collections.config_dict.config_dict.FieldReference
-        _field_type: !!python/name:builtins.str ''
-        _ops: []
-        _required: false
-        _value: ontology/related
+      related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          location: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+            _field_type: &id001 !!python/name:builtins.str ''
+            _ops: []
+            _required: false
+            _value: ontology/related
+          umls_apikey: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+            _field_type: *id001
+            _ops: []
+            _required: false
+            _value: 1c3bfb9d-bcd1-472b-8ff5-d58adbb1c047
+        _locked: false
+        _type_safe: true
     _locked: false
     _type_safe: true
   temp: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
