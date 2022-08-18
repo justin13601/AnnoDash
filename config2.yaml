@@ -1,0 +1,112 @@
+!!python/object:ml_collections.config_dict.config_dict.ConfigDict
+_convert_dict: true
+_fields:
+  directories: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+    _convert_dict: true
+    _fields:
+      concepts: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          filename: D_ITEMS.csv
+          location: demo-data
+        _locked: false
+        _type_safe: true
+      data: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          filename: CHARTEVENTS.csv
+          location: demo-data
+        _locked: false
+        _type_safe: true
+      results: results-json
+    _locked: false
+    _type_safe: true
+  graphs: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+    _convert_dict: true
+    _fields:
+      kwargs: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          height: 375
+          spikes: true
+          text_color: Black
+          text_font: verdana
+          text_size: 12
+          title_color: Black
+          title_font: verdana
+          title_size: 25
+        _locked: false
+        _type_safe: true
+      pairs: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          pair_one: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+            _convert_dict: true
+            _fields:
+              items: !!python/tuple
+              - 223900
+              - 223901
+              label: Glasgow Coma Scale
+            _locked: false
+            _type_safe: true
+          pair_three: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+            _convert_dict: true
+            _fields:
+              items: !!python/tuple
+              - 220045
+              - 220181
+              label: Vital Signs
+            _locked: false
+            _type_safe: true
+          pair_two: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+            _convert_dict: true
+            _fields:
+              items: !!python/tuple
+              - 223834
+              - 223835
+              label: Ventilation
+            _locked: false
+            _type_safe: true
+        _locked: false
+        _type_safe: true
+    _locked: false
+    _type_safe: true
+  ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+    _convert_dict: true
+    _fields:
+      filename: LoincClassType_1.csv
+      location: ontology
+      related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+        _convert_dict: true
+        _fields:
+          location: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+            _field_type: &id001 !!python/name:builtins.str ''
+            _ops: []
+            _required: false
+            _value: ontology/related
+          umls_apikey: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+            _field_type: *id001
+            _ops: []
+            _required: false
+            _value: 1c3bfb9d-bcd1-472b-8ff5-d58adbb1c047
+        _locked: false
+        _type_safe: true
+    _locked: false
+    _type_safe: true
+  temp: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+    _convert_dict: true
+    _fields:
+      five_percent_dataset: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: !!python/name:builtins.bool ''
+        _ops: []
+        _required: false
+        _value: false
+      mimic_iv_version: !!python/object:ml_collections.config_dict.config_dict.FieldReference
+        _field_type: !!python/name:builtins.float ''
+        _ops: []
+        _required: false
+        _value: 2.0
+    _locked: false
+    _type_safe: true
+_locked: false
+_type_safe: true
