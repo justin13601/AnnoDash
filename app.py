@@ -364,13 +364,16 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
 
     mask_1 = (table_item_patient_1['charttime'] > start_date) & (table_item_patient_1['charttime'] <= end_date)
     table_item_patient_1 = table_item_patient_1.loc[mask_1]
+    table_item_patient_1 = table_item_patient_1.sort_values(by="charttime")
 
     mask_2 = (table_item_patient_2['charttime'] > start_date) & (table_item_patient_2['charttime'] <= end_date)
     table_item_patient_2 = table_item_patient_2.loc[mask_2]
+    table_item_patient_2 = table_item_patient_2.sort_values(by="charttime")
 
     mask_plot = (table_item_patient_target['charttime'] > start_date) & (
             table_item_patient_target['charttime'] <= end_date)
     table_item_patient_target = table_item_patient_target.loc[mask_plot]
+    table_item_patient_target = table_item_patient_target.sort_values(by="charttime")
 
     series_names = [itemsid_dict[template_items[0]], itemsid_dict[template_items[1]],
                     itemsid_dict[item]]
