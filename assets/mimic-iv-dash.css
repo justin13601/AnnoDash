@@ -37,6 +37,22 @@ hr {
     margin-left: 2%;
 }
 
+.tab-outer {
+    background-color: #ffffff;
+    text-align: center;
+}
+
+.custom-tooltip {
+    background-color: #000000;
+    color: #ffffff;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+#metadata-tooltip {
+    position: relative;
+    display: inline-block;
+}
 
 #upload-data-btn {
     position: absolute;
@@ -79,6 +95,23 @@ H4 {
 P {
     color: #cfddee;
 }
+
+/*H1 {*/
+/*    color: #000000;*/
+/*    font-family: Verdana, Geneva, sans-serif;*/
+/*    margin-bottom: 0;*/
+/*    line-height: 50px;*/
+/*    vertical-align: bottom;*/
+/*}*/
+
+/*H2 {*/
+/*    color: #000000;*/
+/*    font-family: "Open Sans", Verdana, Arial, sans-serif;*/
+/*    font-size: 18px;*/
+/*    margin: 0;*/
+/*    line-height: 20px;*/
+/*    vertical-align: middle;*/
+/*}*/
 
 #left-column {
     margin-top: 20px;
