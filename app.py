@@ -1739,6 +1739,6 @@ app.layout = serve_layout
 ######################################################################################################
 
 
-# run
+# run app.py (MIMIC-Dash v2)
 if __name__ == "__main__":
     app.run_server(port=8888, debug=True)
