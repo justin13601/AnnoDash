@@ -299,7 +299,7 @@ def generate_all_patients_graph(item, **kwargs):
 
     df_temp = df_items.query(f'itemid == {item}').dropna(axis=1, how='all')
     if len(df_temp.columns) > 2:
-        row_dict = df_items.query(f'itemid == {item}').iloc[:, 2:].to_dict(orient='records')[0]
+        row_dict = df_items.query(f'itemid == {item}').iloc[:, 2:4].to_dict(orient='records')[0]
         metadata = ', '.join([f'{key.capitalize()}: {value}' for key, value in row_dict.items()])
         title_template = {
             'text': f"{itemsid_dict[item]}<br><sup>"
@@ -329,7 +329,7 @@ def generate_all_patients_graph(item, **kwargs):
         title=title_template,
         xaxis_title=f"{itemsid_dict[item]} {units}",
         yaxis_title=ylabel,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95, bgcolor='rgba(0,0,0,0)'),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1.0, bgcolor='rgba(0,0,0,0)'),
         font=dict(
             family=kwargs['config'].text_font,
             size=kwargs['config'].text_size,
@@ -1187,6 +1187,21 @@ def update_config(contents, filename, last_modified):
     return None, "/"  # , df_items.to_json(), json.dumps(itemsid_dict)
 
 
+@app.callback(
+    Output("metadata-tooltip", "children"),
+    [
+        Input("item-select", "value"),
+    ],
+)
+def update_metadata_tooltip(annotation):
+    metadata_table = df_items.query(f"itemid == {annotation}")
+    metadata_table = metadata_table.dropna(axis=1)
+    metadata = metadata_table.to_dict('records')[0]
+    output = [html.P(f"{each_item}: {metadata[each_item]}") for each_item in metadata.keys() if
+              each_item not in ['itemid', 'label']]
+    return output
+
+
 # @app.callback(
 #     Output("annotate-select", "options"),
 #     [
@@ -1490,8 +1505,12 @@ def serve_layout():
             dcc.Location(id='refresh-url', refresh=True),
             html.Div(id='hidden-div', hidden=True),
             dbc.Tooltip(
-                "My Cooler Hover Tooltip",
-                target="tooltip-all-patients-graph-title",
+                id='metadata-tooltip',
+                class_name='custom-tooltip',
+                children=update_metadata_tooltip(initialize_item_select()[1]),
+                target="item-select",
+                placement='right',
+                fade=True,
             ),
             # dcc.Store(id='df_items-store'),
             # dcc.Store(id='df_events-store'),
@@ -1583,11 +1602,26 @@ def serve_layout():
                                             'border-top-width': '3px'
                                         },
                                         children=[
-                                            dcc.Graph(
-                                                style={'height': '375px'},
-                                                id="all_patients_graph",
-                                                figure=initialize_all_patients_graph()
-                                            )
+                                            html.Div(
+                                                className='tab-outer',
+                                                children=[
+                                                    # html.H1(
+                                                    #     id="all-patients-graph-title",
+                                                    #     children=["Calculated Total CO2"],
+                                                    #     style={
+                                                    #         'font-size': 27
+                                                    #     }
+                                                    # ),
+                                                    # html.H2(
+                                                    #     id="all-patients-graph-subtitle",
+                                                    #     children=["Fluid: Blood, Category: Blood gas"],
+                                                    # ),
+                                                    dcc.Graph(
+                                                        style={'height': '375px'},
+                                                        id="all_patients_graph",
+                                                        figure=initialize_all_patients_graph()
+                                                    )
+                                                ]),
                                         ]),
                                 dcc.Tab(label=pairs[0][0], id="blood_gas_tab",
                                         disabled=initialize_tab(),
