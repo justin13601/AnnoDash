@@ -27,7 +27,9 @@ import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
 import dash
 import dash_bootstrap_components as dbc
-from dash import Dash, html, dcc, dash_table
+import dash_mantine_components as dmc
+from dash_iconify import DashIconify
+from dash import Dash, html, dcc, dash_table, ALL, ctx
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
 from dash.dash import no_update
@@ -91,7 +93,7 @@ class ConfigurationFileError(Exception):
     pass
 
 
-class OntologyNotSupported(Exception):
+class InvalidOntology(Exception):
     pass
 
 
@@ -136,7 +138,7 @@ def load_ontologies():
             dictionary = pd.Series(data.label.values, index=data.id.values).to_dict()
             ontologies[each_file.strip('.csv')] = (data, dictionary)
     if not ontologies:
-        raise OntologyNotSupported
+        raise InvalidOntology
     print('Done.\n')
     return ontologies
 
@@ -144,7 +146,7 @@ def load_ontologies():
 def select_ontology(ontology):
     global df_ontology, ontology_dict, df_ontology_new
     if ontology not in list_of_ontologies.keys():
-        raise OntologyNotSupported
+        raise InvalidOntology
     data = list_of_ontologies[ontology][0]
     dictionary = list_of_ontologies[ontology][1]
     df_ontology = data
@@ -173,8 +175,9 @@ def load_annotations(path):
         if int(each_file.strip('.json')) in list(itemsid_dict.keys()):
             with open(os.path.join(path, each_file)) as jsonFile:
                 data = json.load(jsonFile)
-                if 'skipped' in data['annotatedid'].lower().strip():
-                    skipped.append(int(each_file.strip('.json')))
+                if type(data['annotatedid']) is not list:
+                    if 'skipped' in data['annotatedid'].lower().strip():
+                        skipped.append(int(each_file.strip('.json')))
     return annotated, skipped
 
 
@@ -248,13 +251,13 @@ def generate_ontology_options():
 
 def generate_scorer_options(ontology):
     if ontology == 'LoincClassType_1':
-        options = ["tf_idf", "partial_ratio", "jaro_winkler"]
+        options = ["tf_idf", "jaro_winkler", "partial_ratio"]
     elif 'LoincClassType' in ontology:
-        options = ["partial_ratio", "jaro_winkler"]
+        options = ["jaro_winkler", "partial_ratio"]
     elif 'SNOMED' in ontology:
-        options = ["partial_ratio", "jaro_winkler", "UMLS"]
+        options = ["jaro_winkler", "partial_ratio", "UMLS"]
     else:
-        raise OntologyNotSupported
+        raise InvalidOntology
 
     scorer_options = [{"label": each_scorer.replace('_', ' '), "value": each_scorer} for each_scorer in options]
     return scorer_options
@@ -462,7 +465,7 @@ def query_patients(item):
     ranked_patients = [patient for patient in ranked_patients if 0 in patient[0]]
     list_of_patients_ranked = [subject_id[1] for subject_id in ranked_patients]
 
-    patients = [{"label": each_patient, "value": each_patient} for each_patient in
+    patients = [{"label": f"Patient {each_patient}", "value": each_patient} for each_patient in
                 list_of_patients_ranked]
     return patients
 
@@ -508,7 +511,7 @@ def initialize_tab():
     except IndexError:
         return True
     first_patient = patients[0]["value"]
-    disabled = update_graph(items[0]["value"], first_patient, submit=0)[2]
+    disabled = update_graph(items[0]["value"], first_patient, None)[2]
     return disabled
 
 
@@ -532,22 +535,6 @@ def initialize_patient_select():
     return options, first_patient
 
 
-def initialize_annotate_select():
-    ontology_codes = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for each_code in
-                      ontology_dict]
-    if config.temp.five_percent_dataset:  # for testing
-        target_codes_for_demo = ['2069-3', '1959-6', '5767-9', '5778-6']  # bicarbonate, chloride, urine color and app.
-        ontology_codes_temp_for_demo = [{"label": f'{each_code}: {ontology_dict[each_code]}', "value": each_code} for
-                                        each_code in ontology_dict if each_code in target_codes_for_demo]
-        ontology_codes_temp_for_demo_2 = ontology_codes[2000:4000]
-        for aLis1 in ontology_codes_temp_for_demo:
-            if aLis1 not in ontology_codes_temp_for_demo_2:
-                ontology_codes_temp_for_demo_2.append(aLis1)
-        return ontology_codes_temp_for_demo_2
-        # return ontology_codes[2000:4000]
-    return ontology_codes
-
-
 def annotate(item, annotation, ontology, skipped=False):
     if skipped:
         item_dict = {'itemid': item,
@@ -562,8 +549,8 @@ def annotate(item, annotation, ontology, skipped=False):
                      'label': itemsid_dict[item],
                      'ontology': ontology,
                      # 'mimic_loinc': item_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-items
-                     'annotatedid': annotation,
-                     'annotatedlabel': ontology_dict[annotation]
+                     'annotatedid': [each_id['CODE'] for each_id in annotation],
+                     'annotatedlabel': [each_id['LABEL'] for each_id in annotation]
                      }
     filename = os.path.join(PATH_results, f"{item}.json")
     with open(filename, "w") as outfile:
@@ -597,13 +584,6 @@ def update_item_options(options, item, skipped=False):
     return options, new_value
 
 
-def update_ontology(ontology):
-    _, new_ontology_dict = select_ontology(ontology)
-    ontology_codes = [{"label": f'{each_code}: {new_ontology_dict[each_code]}', "value": each_code} for each_code in
-                      new_ontology_dict]
-    return ontology_codes
-
-
 ######################################################################################################
 # CALLBACKS #
 ######################################################################################################
@@ -624,35 +604,35 @@ def copy_item(_, item):
 
 
 @app.callback(
-    Output("patient-copy", "content"),
+    Output("ontology-filter-copy", "content"),
     [
-        Input("patient-copy", "n_clicks"),
+        Input("ontology-filter-copy", "n_clicks"),
     ],
     [
-        State("patient-select", "value"),
+        State("ontology-select", "value"),
     ]
 )
-def copy_patient(_, patient):
-    if patient is None:
+def copy_ontology(_, ontology):
+    if ontology is None:
         raise PreventUpdate
-    return str(patient)
-
-
-@app.callback(
-    Output("annotate-copy", "content"),
-    [
-        Input("annotate-copy", "n_clicks"),
-    ],
-    [
-        State("annotate-select", "value"),
-    ]
-)
-def copy_annotation(_, annotation):
-    if annotation is None:
-        raise PreventUpdate
-    clipboard = ontology_dict[annotation]
+    clipboard = f'{ontology}'
     return clipboard
 
+
+# @app.callback(
+#     Output("patient-copy", "content"),
+#     [
+#         Input("patient-copy", "n_clicks"),
+#     ],
+#     [
+#         State("patient-select", "value"),
+#     ]
+# )
+# def copy_patient(_, patient):
+#     if patient is None:
+#         raise PreventUpdate
+#     return str(patient)
+#
 
 @app.callback(
     Output("related-copy", "content"),
@@ -683,37 +663,13 @@ def copy_ontology_datatable(_, data):
 
 
 @app.callback(
-    Output("item-copy-outer", "hidden"),
-    Output("patient-copy-outer", "hidden"),
-    Output("annotate-copy-outer", "hidden"),
+    Output("submit-btn", "disabled"),
     [
-        Input("item-select", "value"),
-        Input("patient-select", "value"),
-        Input("annotate-select", "value"),
+        Input("ontology-datatable", "data"),
     ]
 )
-def show_hide_clipboard(item, patient, annotation):
-    show_item = True
-    show_patient = True
-    show_annotate = True
-    if item:
-        show_item = False
-    if patient:
-        show_patient = False
-    if annotation:
-        show_annotate = False
-
-    return show_item, show_patient, show_annotate
-
-
-@app.callback(
-    Output("submit-btn-outer", "hidden"),
-    [
-        Input("annotate-select", "value"),
-    ]
-)
-def enable_submit_button(annotation):
-    if annotation:
+def enable_submit_button(ontology):
+    if ontology:
         return False
     return True
 
@@ -725,12 +681,12 @@ def enable_submit_button(annotation):
     ],
     prevent_initial_call=True,
 )
-def enable_download_button(n_clicks):
+def enable_download_button(_):
     return False
 
 
 @app.callback(
-    Output("skip-other-outer", "hidden"),
+    Output("skip-other-text", "disabled"),
     [
         Input("skip-radio-items", "value"),
     ],
@@ -748,15 +704,18 @@ def show_skip_other(value):
     [
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
+        Input("skip-radio-items", "value"),
     ],
     prevent_initial_call=True,
 )
-def clear_reset_skip(submit_n_clicks, skip_n_clicks):
+def clear_reset_skip(_, __, skip):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         return '', "Unsure"
     elif triggered_id == 'skip-btn.n_clicks':
         return '', "Unsure"
+    elif skip != "Other":
+        return '', no_update
     else:
         raise PreventUpdate
 
@@ -768,7 +727,7 @@ def clear_reset_skip(submit_n_clicks, skip_n_clicks):
     ],
     prevent_initial_call=True,
 )
-def download_annotations(n_clicks):
+def download_annotations(_):
     def write_archive(bytes_io):
         with ZipFile(bytes_io, mode="w") as zipObj:
             # Iterate over all the files in directory
@@ -781,55 +740,36 @@ def download_annotations(n_clicks):
 
 
 @app.callback(
-    Output("annotate-select", "value"),
-    Output("annotate-select", "options"),
-    # Output('annotate-text', 'value'),
     Output("related-datatable", "active_cell"),
     Output("related-datatable", "selected_cells"),
-    Output("ontology-datatable", "active_cell"),
-    Output("ontology-datatable", "selected_cells"),
     [
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
-        Input("ontology-datatable", "active_cell"),
-        Input("annotate-select", "value"),
         Input("ontology-select", "value"),
+        Input("ontology-datatable", "data_previous"),
     ],
     [
-        State("item-select", "value"),
-        # State('annotate-text', 'value')
         State("ontology-datatable", "data"),
+        State("item-select", "value"),
         State("skip-radio-items", "value"),
         State("skip-other-text", "value"),
-        State("annotate-select", "options"),
-    ]
+    ],
+    prevent_initial_call=True
 )
-def reset_annotation(submit_n_clicks, skip_n_clicks, replace_annotation, annotation, ontology, item, curr_data,
-                     skip_reason, other_reason, annotation_options):
+def reset_annotation(_, __, ontology, prev_ontology_data, curr_ontology_data, item,
+                     skip_reason, other_reason):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
-        annotate(item, annotation, ontology)
-        return None, no_update, None, [], None, []
+        annotate(item, curr_ontology_data, ontology)
+        return None, []
     elif triggered_id == 'skip-btn.n_clicks':
         if skip_reason == 'Other':
             annotate(item, other_reason, ontology, skipped=True)
         else:
             annotate(item, skip_reason, ontology, skipped=True)
-        return None, no_update, None, [], None, []
-    elif triggered_id == 'ontology-datatable.active_cell':
-        if replace_annotation['row'] == 1:
-            new_annotation = list(curr_data[replace_annotation['row']].values())[0]
-            return new_annotation, no_update, None, [], None, []
-        else:
-            raise PreventUpdate
-    elif triggered_id == 'ontology-select.value':
-        new_annotation_options = update_ontology(ontology)
-        return None, new_annotation_options, None, [], None, []
-    elif triggered_id == 'annotate-select.value':
-        if not annotation:
-            return None, no_update, None, [], None, []
-        else:
-            raise PreventUpdate
+        return None, []
+    elif prev_ontology_data is not None:
+        return None, []
     else:
         raise PreventUpdate
 
@@ -858,7 +798,7 @@ def update_scorer_select(ontology):
         State("item-select", "value"),
     ]
 )
-def update_item_dropdown(submit_n_clicks, skip_n_clicks, options, value):
+def update_item_dropdown(_, __, options, value):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == '.':
         raise PreventUpdate
@@ -884,7 +824,7 @@ def update_item_dropdown(submit_n_clicks, skip_n_clicks, options, value):
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_patient_dropdown(item, submit):
+def update_patient_dropdown(item, _):
     options = []
     disabled = True
 
@@ -915,7 +855,7 @@ def update_patient_dropdown(item, submit):
         Input("submit-btn", "n_clicks"),
     ]
 )
-def update_tabs_view(patient, submit_n_clicks):
+def update_tabs_view(patient, _):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         return "home-tab"
@@ -939,7 +879,7 @@ def update_tabs_view(patient, submit_n_clicks):
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_graph(item, patient, submit):
+def update_graph(item, patient, _):
     disabled = True
 
     if item is None:
@@ -982,99 +922,106 @@ def update_graph(item, patient, submit):
 
 
 @app.callback(
-    Output("annotation-outer", "hidden"),
-    [
-        Input("annotate-select", "value"),
-    ],
-)
-def show_related_outer(annotation):
-    if annotation:
-        return False
-    else:
-        return True
-
-
-@app.callback(
     Output("related-datatable", "page_current"),
     [
-        Input("annotate-select", "value"),
+        Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
-        Input("ontology-datatable", "active_cell"),
     ]
 )
-def reset_related_datatable_page(annotation, _, __, ___):
+def reset_related_datatable_page(item, _, __):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         return 0
     elif triggered_id == 'skip-btn.n_clicks':
         return 0
-    elif triggered_id == 'ontology-datatable.active_cell':
-        return 0
-    if not annotation:
+    if not item:
         return 0
 
 
 @app.callback(
-    Output("ontology-results-outer", "hidden"),
     Output("ontology-datatable", "data"),
     Output("ontology-datatable", "columns"),
+    Output("ontology-datatable", "tooltip_data"),
     [
-        Input("annotate-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("related-datatable", "active_cell"),
     ],
     [
         State("related-datatable", "data"),
+        State("ontology-datatable", "data"),
+        State("ontology-datatable", "columns"),
     ]
 )
-def update_ontology_datatable(annotation, submit, related, curr_data):
+def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols):
     triggered_ids = dash.callback_context.triggered
-    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks' or not annotation:
-        return True, None, []
-    df_data = df_ontology.loc[df_ontology['id'] == annotation]
-    data = df_data.to_dict('records')
-    columns = [{"name": i, "id": i} for i in df_data.columns]
+    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
+        return curr_data_ontology[0:0], curr_ontology_cols, []
+    if not curr_data_ontology:
+        df_data = pd.DataFrame(columns=df_ontology_new.columns)
+    else:
+        df_data = pd.DataFrame.from_records(curr_data_ontology)
+    columns = [{"name": i, "id": i} for i in df_data.columns if i in ['CODE', 'LABEL']]
     if related:
-        df_data = pd.concat([df_data, df_ontology.loc[
-            df_ontology['id'] == [each_key for each_key in curr_data if each_key['id'] == related['row_id']][0][
+        if related['row_id'] in [each_selected['id'] for each_selected in curr_data_ontology]:
+            raise PreventUpdate
+        df_data = pd.concat([df_data, df_ontology_new.loc[
+            df_ontology_new['CODE'] ==
+            [each_key for each_key in curr_data_related if each_key['id'] == related['row_id']][0][
                 'CODE']]])
-        data = df_data.to_dict('records')
-    return False, data, columns
+    # bugs out when codes from multiple sub-ontologies are selected as it grabs info from the currently selected
+    # df_ontology, which wouldn't have metadata about other codes. Using sqlite with a db of all concepts would fix.
+    tooltip_tables = [df_ontology.loc[df_ontology['id'] == each_row['CODE']]
+                      for each_row in df_data.to_dict('records')]
+    tooltip_dicts = [each_table.to_dict('records')[0] for each_table in tooltip_tables]
+    tooltip_outputs = []
+    for each_dict in tooltip_dicts:
+        tooltip_output = {
+            'value': "\n\n".join([f'**{each_item}**: {each_dict[each_item]}' for each_item in each_dict.keys()
+                                  if each_item not in ['id', 'COMPONENT', 'label']]),
+            'type': 'markdown'}
+        tooltip_outputs.append({'LABEL': tooltip_output})
+    data = df_data.to_dict('records')
+    return data, columns, tooltip_outputs
 
 
 @app.callback(
-    Output("related-datatable-outer", "hidden"),
     Output("related-datatable", "data"),
+    Output("related-datatable", "columns"),
     Output("before_loading", "hidden"),
     Output("after_loading", "hidden"),
     [
-        Input("annotate-select", "value"),
+        Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("scorer-select", "value"),
     ],
     [
-        State("item-select", "value"),
-    ]
+        State("ontology-select", "value"),
+    ],
+    prevent_initial_call=True
 )
-def update_related_datatable(annotation, submit, scorer, item):
-    if not annotation:
-        return True, None, False, False
+def update_related_datatable(item, _, scorer, ontology_filter):
+    if not item:
+        return None, [], False, False
 
-    triggered_ids = dash.callback_context.triggered
-    if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
-        return True, None, False, False
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'scorer-select.value':
+        select_ontology(ontology_filter)
 
-    query = ontology_dict[annotation]
+    query = itemsid_dict[item]
     choices = list(df_ontology_new['LABEL'])
+    df_ontology_temp = df_ontology
+    df_ontology_temp = df_ontology_temp.rename(columns={'id': 'CODE'})
+    df_ontology_temp = df_ontology_temp.rename(columns={'label': 'LABEL'})
+    df_ontology_temp['id'] = df_ontology_new['id'].to_numpy()
     if scorer == 'partial_ratio':
-        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology_new)
+        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology_temp)
     elif scorer == 'jaro_winkler':
-        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology_new)
+        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology_temp)
     elif scorer == 'tf_idf':
         # NLP: tf_idf
         df_data = generateRelatedOntologies(query, choices, method='tf_idf',
-                                            df_ontology=df_ontology_new,
+                                            df_ontology=df_ontology_temp,
                                             vectorizer=vectorizer,
                                             tf_idf_matrix=tf_idf_matrix)
     elif scorer == 'UMLS':
@@ -1091,15 +1038,26 @@ def update_related_datatable(annotation, submit, scorer, item):
     else:
         raise ScorerNotAvailable()
 
-    scores = df_data.iloc[:, 3]
+    scores = df_data[scorer]
 
-    df_data.loc[(df_data.iloc[:, 3] >= np.percentile(scores, 66)), 'RELEVANCE'] = '🟢'
-    df_data.loc[(df_data.iloc[:, 3] >= np.percentile(scores, 33)) &
-                (df_data.iloc[:, 3] < np.percentile(scores, 66)), 'RELEVANCE'] = '🟡'
-    df_data.loc[(df_data.iloc[:, 3] < np.percentile(scores, 33)), 'RELEVANCE'] = '🟠'
+    df_data.loc[(df_data[scorer] >= np.percentile(scores, 66)), 'RELEVANCE'] = '🟢'
+    df_data.loc[(df_data[scorer] >= np.percentile(scores, 33)) &
+                (df_data[scorer] < np.percentile(scores, 66)), 'RELEVANCE'] = '🟡'
+    df_data.loc[(df_data[scorer] < np.percentile(scores, 33)), 'RELEVANCE'] = '🟠'
 
     data = df_data.to_dict('records')
-    return False, data, True, True
+    columns = list(df_data.columns)
+    columns.remove(scorer)
+    columns.remove('id')
+    columns.remove('RELEVANCE')
+    columns.remove('LABEL')
+    columns.remove('CODE')
+    columns.insert(0, 'RELEVANCE')
+    columns.insert(1, 'CODE')
+    columns.insert(2, 'LABEL')
+    return_columns = [{'name': each_col, 'id': each_col} if each_col != 'RELEVANCE' else {'name': '', 'id': each_col}
+                      for each_col in columns]
+    return data, return_columns, True, True
 
 
 @app.callback(
@@ -1205,21 +1163,15 @@ def update_metadata_tooltip(annotation):
     return output
 
 
-# @app.callback(
-#     Output("annotate-select", "options"),
-#     [
-#         Input("annotate-select", "search_value"),
-#         Input("submit-btn", "n_clicks"),
-#     ],
-# )
-# def update_options(search_value, submit):
-#     if not search_value:
-#         raise PreventUpdate
-#     return [o for o in annotation_options if search_value in o["label"].lower()]
-#
-#
-# # For dynamic dropdown, also make sure to remove 'options' tag in annotate-select declaration
-# annotation_options = initialize_annotate_select()
+@app.callback(
+    Output("ontology-tooltip", "children"),
+    [
+        Input("ontology-select", "value"),
+    ],
+)
+def update_ontology_tooltip(ontology):
+    output = [html.P(f"{ontology}")]
+    return output
 
 
 ######################################################################################################
@@ -1284,7 +1236,7 @@ def generate_control_card():
                     )
                 ]
             ),
-            html.P("Select Concept:"),
+            html.P("Select Source Concept:"),
             dcc.Dropdown(
                 id="item-select",
                 clearable=False,
@@ -1293,40 +1245,14 @@ def generate_control_card():
                 options=initialize_item_select()[0],
             ),
             html.Br(),
-            html.Div(
-                id='patient-copy-outer',
-                hidden=False,
-                children=[
-                    dcc.Clipboard(
-                        id='patient-copy',
-                        title="Copy Patient ID",
-                        style={
-                            "color": "#c9ddee",
-                            "fontSize": 15,
-                            "verticalAlign": "center",
-                            'float': 'right',
-                            'margin': 'auto'
-                        },
-                    )
-                ]
-            ),
-            html.P("Specify Patient (enables patient specific tabs):"),
-            dcc.Dropdown(
-                id="patient-select",
-                value=initialize_patient_select()[1],
-                style={"border-radius": 0},
-                options=initialize_patient_select()[0],
-                disabled=False,
-            ),
-            html.Br(),
             html.Hr(),
             html.Div(
-                id='annotate-copy-outer',
-                hidden=True,
+                id='ontology-copy-outer',
+                hidden=False,
                 children=[
                     dcc.Clipboard(
-                        id='annotate-copy',
-                        title="Copy Annotation",
+                        id='ontology-filter-copy',
+                        title="Copy Filtered Ontology",
                         style={
                             "color": "#c9ddee",
                             "fontSize": 15,
@@ -1337,165 +1263,115 @@ def generate_control_card():
                     )
                 ]
             ),
-            html.P("Select Annotation:"),
-            dcc.Dropdown(
-                id="annotate-select",
-                value=None,
-                optionHeight=65,
-                placeholder='Start typing...',
-                style={"border-radius": 0},
-                options=initialize_annotate_select(),
-            ),
-            # html.Div(
-            #     children=dcc.Input(
-            #         id="annotate-text",
-            #         placeholder="Annotation...",
-            #         debounce=True,
-            #         style={"width": 390},
-            #         autoFocus=True,
-            #     ),
-            # ),
-            # html.Br(),
-            # html.Div(
-            #     id="search-btn-outer",
-            #     children=html.Button(id="search-btn", children="Search", n_clicks=0,
-            #                          style={'width': '100%', 'color': 'white'}),
-            # ),
+            html.P("Filter Ontology:"),
             html.Div(
-                id="annotation-outer",
-                hidden=True,
                 children=[
-                    html.Br(),
-                    html.Br(id='before_loading', hidden=False),
-                    dcc.Loading(
-                        id="related-loading",
-                        type="dot",
-                        color='#2c89f2',
-                        children=[
-                            dcc.Clipboard(
-                                id='related-copy',
-                                title="Copy Suggested Results",
-                                style={
-                                    "color": "#c9ddee",
-                                    "fontSize": 15,
-                                    "verticalAlign": "center",
-                                    'float': 'right',
-                                    'margin': 'auto'
-                                },
-                            ),
-                            html.P(children=[
-                                html.B('Suggested Results (click on rows for more info):'),
-                            ]),
-                            html.Div(
-                                id="related-datatable-outer",
-                                className='related-datable',
-                                hidden=False,
-                                children=dash_table.DataTable(id='related-datatable',
-                                                              data=None,
-                                                              columns=[
-                                                                  {'name': "",
-                                                                   'id': 'RELEVANCE'},
-                                                                  {'name': "CODE",
-                                                                   'id': 'CODE'},
-                                                                  {'name': "LABEL",
-                                                                   'id': 'LABEL'}
-                                                              ],
-                                                              sort_action='native',
-                                                              style_data={
-                                                                  'whiteSpace': 'normal',
-                                                                  'height': 'auto',
-                                                                  'lineHeight': '15px',
-                                                              },
-                                                              style_table={
-                                                                  'height': '150px',
-                                                                  'overflowY': 'auto'
-                                                              },
-                                                              style_cell={
-                                                                  'textAlign': 'left',
-                                                                  'backgroundColor': 'transparent'
-                                                              },
-                                                              style_header={
-                                                                  'fontWeight': 'bold',
-                                                                  'color': '#2c8cff'
-                                                              },
-                                                              style_data_conditional=[
-                                                                  {  # 'active' | 'selected'
-                                                                      'if': {'state': 'active'},
-                                                                      'backgroundColor': 'transparent',
-                                                                      'border': '1px solid lightgray'
-                                                                  },
-                                                                  {
-                                                                      'if': {'column_id': 'CODE'},
-                                                                      'width': '30%'
-                                                                  },
-                                                              ],
-                                                              page_size=10,
-                                                              # virtualization=True,
-                                                              merge_duplicate_headers=True,
-                                                              style_as_list_view=True,
-                                                              css=[
-                                                                  {
-                                                                      'selector': '.previous-page, .next-page, '
-                                                                                  '.first-page, .last-page',
-                                                                      'rule': 'color: #2c8cff'}
-                                                              ])
-                            ),
-                        ]
+                    dcc.Dropdown(
+                        id="ontology-select",
+                        value=default_ontology,
+                        options=generate_ontology_options(),
+                        disabled=False,
+                        clearable=False,
+                        style={"border-radius": 0},
                     ),
-                    html.Br(id='after_loading', hidden=False),
-                ],
-            ),
-            html.Div(
-                id="submit-btn-outer",
-                hidden=True,
-                children=[
-                    html.Br(),
-                    html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
-                                style={'width': '100%', 'color': 'white'},
-                                disabled=False),
-                ],
-            ),
-            html.Div(
-                id="skip-outer",
-                hidden=False,
-                children=[
-                    html.Br(),
-                    dcc.RadioItems(
-                        id='skip-radio-items',
-                        options=['Unsure', 'Invalid Source Data', 'Other'],
-                        value='Unsure',
-                        style={'width': '100%', 'color': 'white', 'textAlign': 'center', 'verticalAlign': 'center'},
-                        labelStyle={'margin-right': '30px'},
-                        inline=True,
-                    ),
-                    html.Div(id='skip-other-outer',
-                             hidden=True,
-                             children=[
-                                 dcc.Input(
-                                     id="skip-other-text",
-                                     placeholder="Reason...",
-                                     debounce=True,
-                                     style={"width": '100%'},
-                                     autoFocus=True,
-                                 ),
-                             ]),
-                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
-                                style={'width': '100%', 'color': 'white', 'display': 'inline-block'},
-                                disabled=False),
                 ],
             ),
             html.Br(),
             html.Div(
-                id="download-outer",
-                hidden=initialize_download_button(annotated_list),
+                hidden=True,
                 children=[
-                    html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
-                                style={'width': '100%', 'color': 'white'},
-                                disabled=False),
-                    dcc.Download(id="download-annotations")
+                    dcc.Dropdown(
+                        id="scorer-select",
+                        value=None,
+                        options=[],
+                        disabled=False,
+                        clearable=False,
+                        style={"border-radius": 0},
+                    ),
                 ]
             ),
-            html.Br(),
+            dcc.Clipboard(
+                id='ontology-copy',
+                title="Copy ontology Results",
+                style={
+                    "color": "#c9ddee",
+                    "fontSize": 15,
+                    "verticalAlign": "center",
+                    'float': 'right',
+                    'margin': 'auto'
+                },
+            ),
+            html.P("Target Ontology Concepts:"),
+            html.Div(id='ontology-results-outer',
+                     hidden=False,
+                     children=[
+                         html.Div(
+                             id="ontology-datatable-outer",
+                             className='ontology-datatable-class',
+                             hidden=False,
+                             children=[
+                                 dash_table.DataTable(id='ontology-datatable',
+                                                      data=None,
+                                                      columns=[{"name": 'CODE', "id": 'CODE'},
+                                                               {"name": 'LABEL', "id": 'LABEL'}],
+                                                      tooltip_data=[],
+                                                      css=[
+                                                          {
+                                                              'selector': '.dash-tooltip',
+                                                              'rule': 'border-width: 0px;'
+                                                          },
+                                                          {
+                                                              'selector': '.dash-table-tooltip',
+                                                              'rule': 'background-color: #000000; color: #ffffff; padding: 10px 0px 5px 10px; border-radius: 5px; line-height: 15px;'
+                                                          }
+                                                      ],
+                                                      style_data={
+                                                          'whiteSpace': 'normal',
+                                                          'height': 'auto',
+                                                          'lineHeight': '15px',
+                                                      },
+                                                      style_table={
+                                                          'height': '162px',
+                                                          'overflowY': 'auto',
+                                                          'backgroundColor': 'white'
+                                                      },
+                                                      style_cell={
+                                                          'textAlign': 'left',
+                                                          'backgroundColor': 'transparent',
+                                                          'color': 'black',
+                                                      },
+                                                      style_header={
+                                                          'fontWeight': 'bold',
+                                                          'color': '#2c8cff'
+                                                      },
+                                                      style_data_conditional=[
+                                                          {
+                                                              'if': {'state': 'active'},
+                                                              'backgroundColor': 'transparent',
+                                                              'border': '1px solid lightgray'
+                                                          },
+                                                          {
+                                                              'if': {'column_id': 'CODE'},
+                                                              'width': '10%'
+                                                          },
+                                                      ],
+                                                      row_deletable=True,
+                                                      tooltip_delay=0,
+                                                      tooltip_duration=None,
+                                                      )
+                             ]
+                         )]
+                     ),
+            html.Div(
+                id="submit-btn-outer",
+                hidden=False,
+                children=[
+                    html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
+                                style={'width': '100%', 'color': 'white',
+                                       'margin-top': '6px'},
+                                disabled=True),
+                ],
+            ),
         ],
         style={'width': '100%', 'color': 'black'}
     )
@@ -1512,6 +1388,14 @@ def serve_layout():
                 class_name='custom-tooltip',
                 children=update_metadata_tooltip(initialize_item_select()[1]),
                 target="item-select",
+                placement='right',
+                fade=True,
+            ),
+            dbc.Tooltip(
+                id='ontology-tooltip',
+                class_name='custom-tooltip',
+                children=update_ontology_tooltip(default_ontology),
+                target="ontology-select",
                 placement='right',
                 fade=True,
             ),
@@ -1539,197 +1423,305 @@ def serve_layout():
                     html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
                     html.H5(""),
                     html.Div(children=[
+                        # html.Div(
+                        #     id='patient-copy-outer',
+                        #     hidden=False,
+                        #     children=[
+                        #         dcc.Clipboard(
+                        #             id='patient-copy',
+                        #             title="Copy Patient ID",
+                        #             style={
+                        #                 "color": "#c9ddee",
+                        #                 "fontSize": 15,
+                        #                 "verticalAlign": "center",
+                        #                 'float': 'right',
+                        #                 'margin': 'auto'
+                        #             },
+                        #         )
+                        #     ]
+                        # ),
                         dcc.Dropdown(
-                            id="ontology-select",
-                            value=default_ontology,
-                            options=generate_ontology_options(),
-                            disabled=False,
-                            optionHeight=65,
-                            clearable=False,
+                            id="patient-select",
+                            value=initialize_patient_select()[1],
                             style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
-                                   'color': 'black'}
+                                   'color': 'black'},
+                            options=initialize_patient_select()[0],
+                            disabled=False,
                         ),
                     ],
-                        style={'width': '25%', 'margin-right': '6%'}
-                    ),
-                    html.Div(children=[
-                        dcc.Dropdown(
-                            id="scorer-select",
-                            value=default_ontology,
-                            options=[],
-                            disabled=False,
-                            optionHeight=65,
-                            clearable=False,
-                            style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
-                                   'color': 'black'}
-                        ),
-                    ],
-                        style={'width': '8%', 'position': 'relative', 'right': '5%', 'float': 'right'}
-                    ),
+                        style={'width': '20%', 'margin-right': '5%'}),
                     dcc.Upload(
                         id='upload-data-btn',
-                        children=html.Button(
-                            id='upload-btn',
-                            children=[html.Img(src='assets/upload.png', title="Upload config.yaml")],
-                            style={'border-width': '0px'}
-                        ),
+                        children=[
+                            html.Button(
+                                id='upload-btn',
+                                children=[html.Img(src='assets/upload.png', title="Upload config.yaml")],
+                                style={'border-width': '0px'}
+                            ),
+                        ]
                     ),
                 ]
             ),
-            # Left column
             html.Div(
-                id="left-column",
-                className="four columns",
-                children=[description_card(), generate_control_card()] + [
-                    html.Div(
-                        ["initial child"], id="output-clientside", style={"display": "none"}
-                    )
-                ],
-            ),
-            # Right column
-            html.Div(
-                id="right-column",
-                className="eight columns",
+                id="columns-card",
+                className='columns-card',
                 children=[
-                    # Tabbed graphs
+                    # Left column
                     html.Div(
-                        id="patient_card",
-                        style={'height': '500%'},
+                        id="left-column",
+                        className="four columns",
+                        children=[description_card(), generate_control_card()] + [
+                            html.Div(
+                                ["initial child"], id="output-clientside", style={"display": "none"}
+                            )
+                        ],
+                    ),
+                    # Right column
+                    html.Div(
+                        id="right-column",
+                        className="eight columns",
                         children=[
-                            dcc.Tabs([
-                                dcc.Tab(label='All Patients', id="all_patients_tab", disabled=False,
-                                        value='home-tab',
-                                        style={'color': '#1a75f9'},
-                                        selected_style={
-                                            'color': '#1a75f9',
-                                            'border-top-width': '3px'
-                                        },
-                                        children=[
-                                            html.Div(
-                                                className='tab-outer',
+                            # Tabbed graphs
+                            html.Div(
+                                id="patient_card",
+                                style={'height': '500%'},
+                                children=[
+                                    dcc.Tabs([
+                                        dcc.Tab(label='Distribution Overview', id="all_patients_tab", disabled=False,
+                                                value='home-tab',
+                                                style={'color': '#1a75f9'},
+                                                selected_style={
+                                                    'color': '#1a75f9',
+                                                    'border-top-width': '3px'
+                                                },
                                                 children=[
-                                                    # html.H1(
-                                                    #     id="all-patients-graph-title",
-                                                    #     children=["Calculated Total CO2"],
-                                                    #     style={
-                                                    #         'font-size': 27
-                                                    #     }
-                                                    # ),
-                                                    # html.H2(
-                                                    #     id="all-patients-graph-subtitle",
-                                                    #     children=["Fluid: Blood, Category: Blood gas"],
-                                                    # ),
+                                                    html.Div(
+                                                        className='tab-outer',
+                                                        children=[
+                                                            # html.H1(
+                                                            #     id="all-patients-graph-title",
+                                                            #     children=["Calculated Total CO2"],
+                                                            #     style={
+                                                            #         'font-size': 27
+                                                            #     }
+                                                            # ),
+                                                            # html.H2(
+                                                            #     id="all-patients-graph-subtitle",
+                                                            #     children=["Fluid: Blood, Category: Blood gas"],
+                                                            # ),
+                                                            dcc.Graph(
+                                                                style={'height': '360px'},
+                                                                id="all_patients_graph",
+                                                                figure=initialize_all_patients_graph()
+                                                            )
+                                                        ]),
+                                                ]),
+                                        dcc.Tab(label=pairs[0][0], id="blood_gas_tab",
+                                                disabled=initialize_tab(),
+                                                style={'color': '#1a75f9'},
+                                                selected_style={
+                                                    'color': '#1a75f9',
+                                                    'border-top-width': '3px'
+                                                },
+                                                children=[
                                                     dcc.Graph(
-                                                        style={'height': '375px'},
-                                                        id="all_patients_graph",
-                                                        figure=initialize_all_patients_graph()
+                                                        style={'height': '360px'},
+                                                        id="blood_gas_graph",
+                                                        figure=initialize_tab_graph(bg_pair)
                                                     )
                                                 ]),
-                                        ]),
-                                dcc.Tab(label=pairs[0][0], id="blood_gas_tab",
-                                        disabled=initialize_tab(),
-                                        style={'color': '#1a75f9'},
-                                        selected_style={
-                                            'color': '#1a75f9',
-                                            'border-top-width': '3px'
-                                        },
-                                        children=[
-                                            dcc.Graph(
-                                                style={'height': '375px'},
-                                                id="blood_gas_graph",
-                                                figure=initialize_tab_graph(bg_pair)
-                                            )
-                                        ]),
-                                dcc.Tab(label=pairs[1][0], id="chemistry_tab",
-                                        disabled=initialize_tab(),
-                                        style={'color': '#1a75f9'},
-                                        selected_style={
-                                            'color': '#1a75f9',
-                                            'border-top-width': '3px'
-                                        },
-                                        children=[
-                                            dcc.Graph(
-                                                style={'height': '375px'},
-                                                id="chemistry_graph",
-                                                figure=initialize_tab_graph(chem_pair)
-                                            )
-                                        ]),
-                                dcc.Tab(label=pairs[2][0], id="cbc_tab",
-                                        disabled=initialize_tab(),
-                                        style={'color': '#1a75f9'},
-                                        selected_style={
-                                            'color': '#1a75f9',
-                                            'border-top-width': '3px'
-                                        },
-                                        children=[
-                                            dcc.Graph(
-                                                style={'height': '375px'},
-                                                id="cbc_graph",
-                                                figure=initialize_tab_graph(cbc_pair)
-                                            )
-                                        ]),
-                            ], id='tabs', value='home-tab'),
-                            html.Br(),
-                            html.Div(id='ontology-results-outer',
-                                     hidden=True,
-                                     children=[
-                                         dcc.Clipboard(
-                                             id='ontology-copy',
-                                             title="Copy ontology Results",
-                                             style={
-                                                 "color": "#c9ddee",
-                                                 "fontSize": 15,
-                                                 "verticalAlign": "center",
-                                                 'float': 'right',
-                                                 'margin': 'auto'
-                                             },
-                                         ),
-                                         html.P(children=[
-                                             html.B('Compare Results (click to swap search terms):'),
-                                         ]),
-                                         html.Div(
-                                             id="ontology-datatable-outer",
-                                             className='ontology-datatable',
+                                        dcc.Tab(label=pairs[1][0], id="chemistry_tab",
+                                                disabled=initialize_tab(),
+                                                style={'color': '#1a75f9'},
+                                                selected_style={
+                                                    'color': '#1a75f9',
+                                                    'border-top-width': '3px'
+                                                },
+                                                children=[
+                                                    dcc.Graph(
+                                                        style={'height': '360px'},
+                                                        id="chemistry_graph",
+                                                        figure=initialize_tab_graph(chem_pair)
+                                                    )
+                                                ]),
+                                        dcc.Tab(label=pairs[2][0], id="cbc_tab",
+                                                disabled=initialize_tab(),
+                                                style={'color': '#1a75f9'},
+                                                selected_style={
+                                                    'color': '#1a75f9',
+                                                    'border-top-width': '3px'
+                                                },
+                                                children=[
+                                                    dcc.Graph(
+                                                        style={'height': '360px'},
+                                                        id="cbc_graph",
+                                                        figure=initialize_tab_graph(cbc_pair)
+                                                    )
+                                                ]),
+                                    ], id='tabs', value='home-tab'),
+                                ],
+                            ),
+                            html.Div(
+                                id="skip-outer",
+                                hidden=False,
+                                style={'margin-top': '6px'},
+                                children=[
+                                    dcc.RadioItems(
+                                        id='skip-radio-items',
+                                        options=['Unsure', 'Invalid Source Data', 'Other'],
+                                        value='Unsure',
+                                        style={'width': '43%', 'color': 'white', 'textAlign': 'left',
+                                               'verticalAlign': 'center', 'float': 'left', 'margin-top': '6px'},
+                                        labelStyle={'margin-right': '30px'},
+                                        inline=True,
+                                    ),
+                                    html.Div(id='skip-other-outer',
                                              hidden=False,
                                              children=[
-                                                 dash_table.DataTable(id='ontology-datatable',
+                                                 dcc.Input(
+                                                     id="skip-other-text",
+                                                     placeholder="Reason...",
+                                                     debounce=True,
+                                                     style={"width": '24%', 'margin-left': '0px', 'float': 'left'},
+                                                     autoFocus=True,
+                                                     disabled=True
+                                                 ),
+                                             ]),
+                                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
+                                                style={'width': '30%', 'color': 'white',
+                                                       'float': 'right'},
+                                                disabled=False),
+                                ],
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+            html.Div(
+                id='results-card',
+                className='results-card',
+                children=[
+                    html.Div(
+                        id="annotation-outer",
+                        hidden=False,
+                        children=[
+                            html.Div(id='before_loading', hidden=False),
+                            dcc.Loading(
+                                id="related-loading",
+                                type="dot",
+                                color='#2c89f2',
+                                children=[
+                                    dcc.Clipboard(
+                                        id='related-copy',
+                                        title="Copy Results",
+                                        style={
+                                            "color": "#c9ddee",
+                                            "fontSize": 15,
+                                            "verticalAlign": "center",
+                                            'float': 'right',
+                                            'margin': 'auto'
+                                        },
+                                    ),
+                                    html.P(
+                                        style={'margin-top': '15px'},
+                                        children=[
+                                            html.B('Suggested Results (click on rows to select):'),
+                                        ]),
+                                    html.Div(
+                                        id="related-datatable-outer",
+                                        className='related-datatable',
+                                        hidden=False,
+                                        children=dash_table.DataTable(id='related-datatable',
                                                                       data=None,
                                                                       columns=[],
+                                                                      sort_action='native',
+                                                                      filter_action='native',
+                                                                      filter_options={'case': 'insensitive'},
                                                                       style_data={
                                                                           'whiteSpace': 'normal',
                                                                           'height': 'auto',
                                                                           'lineHeight': '15px',
                                                                       },
                                                                       style_table={
-                                                                          'height': 'auto',
+                                                                          'height': '150px',
                                                                           'overflowY': 'auto'
                                                                       },
                                                                       style_cell={
                                                                           'textAlign': 'left',
-                                                                          'backgroundColor': 'transparent',
-                                                                          'color': 'black'
+                                                                          'backgroundColor': 'transparent'
                                                                       },
                                                                       style_header={
                                                                           'fontWeight': 'bold',
                                                                           'color': '#2c8cff'
                                                                       },
                                                                       style_data_conditional=[
-                                                                          {
-                                                                              'if': {
-                                                                                  'state': 'active'
-                                                                                  # 'active' | 'selected'
-                                                                              },
+                                                                          {  # 'active' | 'selected'
+                                                                              'if': {'state': 'active'},
                                                                               'backgroundColor': 'transparent',
                                                                               'border': '1px solid lightgray'
-                                                                          }],
-                                                                      page_size=10,
-                                                                      )
-                                             ]
-                                         )]
-                                     ),
+                                                                          },
+                                                                          {
+                                                                              'if': {'column_id': 'CODE'},
+                                                                              'width': '8%'
+                                                                          },
+                                                                          {
+                                                                              'if': {'column_id': 'RELEVANCE'},
+                                                                              'width': '1%'
+                                                                          },
+                                                                      ],
+                                                                      page_size=20,
+                                                                      # virtualization=True,
+                                                                      merge_duplicate_headers=True,
+                                                                      style_as_list_view=True,
+                                                                      css=[
+                                                                          {
+                                                                              'selector': '.previous-page, .next-page, '
+                                                                                          '.first-page, .last-page',
+                                                                              'rule': 'color: #2c8cff'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.previous-page:hover',
+                                                                              'rule': 'color: #002552'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.next-page:hover',
+                                                                              'rule': 'color: #002552'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.first-page:hover',
+                                                                              'rule': 'color: #002552'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.last-page:hover',
+                                                                              'rule': 'color: #002552'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.column-header--sort:hover',
+                                                                              'rule': 'color: #2c8cff'
+                                                                          },
+                                                                          {
+                                                                              'selector': 'input.dash-filter--case--insensitive',
+                                                                              'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
+                                                                          }
+                                                                      ])
+                                    ),
+                                ]
+                            ),
+                            html.Div(id='after_loading', hidden=False),
                         ],
                     ),
-                ],
+                    # html.Div(
+                    #     id="download-outer",
+                    #     hidden=initialize_download_button(annotated_list),
+                    #     children=[
+                    #         html.Br(),
+                    #         html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
+                    #                     style={'width': '100%', 'color': 'white'},
+                    #                     disabled=False),
+                    #         dcc.Download(id="download-annotations")
+                    #     ]
+                    # ),
+                ]
             ),
         ],
     )
