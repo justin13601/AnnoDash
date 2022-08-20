@@ -48,14 +48,12 @@ cfg.graphs.kwargs.title_size = 25
 cfg.graphs.kwargs.text_font = 'verdana'
 cfg.graphs.kwargs.text_color = 'Black'
 cfg.graphs.kwargs.text_size = 12
-cfg.graphs.kwargs.height = 375
+cfg.graphs.kwargs.height = 360
 cfg.graphs.kwargs.spikes = True
 
 ########################################
 
 cfg.temp = config_dict.ConfigDict()
-cfg.temp.five_percent_dataset = config_dict.placeholder(bool)
-cfg.temp.five_percent_dataset = False
 cfg.temp.mimic_iv_version = config_dict.placeholder(float)
 cfg.temp.mimic_iv_version = 2.0
 
