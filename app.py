@@ -106,7 +106,7 @@ def load_config(file):
         return configurations
 
 
-config_file = 'config.yaml'
+config_file = 'config2.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
     config = load_config(config_file)
@@ -1120,7 +1120,7 @@ def update_config(contents, filename, last_modified):
             print("Demo data selected.")
 
         # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
-        if 'LoincClassType_1' in list_of_ontologies.keys():
+        if 'LoincClassType_1' in list_of_ontologies:
             try:
                 with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
                     ngrams = shlv['ngrams']
@@ -1196,6 +1196,37 @@ def generate_control_card():
     return html.Div(
         id="control-card",
         children=[
+            dbc.Offcanvas(
+                children=[
+                    dbc.Accordion(
+                        [
+                            dbc.AccordionItem(
+                                [
+                                    html.P("This is the content of the first section"),
+                                ],
+                                title="About",
+                            ),
+                            dbc.AccordionItem(
+                                [
+                                    html.P("This is the content of the second section"),
+                                ],
+                                title="Guide",
+                            ),
+                            dbc.AccordionItem(
+                                [
+                                    html.P("This is the content of the third section"),
+                                ],
+                                title="Acknowledgements",
+                            ),
+                        ],
+                    ),
+                ],
+                id="offcanvas",
+                title="MIMIC-Dash",
+                is_open=False,
+                placement='end',
+                style={'color': 'black'},
+            ),
             html.Div(
                 id="upload-outer",
                 hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
