@@ -74,7 +74,6 @@ _fields:
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      filename: LoincClassType_1.csv
       location: ontology
       related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
