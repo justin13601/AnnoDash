@@ -1,0 +1,51 @@
+sourceCode,sourceName,sourceFrequency,sourceAdditionalInfo
+227969,Safety Measures,19330,Restraint/Support Systems
+220210,Respiratory Rate,13913,Respiratory
+220048,Heart Rhythm,12460,Routine Vital Signs
+220180,Non Invasive Blood Pressure diastolic,8349,Routine Vital Signs
+220181,Non Invasive Blood Pressure mean,8342,Routine Vital Signs
+220052,Arterial Blood Pressure mean,5560,Routine Vital Signs
+220051,Arterial Blood Pressure diastolic,5524,Routine Vital Signs
+228905,Altered Respiratory Status NCP - Interventions,5398,Care Plans
+224080,Head of Bed,5124,Treatments
+224086,Activity Tolerance,4863,Treatments
+228988,Safety Restraints NCP - Interventions,4658,Care Plans
+224642,Temperature Site,3794,Routine Vital Signs
+224073,Education Topic,3497,Restraint/Support Systems
+224087,Therapeutic Bed,3346,Treatments
+223795,Pain Assessment Method,3310,Pain/Sedation
+223900,GCS - Verbal Response,3266,Neurological
+224089,Anti Embolic Device,3196,Treatments
+223987,RLL Lung Sounds,3104,Pulmonary
+223986,RUL Lung Sounds,3047,Pulmonary
+224641,Alarms On,3020,Alarms
+224168,Parameters Checked,2970,Alarms
+225054,Anti Embolic Device Status,2902,Treatments
+228898,Impaired Fluid Balance NCP - Interventions,2839,Care Plans
+228096,Richmond-RAS Scale,2751,Pain/Sedation
+229321,Activity / Mobility (JH-HLM),2653,Treatments
+223907,Pupil Size Right,2546,Neurological
+227121,Pupil Response Right,2538,Neurological
+223999,Oral Cavity,2471,GI/GU
+229381,Orientation,2410,Neurological
+224084,Activity,2379,Treatments
+227955,Food and Fluid,2327,Restraint/Support Systems
+228977,Altered Mental Status  NCP - Interventions,2252,Care Plans
+223784,Pain Cause,2237,Pain/Sedation
+223934,Dorsal PedPulse R,2207,Cardiovascular (Pulses)
+224088,Pressure Reducing Device,2163,Treatments
+228409,Strength L Arm,2109,Neurological
+228410,Strength L Leg,2104,Neurological
+228411,Strength R Leg,2103,Neurological
+223991,Cough Effort,2096,Pulmonary
+224016,Urine Color,2087,GI/GU
+227948,Restraint Device (Non-violent),2043,Restraint/Support Systems
+227945,Restraint (Non-violent),2018,Restraint/Support Systems
+224026,Skin Integrity,1993,Skin - Assessment
+228414,Speech,1975,Neurological
+224028,Skin Color,1945,Skin - Assessment
+228890,Pain NCP - Interventions,1916,Care Plans
+228298,Daily Wake Up,1897,Pain/Sedation
+227951,Circulation/Skin Integrity,1886,Restraint/Support Systems
+227952,Position Change,1875,Restraint/Support Systems
+227953,Range of Motion,1850,Restraint/Support Systems
