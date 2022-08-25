@@ -45,6 +45,7 @@ import shelve
 from fuzzywuzzy import fuzz, process
 from ftfy import fix_text
 from google.cloud import bigquery
+import sqlite3
 
 from related_ontologies.related import ngrams, generateRelatedOntologies, TfidfVectorizer, cosine_similarity
 
@@ -97,6 +98,29 @@ class InvalidOntology(Exception):
     pass
 
 
+def load_config(file):
+    print(f'Loading {file}...')
+    with open(file, "r") as f:
+        configurations = yaml.unsafe_load(f)
+        print('Done.\n')
+        return configurations
+
+
+config_file = 'config.yaml'
+if os.path.exists(config_file):
+    print('Configuration file found.')
+    config = load_config(config_file)
+else:
+    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
+
+# paths
+PATH_data = config.directories.data.location
+PATH_items = config.directories.concepts.location
+PATH_results = config.directories.results
+PATH_ontology = config.ontology.location
+PATH_related = config.ontology.related.location
+
+
 def load_items(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
@@ -128,42 +152,29 @@ def load_data(path):
 # load data
 def load_ontologies():
     print(f'Loading available ontologies:')
-    ontology_files = [each_file for each_file in os.listdir(PATH_ontology) if each_file.endswith('.csv')]
-    ontologies = {}
-    for each_file in ontology_files:
-        if 'LoincClassType_' in each_file or 'SNOMED_CT_Hierarchy_' in each_file:
-            print(f'Loading {each_file}...')
-            path = os.path.join(PATH_ontology, each_file)
-            data = pd.read_csv(path, dtype=object)
-            dictionary = pd.Series(data.label.values, index=data.id.values).to_dict()
-            ontologies[each_file.strip('.csv')] = (data, dictionary)
-    if not ontologies:
+    ontology_files = [each_file.replace(".db", "") for each_file in os.listdir(PATH_ontology) if
+                      each_file.endswith('.db')]
+    if not ontology_files:
         raise InvalidOntology
     print('Done.\n')
-    return ontologies
+    return ontology_files
 
 
 def select_ontology(ontology):
     global df_ontology, ontology_dict, df_ontology_new
-    if ontology not in list_of_ontologies.keys():
+    database_file = f'{ontology}.db'
+    path = os.path.join(PATH_ontology, database_file)
+    conn = sqlite3.connect(path)
+    c = conn.cursor()
+    if ontology not in list_of_ontologies:
         raise InvalidOntology
-    data = list_of_ontologies[ontology][0]
-    dictionary = list_of_ontologies[ontology][1]
-    df_ontology = data
-    ontology_dict = dictionary
+    df_ontology = pd.read_sql(f"SELECT * FROM {ontology}", conn)
+    ontology_dict = pd.Series(df_ontology.LABEL.values, index=df_ontology.CODE.values).to_dict()
     df_ontology_new = pd.DataFrame(
-        {'CODE': list(dictionary.keys()), 'LABEL': list(dictionary.values())})
+        {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
     df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
-    print(f"{ontology} codes processed and selected.\n")
-    return data, dictionary
-
-
-def load_config(file):
-    print(f'Loading {file}...')
-    with open(file, "r") as f:
-        configurations = yaml.unsafe_load(f)
-        print('Done.\n')
-        return configurations
+    print(f"{ontology.upper()} codes processed and selected.\n")
+    return df_ontology, ontology_dict
 
 
 def load_annotations(path):
@@ -187,20 +198,6 @@ def download_annotation(annotation):
     return send_file(path, as_attachment=True)
 
 
-config_file = 'config.yaml'
-if os.path.exists(config_file):
-    print('Configuration file found.')
-    config = load_config(config_file)
-else:
-    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
-
-# paths
-PATH_data = config.directories.data.location
-PATH_items = config.directories.concepts.location
-PATH_results = config.directories.results
-PATH_ontology = config.ontology.location
-PATH_related = config.ontology.related.location
-
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
 
@@ -210,15 +207,14 @@ df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.
 print("Data ready.\n")
 
 list_of_ontologies = load_ontologies()
-default_ontology = config.ontology.filename.strip('.csv')
-df_ontology, ontology_dict = select_ontology(default_ontology)
+df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
 df_ontology_new = pd.DataFrame(
     {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
 df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 print('Ontology ready.\n')
 
 # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
-if 'LoincClassType_1' in list_of_ontologies.keys():
+if 'LoincClassType_1' in list_of_ontologies:
     try:
         with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
             ngrams = shlv['ngrams']
@@ -244,8 +240,8 @@ cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the o
 # FUNCTIONS #
 ######################################################################################################
 def generate_ontology_options():
-    ontology_options = [{"label": each_ontology.replace('_', ' '), "value": each_ontology} for each_ontology in
-                        list_of_ontologies.keys()]
+    ontology_options = [{"label": "LOINC Core Edition (2.72)", "value": "loinc"},
+                        {"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"}]
     return ontology_options
 
 
@@ -257,7 +253,7 @@ def generate_scorer_options(ontology):
     elif 'SNOMED' in ontology:
         options = ["jaro_winkler", "partial_ratio", "UMLS"]
     else:
-        raise InvalidOntology
+        options = ["fts5"]
 
     scorer_options = [{"label": each_scorer.replace('_', ' '), "value": each_scorer} for each_scorer in options]
     return scorer_options
@@ -965,20 +961,31 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     if related:
         if related['row_id'] in [each_selected['id'] for each_selected in curr_data_ontology]:
             raise PreventUpdate
-        df_data = pd.concat([df_data, df_ontology_new.loc[
-            df_ontology_new['CODE'] ==
-            [each_key for each_key in curr_data_related if each_key['id'] == related['row_id']][0][
-                'CODE']]])
+        df_data = pd.concat(
+            [df_data, df_ontology_new.loc[df_ontology_new['CODE'] == curr_data_related[related['row_id']]['CODE']]])
+
     # bugs out when codes from multiple sub-ontologies are selected as it grabs info from the currently selected
     # df_ontology, which wouldn't have metadata about other codes. Using sqlite with a db of all concepts would fix.
-    tooltip_tables = [df_ontology.loc[df_ontology['id'] == each_row['CODE']]
-                      for each_row in df_data.to_dict('records')]
-    tooltip_dicts = [each_table.to_dict('records')[0] for each_table in tooltip_tables]
+    def table_gen(each_row):
+        try:
+            return df_ontology.loc[df_ontology['CODE'] == each_row['CODE']]
+        except:
+            return pd.DataFrame()
+
+    tooltip_tables = [table_gen(each_row) for each_row in df_data.to_dict('records')]
+
+    def dict_gen(each_table):
+        try:
+            return each_table.to_dict('records')[0]
+        except:
+            return {}
+
+    tooltip_dicts = [dict_gen(each_table) for each_table in tooltip_tables]
     tooltip_outputs = []
     for each_dict in tooltip_dicts:
         tooltip_output = {
             'value': "\n\n".join([f'**{each_item}**: {each_dict[each_item]}' for each_item in each_dict.keys()
-                                  if each_item not in ['id', 'COMPONENT', 'label']]),
+                                  if each_item not in ['CODE', 'COMPONENT', 'LABEL']]),
             'type': 'markdown'}
         tooltip_outputs.append({'LABEL': tooltip_output})
     data = df_data.to_dict('records')
@@ -994,34 +1001,27 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("scorer-select", "value"),
+        Input("ontology-select", "value"),
     ],
-    [
-        State("ontology-select", "value"),
-    ],
-    prevent_initial_call=True
 )
 def update_related_datatable(item, _, scorer, ontology_filter):
     if not item:
         return None, [], False, False
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if triggered_id == 'scorer-select.value':
+    if triggered_id == 'ontology-select.value':
         select_ontology(ontology_filter)
 
     query = itemsid_dict[item]
     choices = list(df_ontology_new['LABEL'])
-    df_ontology_temp = df_ontology
-    df_ontology_temp = df_ontology_temp.rename(columns={'id': 'CODE'})
-    df_ontology_temp = df_ontology_temp.rename(columns={'label': 'LABEL'})
-    df_ontology_temp['id'] = df_ontology_new['id'].to_numpy()
     if scorer == 'partial_ratio':
-        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology_temp)
+        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology_new)
     elif scorer == 'jaro_winkler':
-        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology_temp)
+        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology_new)
     elif scorer == 'tf_idf':
         # NLP: tf_idf
         df_data = generateRelatedOntologies(query, choices, method='tf_idf',
-                                            df_ontology=df_ontology_temp,
+                                            df_ontology=df_ontology_new,
                                             vectorizer=vectorizer,
                                             tf_idf_matrix=tf_idf_matrix)
     elif scorer == 'UMLS':
@@ -1031,12 +1031,28 @@ def update_related_datatable(item, _, scorer, ontology_filter):
                                               apikey=config.ontology.related.umls_apikey)
         results_all = results + results_2
         df_data = pd.DataFrame.from_records(results_all, columns=['LABEL', 'CODE'])
-        df_data['SCORES'] = np.array([100] * len(df_data['CODE']))
+        df_data[scorer] = np.array([100] * len(df_data['CODE']))
+        df_data['id'] = np.arange(len(df_data['CODE']))
+        col_id = df_data.pop('id')
+        df_data.insert(0, col_id.name, col_id)
+    elif scorer == 'fts5':
+        database_file = f'{ontology_filter}.db'
+        path = os.path.join(PATH_ontology, database_file)
+        conn = sqlite3.connect(path)
+        c = conn.cursor()
+        tokens = re.split('\W+', itemsid_dict[item])
+        search_term = ' OR '.join(tokens)
+        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE label MATCH '{search_term}' ORDER BY rank", conn)
+        if df_data.empty:
+            return None, [], True, True
+        match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
+        match_scores = match_scores[::-1]
+        df_data[scorer] = match_scores
         df_data['id'] = np.arange(len(df_data['CODE']))
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
     else:
-        raise ScorerNotAvailable()
+        raise ScorerNotAvailable
 
     scores = df_data[scorer]
 
@@ -1050,11 +1066,7 @@ def update_related_datatable(item, _, scorer, ontology_filter):
     columns.remove(scorer)
     columns.remove('id')
     columns.remove('RELEVANCE')
-    columns.remove('LABEL')
-    columns.remove('CODE')
     columns.insert(0, 'RELEVANCE')
-    columns.insert(1, 'CODE')
-    columns.insert(2, 'LABEL')
     return_columns = [{'name': each_col, 'id': each_col} if each_col != 'RELEVANCE' else {'name': '', 'id': each_col}
                       for each_col in columns]
     return data, return_columns, True, True
@@ -1083,7 +1095,7 @@ def update_config(contents, filename, last_modified):
     print("UPDATING DASHBOARD...")
     print("---------------------\n")
     global config
-    global list_of_ontologies, default_ontology
+    global list_of_ontologies
     global df_items, df_events, df_ontology, df_ontology_new
     global itemsid_dict, ontology_dict
     global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
@@ -1123,8 +1135,7 @@ def update_config(contents, filename, last_modified):
         print("Data loaded.\n")
 
         list_of_ontologies = load_ontologies()
-        default_ontology = config.ontology.filename.strip('.csv')
-        df_ontology, ontology_dict = select_ontology(default_ontology)
+        df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
         df_ontology_new = pd.DataFrame(
             {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
         df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
@@ -1160,17 +1171,6 @@ def update_metadata_tooltip(annotation):
     metadata = metadata_table.to_dict('records')[0]
     output = [html.P(f"{each_item}: {metadata[each_item]}") for each_item in metadata.keys() if
               each_item not in ['itemid', 'label']]
-    return output
-
-
-@app.callback(
-    Output("ontology-tooltip", "children"),
-    [
-        Input("ontology-select", "value"),
-    ],
-)
-def update_ontology_tooltip(ontology):
-    output = [html.P(f"{ontology}")]
     return output
 
 
@@ -1268,7 +1268,7 @@ def generate_control_card():
                 children=[
                     dcc.Dropdown(
                         id="ontology-select",
-                        value=default_ontology,
+                        value=generate_ontology_options()[0]['value'],
                         options=generate_ontology_options(),
                         disabled=False,
                         clearable=False,
@@ -1314,6 +1314,7 @@ def generate_control_card():
                                                       data=None,
                                                       columns=[{"name": 'CODE', "id": 'CODE'},
                                                                {"name": 'LABEL', "id": 'LABEL'}],
+                                                      fixed_rows={'headers': True},
                                                       tooltip_data=[],
                                                       css=[
                                                           {
@@ -1354,6 +1355,10 @@ def generate_control_card():
                                                               'if': {'column_id': 'CODE'},
                                                               'width': '10%'
                                                           },
+                                                          {
+                                                              'if': {'column_id': 'LABEL'},
+                                                              'width': '90%'
+                                                          },
                                                       ],
                                                       row_deletable=True,
                                                       tooltip_delay=0,
@@ -1388,14 +1393,6 @@ def serve_layout():
                 class_name='custom-tooltip',
                 children=update_metadata_tooltip(initialize_item_select()[1]),
                 target="item-select",
-                placement='right',
-                fade=True,
-            ),
-            dbc.Tooltip(
-                id='ontology-tooltip',
-                class_name='custom-tooltip',
-                children=update_ontology_tooltip(default_ontology),
-                target="ontology-select",
                 placement='right',
                 fade=True,
             ),
@@ -1635,6 +1632,7 @@ def serve_layout():
                                                                       data=None,
                                                                       columns=[],
                                                                       sort_action='native',
+                                                                      # fixed_rows={'headers': True},
                                                                       filter_action='native',
                                                                       filter_options={'case': 'insensitive'},
                                                                       style_data={
@@ -1666,7 +1664,7 @@ def serve_layout():
                                                                           },
                                                                           {
                                                                               'if': {'column_id': 'RELEVANCE'},
-                                                                              'width': '1%'
+                                                                              'width': '1px'
                                                                           },
                                                                       ],
                                                                       page_size=20,
