@@ -7,14 +7,14 @@ _fields:
       concepts: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
         _fields:
-          filename: D_ITEMS.csv
+          filename: demo_chartevents_user_1.csv
           location: demo-data
         _locked: false
         _type_safe: true
       data: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
         _fields:
-          filename: CHARTEVENTS.csv
+          filename: LABEVENTS.csv
           location: demo-data
         _locked: false
         _type_safe: true
@@ -53,18 +53,18 @@ _fields:
             _convert_dict: true
             _fields:
               items: !!python/tuple
-              - 223834
-              - 223835
-              label: Ventilation
+              - 220045
+              - 220181
+              label: Vital Signs
             _locked: false
             _type_safe: true
           pair_two: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
               items: !!python/tuple
-              - 220045
-              - 220181
-              label: Vital Signs
+              - 223834
+              - 223835
+              label: Ventilation
             _locked: false
             _type_safe: true
         _locked: false
@@ -74,7 +74,6 @@ _fields:
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      filename: LoincClassType_1.csv
       location: ontology
       related: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
