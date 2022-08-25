@@ -1,4 +1,4 @@
-sourceCode,sourceName,sourceFrequency,sourceAdditionalInfo
+itemid,label,sourceFrequency,sourceAdditionalInfo
 220045,Heart Rate,13913,Routine Vital Signs
 220277,O2 saturation pulseoxymetry,13540,Respiratory
 224650,Ectopy Type 1,11044,Routine Vital Signs
