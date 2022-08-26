@@ -9,6 +9,7 @@ Created on May 10, 2022
 import os
 import io
 import re
+import sys
 import csv
 import time
 import json
@@ -106,7 +107,7 @@ def load_config(file):
         return configurations
 
 
-config_file = 'config2.yaml'
+config_file = 'config.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
     config = load_config(config_file)
@@ -239,6 +240,30 @@ cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the o
 ######################################################################################################
 # FUNCTIONS #
 ######################################################################################################
+def table_type(df_column):
+    # Note - this only works with Pandas >= 1.0.0
+
+    if sys.version_info < (3, 0):  # Pandas 1.0.0 does not support Python 2
+        return 'any'
+
+    if isinstance(df_column.dtype, pd.DatetimeTZDtype):
+        return 'datetime',
+    elif (isinstance(df_column.dtype, pd.StringDtype) or
+          isinstance(df_column.dtype, pd.BooleanDtype) or
+          isinstance(df_column.dtype, pd.CategoricalDtype) or
+          isinstance(df_column.dtype, pd.PeriodDtype)):
+        return 'text'
+    elif (isinstance(df_column.dtype, pd.SparseDtype) or
+          isinstance(df_column.dtype, pd.IntervalDtype) or
+          isinstance(df_column.dtype, pd.Int8Dtype) or
+          isinstance(df_column.dtype, pd.Int16Dtype) or
+          isinstance(df_column.dtype, pd.Int32Dtype) or
+          isinstance(df_column.dtype, pd.Int64Dtype)):
+        return 'numeric'
+    else:
+        return 'any'
+
+
 def generate_ontology_options():
     ontology_options = [{"label": "LOINC Core Edition (2.72)", "value": "loinc"},
                         {"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"}]
@@ -341,25 +366,39 @@ def generate_all_patients_graph(item, **kwargs):
 
 
 def generate_tab_graph(item, patient, template_items, **kwargs):
-    table_item_1 = df_events.query(f'itemid == {template_items[0]}')
-    table_item_1['value'] = pd.to_numeric(table_item_1['value'], errors='coerce')
-    table_item_2 = df_events.query(f'itemid == {template_items[1]}')
-    table_item_2['value'] = pd.to_numeric(table_item_2['value'], errors='coerce')
     table_item_target = df_events.query(f'itemid == {item}')
-    table_item_target['value'] = pd.to_numeric(table_item_target['value'], errors='coerce')
-    table_item_patient_1 = table_item_1.query(f'subject_id == {patient}')
-    table_item_patient_2 = table_item_2.query(f'subject_id == {patient}')
+    if not pd.to_numeric(table_item_target['value'], errors='coerce').isnull().all():
+        table_item_target['value'] = pd.to_numeric(table_item_target['value'], errors='coerce')
+
     table_item_patient_target = table_item_target.query(f'subject_id == {patient}')
-    units_1 = list(table_item_1['valueuom'])[0]
-    units_2 = list(table_item_2['valueuom'])[0]
     units_target = list(table_item_target['valueuom'])[0]
 
-    if table_item_patient_1.empty or table_item_patient_2.empty or table_item_patient_target.empty:
+    if table_item_patient_target.empty:
         return {}
 
     start_date = min(min(table_item_patient_target['charttime']),
                      min(table_item_patient_target['charttime'])) - timedelta(hours=12)
     end_date = start_date + timedelta(hours=96) + timedelta(hours=12)
+
+    table_items = []
+    table_items_patient = []
+    units = []
+    for each_item in template_items:
+        continue
+    table_item_1 = df_events.query(f'itemid == {template_items[0]}')
+    if not pd.to_numeric(table_item_1['value'], errors='coerce').isnull().all():
+        table_item_1['value'] = pd.to_numeric(table_item_1['value'], errors='coerce')
+    table_item_2 = df_events.query(f'itemid == {template_items[1]}')
+    if not pd.to_numeric(table_item_2['value'], errors='coerce').isnull().all():
+        table_item_2['value'] = pd.to_numeric(table_item_2['value'], errors='coerce')
+
+    table_item_patient_1 = table_item_1.query(f'subject_id == {patient}')
+    table_item_patient_2 = table_item_2.query(f'subject_id == {patient}')
+    units_1 = list(table_item_1['valueuom'])[0]
+    units_2 = list(table_item_2['valueuom'])[0]
+
+    if table_item_patient_1.empty and table_item_patient_2.empty:
+        return {}
 
     mask_1 = (table_item_patient_1['charttime'] > start_date) & (table_item_patient_1['charttime'] <= end_date)
     table_item_patient_1 = table_item_patient_1.loc[mask_1]
@@ -374,7 +413,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
     table_item_patient_target = table_item_patient_target.loc[mask_plot]
     table_item_patient_target = table_item_patient_target.sort_values(by="charttime")
 
-    series_names = [itemsid_dict[template_items[0]], itemsid_dict[template_items[1]],
+    series_names = [template_items[0], template_items[1],
                     itemsid_dict[item]]
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -470,12 +509,6 @@ def initialize_download_button(annotated):
     if annotated:
         return False
     return True
-
-
-def initialize_upload_field(config_exists):
-    if config_exists:
-        return True
-    return False
 
 
 def initialize_all_patients_graph():
@@ -959,16 +992,26 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         df_data = pd.DataFrame.from_records(curr_data_ontology)
     columns = [{"name": i, "id": i} for i in df_data.columns if i in ['CODE', 'LABEL']]
     if related:
-        if related['row_id'] in [each_selected['id'] for each_selected in curr_data_ontology]:
+        if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
+                                                            curr_data_ontology]:
             raise PreventUpdate
         df_data = pd.concat(
             [df_data, df_ontology_new.loc[df_ontology_new['CODE'] == curr_data_related[related['row_id']]['CODE']]])
 
-    # bugs out when codes from multiple sub-ontologies are selected as it grabs info from the currently selected
-    # df_ontology, which wouldn't have metadata about other codes. Using sqlite with a db of all concepts would fix.
     def table_gen(each_row):
         try:
-            return df_ontology.loc[df_ontology['CODE'] == each_row['CODE']]
+            df_tooltip = pd.DataFrame()
+            for each_ontology in list_of_ontologies:
+                database_file = f'{each_ontology}.db'
+                path = os.path.join(PATH_ontology, database_file)
+                conn = sqlite3.connect(path)
+                c = conn.cursor()
+                df_tooltip = pd.read_sql(
+                    f"SELECT * FROM {each_ontology} WHERE CODE MATCH {each_row['CODE']}",
+                    conn)
+                if not df_tooltip.empty:
+                    break
+            return df_tooltip
         except:
             return pd.DataFrame()
 
@@ -997,16 +1040,21 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     Output("related-datatable", "columns"),
     Output("before_loading", "hidden"),
     Output("after_loading", "hidden"),
+    Output("related-datatable", "tooltip_data"),
     [
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("scorer-select", "value"),
         Input("ontology-select", "value"),
+        Input("search-btn", "n_clicks"),
     ],
+    [
+        State("search-input", "value"),
+    ]
 )
-def update_related_datatable(item, _, scorer, ontology_filter):
+def update_related_datatable(item, _, scorer, ontology_filter, __, search_string):
     if not item:
-        return None, [], False, False
+        return None, [], False, False, []
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'ontology-select.value':
@@ -1035,6 +1083,21 @@ def update_related_datatable(item, _, scorer, ontology_filter):
         df_data['id'] = np.arange(len(df_data['CODE']))
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
+    elif triggered_id == 'search-btn.n_clicks':
+        database_file = f'{ontology_filter}.db'
+        path = os.path.join(PATH_ontology, database_file)
+        conn = sqlite3.connect(path)
+        c = conn.cursor()
+        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_string}' ORDER BY rank",
+                              conn)
+        if df_data.empty:
+            return None, [], True, True, []
+        match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
+        match_scores = match_scores[::-1]
+        df_data[scorer] = match_scores
+        df_data['id'] = np.arange(len(df_data['CODE']))
+        col_id = df_data.pop('id')
+        df_data.insert(0, col_id.name, col_id)
     elif scorer == 'fts5':
         database_file = f'{ontology_filter}.db'
         path = os.path.join(PATH_ontology, database_file)
@@ -1042,9 +1105,9 @@ def update_related_datatable(item, _, scorer, ontology_filter):
         c = conn.cursor()
         tokens = re.split('\W+', itemsid_dict[item])
         search_term = ' OR '.join(tokens)
-        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE label MATCH '{search_term}' ORDER BY rank", conn)
+        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_term}' ORDER BY rank", conn)
         if df_data.empty:
-            return None, [], True, True
+            return None, [], True, True, []
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
         match_scores = match_scores[::-1]
         df_data[scorer] = match_scores
@@ -1067,9 +1130,18 @@ def update_related_datatable(item, _, scorer, ontology_filter):
     columns.remove('id')
     columns.remove('RELEVANCE')
     columns.insert(0, 'RELEVANCE')
-    return_columns = [{'name': each_col, 'id': each_col} if each_col != 'RELEVANCE' else {'name': '', 'id': each_col}
-                      for each_col in columns]
-    return data, return_columns, True, True
+    return_columns = [
+        {'name': each_col, 'id': each_col, 'type': table_type(df_data[each_col])} if each_col != 'RELEVANCE'
+        else {'name': '', 'id': each_col} for each_col in columns]
+
+    tooltip_dict = df_data[scorer].to_dict()
+    tooltip_outputs = []
+    for each_value in tooltip_dict:
+        tooltip_output = {
+            'value': f'**{tooltip_dict[each_value]}**',
+            'type': 'markdown'}
+        tooltip_outputs.append({'RELEVANCE': tooltip_output})
+    return data, return_columns, True, True, tooltip_outputs
 
 
 @app.callback(
@@ -1228,29 +1300,6 @@ def generate_control_card():
                 style={'color': 'black'},
             ),
             html.Div(
-                id="upload-outer",
-                hidden=initialize_upload_field(config),  # if config present, hide, else show upload option
-                children=[
-                    dcc.Upload(
-                        id='upload-data',
-                        children=html.Div([
-                            html.P('Drag and Drop or Select Configuration File'),
-                        ]),
-                        style={
-                            'width': '100%',
-                            'height': '60px',
-                            'lineHeight': '60px',
-                            'borderWidth': '1px',
-                            'borderStyle': 'dashed',
-                            'borderRadius': '5px',
-                            'textAlign': 'center',
-                            'borderColor': 'gray'
-                        },
-                    ),
-                    html.Br(),
-                ]
-            ),
-            html.Div(
                 id='item-copy-outer',
                 hidden=False,
                 children=[
@@ -1262,7 +1311,7 @@ def generate_control_card():
                             "fontSize": 15,
                             "verticalAlign": "center",
                             'float': 'right',
-                            'margin': 'auto'
+                            'margin-top': '0px'
                         },
                     )
                 ]
@@ -1272,11 +1321,14 @@ def generate_control_card():
                 id="item-select",
                 clearable=False,
                 value=initialize_item_select()[1],
-                style={"border-radius": 0},
+                style={"border-radius": 0, "margin-bottom": "15px"},
                 options=initialize_item_select()[0],
             ),
-            html.Br(),
-            html.Hr(),
+            html.Hr(
+                style={
+                    'margin-bottom': '13px'
+                }
+            ),
             html.Div(
                 id='ontology-copy-outer',
                 hidden=False,
@@ -1319,11 +1371,16 @@ def generate_control_card():
                         clearable=False,
                         style={"border-radius": 0},
                     ),
-                ]
+                ],
+            ),
+            html.Div(
+                style={
+                    'margin-bottom': '-10px'
+                }
             ),
             dcc.Clipboard(
                 id='ontology-copy',
-                title="Copy ontology Results",
+                title="Copy Ontology Codes",
                 style={
                     "color": "#c9ddee",
                     "fontSize": 15,
@@ -1363,7 +1420,7 @@ def generate_control_card():
                                                           'lineHeight': '15px',
                                                       },
                                                       style_table={
-                                                          'height': '162px',
+                                                          'height': '136px',
                                                           'overflowY': 'auto',
                                                           'backgroundColor': 'white'
                                                       },
@@ -1404,12 +1461,42 @@ def generate_control_card():
                 children=[
                     html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
                                 style={'width': '100%', 'color': 'white',
-                                       'margin-top': '6px'},
+                                       'margin-top': '12px', 'margin-bottom': '6px'},
                                 disabled=True),
                 ],
             ),
+            html.Hr(
+                style={
+                    'margin-top': '14px',
+                    'margin-bottom': '16px'
+                }
+            ),
+            html.Div(
+                id='search-ontology-outer',
+                children=[
+                    html.Div(id='search-outer',
+                             hidden=False,
+                             children=[
+                                 dcc.Input(
+                                     id="search-input",
+                                     placeholder="Search...",
+                                     debounce=True,
+                                     style={"width": '69%', 'margin-left': '0px', 'float': 'left'},
+                                     autoFocus=True,
+                                 ),
+                             ]),
+                    html.Button(id="search-btn", children="Search", n_clicks=0,
+                                style={'width': '30%', 'color': 'white',
+                                       'float': 'right'},
+                                disabled=False),
+                ],
+                style={
+                    'margin-top': '7px'
+                },
+            ),
         ],
-        style={'width': '100%', 'color': 'black'}
+        style={'width': '100%', 'color': 'black',
+               'margin-top': '-20px'}
     )
 
 
@@ -1515,12 +1602,17 @@ def serve_layout():
                                 style={'height': '500%'},
                                 children=[
                                     dcc.Tabs([
-                                        dcc.Tab(label='Distribution Overview', id="all_patients_tab", disabled=False,
+                                        dcc.Tab(label='Distribution Overview\n(All Patients)', id="all_patients_tab",
+                                                disabled=False,
                                                 value='home-tab',
-                                                style={'color': '#1a75f9'},
+                                                style={'color': '#1a75f9',
+                                                       'padding-top': '15px',
+                                                       'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
-                                                    'border-top-width': '3px'
+                                                    'border-top-width': '3px',
+                                                    'padding-top': '15px',
+                                                    'white-space': 'pre',
                                                 },
                                                 children=[
                                                     html.Div(
@@ -1544,12 +1636,16 @@ def serve_layout():
                                                             )
                                                         ]),
                                                 ]),
-                                        dcc.Tab(label=pairs[0][0], id="blood_gas_tab",
+                                        dcc.Tab(label=f"{pairs[0][0]}\n(Single Patient)", id="blood_gas_tab",
                                                 disabled=initialize_tab(),
-                                                style={'color': '#1a75f9'},
+                                                style={'color': '#1a75f9',
+                                                       'padding-top': '15px',
+                                                       'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
-                                                    'border-top-width': '3px'
+                                                    'border-top-width': '3px',
+                                                    'padding-top': '15px',
+                                                    'white-space': 'pre'
                                                 },
                                                 children=[
                                                     dcc.Graph(
@@ -1558,12 +1654,15 @@ def serve_layout():
                                                         figure=initialize_tab_graph(bg_pair)
                                                     )
                                                 ]),
-                                        dcc.Tab(label=pairs[1][0], id="chemistry_tab",
+                                        dcc.Tab(label=f"{pairs[1][0]}\n(Single Patient)", id="chemistry_tab",
                                                 disabled=initialize_tab(),
-                                                style={'color': '#1a75f9'},
+                                                style={'color': '#1a75f9',
+                                                       'padding-top': '15px'},
                                                 selected_style={
                                                     'color': '#1a75f9',
-                                                    'border-top-width': '3px'
+                                                    'border-top-width': '3px',
+                                                    'padding-top': '15px',
+                                                    'white-space': 'pre'
                                                 },
                                                 children=[
                                                     dcc.Graph(
@@ -1572,12 +1671,16 @@ def serve_layout():
                                                         figure=initialize_tab_graph(chem_pair)
                                                     )
                                                 ]),
-                                        dcc.Tab(label=pairs[2][0], id="cbc_tab",
+                                        dcc.Tab(label=f"{pairs[2][0]}\n(Single Patient)", id="cbc_tab",
                                                 disabled=initialize_tab(),
-                                                style={'color': '#1a75f9'},
+                                                style={'color': '#1a75f9',
+                                                       'padding-top': '15px',
+                                                       'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
-                                                    'border-top-width': '3px'
+                                                    'border-top-width': '3px',
+                                                    'padding-top': '15px',
+                                                    'white-space': 'pre'
                                                 },
                                                 children=[
                                                     dcc.Graph(
@@ -1586,7 +1689,7 @@ def serve_layout():
                                                         figure=initialize_tab_graph(cbc_pair)
                                                     )
                                                 ]),
-                                    ], id='tabs', value='home-tab'),
+                                    ], id='tabs', value='home-tab', style={'height': '75px'}),
                                 ],
                             ),
                             html.Div(
@@ -1641,7 +1744,7 @@ def serve_layout():
                                 children=[
                                     dcc.Clipboard(
                                         id='related-copy',
-                                        title="Copy Results",
+                                        title="Copy Search Results",
                                         style={
                                             "color": "#c9ddee",
                                             "fontSize": 15,
@@ -1653,7 +1756,7 @@ def serve_layout():
                                     html.P(
                                         style={'margin-top': '15px'},
                                         children=[
-                                            html.B('Suggested Results (click on rows to select):'),
+                                            html.B('Results (click on rows to select):'),
                                         ]),
                                     html.Div(
                                         id="related-datatable-outer",
@@ -1662,6 +1765,7 @@ def serve_layout():
                                         children=dash_table.DataTable(id='related-datatable',
                                                                       data=None,
                                                                       columns=[],
+                                                                      tooltip_data=[],
                                                                       sort_action='native',
                                                                       # fixed_rows={'headers': True},
                                                                       filter_action='native',
@@ -1695,7 +1799,7 @@ def serve_layout():
                                                                           },
                                                                           {
                                                                               'if': {'column_id': 'RELEVANCE'},
-                                                                              'width': '1px'
+                                                                              'width': '1%'
                                                                           },
                                                                       ],
                                                                       page_size=20,
@@ -1731,8 +1835,19 @@ def serve_layout():
                                                                           {
                                                                               'selector': 'input.dash-filter--case--insensitive',
                                                                               'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.dash-tooltip',
+                                                                              'rule': 'border-width: 0px; background-color: #000000;'
+                                                                          },
+                                                                          {
+                                                                              'selector': '.dash-table-tooltip',
+                                                                              'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
                                                                           }
-                                                                      ])
+                                                                      ],
+                                                                      tooltip_delay=0,
+                                                                      tooltip_duration=None,
+                                                                      )
                                     ),
                                 ]
                             ),
