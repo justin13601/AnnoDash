@@ -131,10 +131,16 @@ P {
     border-width: 0;
 }
 
+.dash-tooltip:before, .dash-tooltip:after {
+    border-bottom-color: #000000 !important;
+}
+
+
 .tab-outer {
     background-color: #ffffff;
     text-align: center;
 }
+
 
 .draglayer {
     cursor: pointer !important;
