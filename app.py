@@ -311,7 +311,7 @@ def generate_all_patients_graph(item, **kwargs):
     if table.empty:
         return {}
     df_temp = pd.to_numeric(table['value'], errors='coerce')
-    if df_temp.isna().sum().sum() / df_temp.shape[0] > 0.5:
+    if df_temp.isna().sum().sum() / df_temp.shape[0] > 0.5:  # text data
         table['value'] = table['value'].str.upper()
         table = table.groupby(['value'])['value'].count()
         df_data = pd.DataFrame(table)
@@ -411,7 +411,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
 
     fig.add_trace(
         go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["value"], mode='lines+markers',
-                   name=f"{itemsid_dict[item]} ({units_target})"),
+                   name=f"{itemsid_dict[item]} ({units_target})", hovertemplate='%{y}'),
         secondary_y=True,
     )
 
@@ -456,7 +456,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         fig.add_trace(
             go.Scatter(x=table_item_patients[i]["charttime"], y=table_item_patients[i]["value"], mode='lines+markers',
                        marker_symbol='circle-open', opacity=kwargs['config'].opacity,
-                       name=f"{series_names[i]} ({units[i]})"),
+                       name=f"{series_names[i]} ({units[i]})", hovertemplate='%{y}'),
             secondary_y=False,
         )
 
@@ -1027,10 +1027,8 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     if related:
         if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
                                                             curr_data_ontology]:
-            print('preventing update')
             sys.stdout.flush()
             raise PreventUpdate
-        print('not preventing')
         sys.stdout.flush()
         df_data = pd.concat(
             [df_data, df_ontology_new.loc[df_ontology_new['CODE'] == curr_data_related[related['row_id']]['CODE']]])
@@ -1508,11 +1506,15 @@ def generate_control_card():
                                                           },
                                                           {
                                                               'if': {'column_id': 'CODE'},
-                                                              'width': '18%'
+                                                              'width': '18%',
+                                                              'minWidth': '18%',
+                                                              'maxWidth': '18%',
                                                           },
                                                           {
                                                               'if': {'column_id': 'LABEL'},
-                                                              'width': '80%'
+                                                              'width': '80%',
+                                                              'minWidth': '80%',
+                                                              'maxWidth': '80%',
                                                           },
                                                       ],
                                                       row_deletable=True,
@@ -1844,9 +1846,10 @@ def serve_layout():
                                                                       filter_action='native',
                                                                       filter_options={'case': 'insensitive'},
                                                                       style_data={
-                                                                          'whiteSpace': 'normal',
-                                                                          'height': 'auto',
-                                                                          'lineHeight': '15px',
+                                                                          'width': 'auto',
+                                                                          'maxWidth': '100px',
+                                                                          'minWidth': '100px',
+                                                                          'whiteSpace': 'normal'
                                                                       },
                                                                       style_table={
                                                                           'height': '150px',
@@ -1867,13 +1870,17 @@ def serve_layout():
                                                                               'border': '1px solid lightgray'
                                                                           },
                                                                           {
-                                                                              'if': {'column_id': 'CODE'},
-                                                                              'width': '8%'
+                                                                              'if': {'column_id': 'LABEL'},
+                                                                              'width': '200px',
+                                                                              'maxWidth': '200px',
+                                                                              'minWidth': '200px',
                                                                           },
                                                                           {
                                                                               'if': {'column_id': 'RELEVANCE'},
-                                                                              'width': '1%'
-                                                                          },
+                                                                              'width': '1px',
+                                                                              'maxWidth': '1px',
+                                                                              'minWidth': '1px',
+                                                                          }
                                                                       ],
                                                                       page_size=20,
                                                                       # virtualization=True,
