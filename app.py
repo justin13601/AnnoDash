@@ -725,11 +725,7 @@ def enable_submit_button(ontology):
     prevent_initial_call=True,
 )
 def enable_download_button(_):
-    annotated, skipped = load_annotations(PATH_results)
-    if annotated or skipped:
-        return False
-    else:
-        raise PreventUpdate
+    return False
 
 
 @app.callback(
