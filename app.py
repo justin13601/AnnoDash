@@ -107,7 +107,7 @@ def load_config(file):
         return configurations
 
 
-config_file = 'config.yaml'
+config_file = 'config-demo.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
     config = load_config(config_file)
@@ -120,6 +120,9 @@ PATH_items = config.directories.concepts.location
 PATH_results = config.directories.results
 PATH_ontology = config.ontology.location
 PATH_related = config.ontology.related.location
+
+if not os.path.exists(PATH_results):
+    os.makedirs(PATH_results)
 
 
 def load_items(path):
@@ -194,7 +197,7 @@ def load_annotations(path):
 
 
 def download_annotation(annotation):
-    results_folder = 'results-json'
+    results_folder = config.directories.results
     path = os.path.join(results_folder, f"{annotation}.json")
     return send_file(path, as_attachment=True)
 
@@ -228,13 +231,16 @@ annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
 
-# define item pairs for patient specific tabs
-pairs = []
-for each in config.graphs.pairs.values():
-    pairs.append((each['label'], each['items'][0], each['items'][1]))
-bg_pair = pairs[0][1:]  # Default PO2 & PCO2, Blood; Could add FiO2
-chem_pair = pairs[1][1:]  # Default Creatinine & Potassium, Blood; Could also use Sodium & Glucose (overlay 4?)
-cbc_pair = pairs[2][1:]  # Default Hemoglobin & WBC, Blood; Could add RBC (the one with space) -> no observations :(
+# define item ref_vals for patient specific tabs
+ref_vals = []
+for each_ref_val in config.graphs.ref_vals.values():
+    ref_group = [each_ref_val['label']]
+    ref_group.extend([each_ref_val['items'][i] for i in range(len(each_ref_val['items']))])
+    ref_vals.append(ref_group)
+set_1 = ref_vals[0][1:]  # LABITEMS: 50821, 50818, add FiO2; ITEMS: 223900, 223901, 220739
+set_2 = ref_vals[1][
+        1:]  # LABITEMS: 50912, 50971, add Sodium & Glucose; ITEMS: 223834, 223835, 220339, add 223849, 229314
+set_3 = ref_vals[2][1:]  # LABITEMS: 51222, 51300; ITEMS: 220045, 220181, 220210, 220277, 223761
 
 
 ######################################################################################################
@@ -265,7 +271,7 @@ def table_type(df_column):
 
 
 def generate_ontology_options():
-    ontology_options = [{"label": "LOINC Core Edition (2.72)", "value": "loinc"},
+    ontology_options = [{"label": "LOINC® Core Edition (2.72)", "value": "loinc"},
                         {"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"}]
     return ontology_options
 
@@ -366,6 +372,8 @@ def generate_all_patients_graph(item, **kwargs):
 
 
 def generate_tab_graph(item, patient, template_items, **kwargs):
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
     table_item_target = df_events.query(f'itemid == {item}')
     if not pd.to_numeric(table_item_target['value'], errors='coerce').isnull().all():
         table_item_target['value'] = pd.to_numeric(table_item_target['value'], errors='coerce')
@@ -380,58 +388,61 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
                      min(table_item_patient_target['charttime'])) - timedelta(hours=12)
     end_date = start_date + timedelta(hours=96) + timedelta(hours=12)
 
-    table_items = []
-    table_items_patient = []
-    units = []
-    for each_item in template_items:
-        continue
-    table_item_1 = df_events.query(f'itemid == {template_items[0]}')
-    if not pd.to_numeric(table_item_1['value'], errors='coerce').isnull().all():
-        table_item_1['value'] = pd.to_numeric(table_item_1['value'], errors='coerce')
-    table_item_2 = df_events.query(f'itemid == {template_items[1]}')
-    if not pd.to_numeric(table_item_2['value'], errors='coerce').isnull().all():
-        table_item_2['value'] = pd.to_numeric(table_item_2['value'], errors='coerce')
-
-    table_item_patient_1 = table_item_1.query(f'subject_id == {patient}')
-    table_item_patient_2 = table_item_2.query(f'subject_id == {patient}')
-    units_1 = list(table_item_1['valueuom'])[0]
-    units_2 = list(table_item_2['valueuom'])[0]
-
-    if table_item_patient_1.empty and table_item_patient_2.empty:
-        return {}
-
-    mask_1 = (table_item_patient_1['charttime'] > start_date) & (table_item_patient_1['charttime'] <= end_date)
-    table_item_patient_1 = table_item_patient_1.loc[mask_1]
-    table_item_patient_1 = table_item_patient_1.sort_values(by="charttime")
-
-    mask_2 = (table_item_patient_2['charttime'] > start_date) & (table_item_patient_2['charttime'] <= end_date)
-    table_item_patient_2 = table_item_patient_2.loc[mask_2]
-    table_item_patient_2 = table_item_patient_2.sort_values(by="charttime")
-
     mask_plot = (table_item_patient_target['charttime'] > start_date) & (
             table_item_patient_target['charttime'] <= end_date)
     table_item_patient_target = table_item_patient_target.loc[mask_plot]
     table_item_patient_target = table_item_patient_target.sort_values(by="charttime")
 
-    series_names = [template_items[0], template_items[1],
-                    itemsid_dict[item]]
-
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
-        go.Scatter(x=table_item_patient_1["charttime"], y=table_item_patient_1["value"],
-                   name=f"{series_names[0]} ({units_1})"), secondary_y=False,
-    )
-    fig.add_trace(
-        go.Scatter(x=table_item_patient_2["charttime"], y=table_item_patient_2["value"],
-                   name=f"{series_names[1]} ({units_2})"), secondary_y=False,
-    )
-    fig.add_trace(
-        go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["value"],
-                   name=f"{series_names[2]} ({units_target})"),
+        go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["value"], mode='lines+markers',
+                   name=f"{itemsid_dict[item]} ({units_target})"),
         secondary_y=True,
     )
 
-    fig.update_traces(mode="markers+lines", hovertemplate='Value: %{y:.1f}<extra></extra>')
+    table_items = []
+    table_item_patients = []
+    units = []
+    for each_item in template_items:
+        table_item = df_events.query(f'itemid == {each_item}')
+        table_items.append(table_item)
+
+        if not pd.to_numeric(table_item['value'], errors='coerce').isnull().all():
+            table_item['value'] = pd.to_numeric(table_item['value'], errors='coerce')
+        else:
+            try:
+                table_item['value'] = table_item['valuenum']
+            except:
+                pass
+
+        table_item_patient = table_item.query(f'subject_id == {patient}')
+        table_item_patients.append(table_item_patient)
+
+        unit = list(table_item['valueuom'])[0]
+        units.append(unit)
+
+    empty = [table_item_patient.empty for table_item_patient in table_item_patients]
+    if all(empty):
+        return {}
+
+    def series_names_gen(each_item):
+        try:
+            return itemsid_dict[each_item]
+        except:
+            return each_item
+
+    series_names = [series_names_gen(each_item) for each_item in template_items]
+
+    for i in range(len(template_items)):
+        mask = (table_item_patients[i]['charttime'] > start_date) & (table_item_patients[i]['charttime'] <= end_date)
+        table_item_patients[i] = table_item_patients[i].loc[mask]
+        table_item_patients[i] = table_item_patients[i].sort_values(by="charttime")
+
+        fig.add_trace(
+            go.Scatter(x=table_item_patients[i]["charttime"], y=table_item_patients[i]["value"], mode='lines+markers',
+                       marker_symbol='circle-open', opacity=kwargs['config'].opacity,
+                       name=f"{series_names[i]} ({units[i]})"),
+            secondary_y=False,
+        )
 
     if kwargs['config'].spikes:
         fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
@@ -463,6 +474,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         ),
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95, bgcolor='rgba(0,0,0,0)'),
+        legend_tracegroupgap=1,
         margin=dict(l=50, r=0, t=90, b=20),
         height=kwargs['config'].height
     )
@@ -470,7 +482,8 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
 
 
 def query_patients(item):
-    list_of_items = [item, bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
+    list_of_items = [item]
+    list_of_items = list_of_items + set_1 + set_2 + set_3
     list_of_patient_sets = []
     target_table = df_events.query(f'itemid == {item}')
     if target_table.empty:
@@ -485,11 +498,11 @@ def query_patients(item):
             map_reduce_list.append([each_item, i])
 
     dict_grouped = {}
-    for each_pair in map_reduce_list:
-        if each_pair[0] not in dict_grouped:
-            dict_grouped[each_pair[0]] = each_pair[1:]
+    for each_ref in map_reduce_list:
+        if each_ref[0] not in dict_grouped:
+            dict_grouped[each_ref[0]] = each_ref[1:]
         else:
-            dict_grouped[each_pair[0]].append(each_pair[1])
+            dict_grouped[each_ref[0]].append(each_ref[1])
 
     second_map_reduce_list = []
     for each_key in dict_grouped:
@@ -517,7 +530,7 @@ def initialize_all_patients_graph():
     return fig
 
 
-def initialize_tab_graph(pair):
+def initialize_tab_graph(template_items):
     items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     patients = query_patients(items[0]["value"])
     try:
@@ -526,7 +539,7 @@ def initialize_tab_graph(pair):
     except IndexError:
         return {}
     first_patient = patients[0]["value"]
-    fig = generate_tab_graph(items[0]["value"], first_patient, template_items=pair,
+    fig = generate_tab_graph(items[0]["value"], first_patient, template_items=template_items,
                              config=config.graphs.kwargs)
     return fig
 
@@ -896,12 +909,12 @@ def update_tabs_view(patient, _):
 
 @app.callback(
     Output("all_patients_graph", "figure"),
-    Output("blood_gas_graph", "figure"),
-    Output("blood_gas_tab", "disabled"),
-    Output("chemistry_graph", "figure"),
-    Output("chemistry_tab", "disabled"),
-    Output("cbc_graph", "figure"),
-    Output("cbc_tab", "disabled"),
+    Output("set_1_graph", "figure"),
+    Output("set_1_tab", "disabled"),
+    Output("set_2_graph", "figure"),
+    Output("set_2_tab", "disabled"),
+    Output("set_3_graph", "figure"),
+    Output("set_3_tab", "disabled"),
     [
         Input("item-select", "value"),
         Input("patient-select", "value"),
@@ -915,7 +928,7 @@ def update_graph(item, patient, _):
         return {}, {}, disabled, {}, disabled, {}, disabled
 
     if patient:
-        list_of_items = [bg_pair[0], bg_pair[1], chem_pair[0], chem_pair[1], cbc_pair[0], cbc_pair[1]]
+        list_of_items = [set_1[0], set_1[1], set_2[0], set_2[1], set_3[0], set_3[1]]
         item_exists = []
         tabs = []
         for each_item in list_of_items:
@@ -932,20 +945,20 @@ def update_graph(item, patient, _):
                 tabs.append(False)
         disabled = False
         if tabs[0]:
-            tab_bg = (generate_tab_graph(item, patient, bg_pair, config=config.graphs.kwargs), disabled)
+            tab_1 = (generate_tab_graph(item, patient, set_1, config=config.graphs.kwargs), disabled)
         else:
-            tab_bg = ({}, True)
+            tab_1 = ({}, True)
         if tabs[1]:
-            tab_chem = (generate_tab_graph(item, patient, chem_pair, config=config.graphs.kwargs), disabled)
+            tab_2 = (generate_tab_graph(item, patient, set_2, config=config.graphs.kwargs), disabled)
         else:
-            tab_chem = ({}, True)
+            tab_2 = ({}, True)
         if tabs[2]:
-            tab_cbc = (generate_tab_graph(item, patient, cbc_pair, config=config.graphs.kwargs), disabled)
+            tab_3 = (generate_tab_graph(item, patient, set_3, config=config.graphs.kwargs), disabled)
         else:
-            tab_cbc = ({}, True)
+            tab_3 = ({}, True)
         tab_item = generate_all_patients_graph(item, config=config.graphs.kwargs)
 
-        return tab_item, tab_bg[0], tab_bg[1], tab_chem[0], tab_chem[1], tab_cbc[0], tab_cbc[1]
+        return tab_item, tab_1[0], tab_1[1], tab_2[0], tab_2[1], tab_3[0], tab_3[1]
     return generate_all_patients_graph(item,
                                        config=config.graphs.kwargs), {}, disabled, {}, disabled, {}, disabled
 
@@ -1007,7 +1020,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
                 conn = sqlite3.connect(path)
                 c = conn.cursor()
                 df_tooltip = pd.read_sql(
-                    f"SELECT * FROM {each_ontology} WHERE CODE MATCH {each_row['CODE']}",
+                    f"SELECT * FROM {each_ontology} WHERE CODE MATCH '\"{each_row['CODE']}\"'",
                     conn)
                 if not df_tooltip.empty:
                     break
@@ -1173,7 +1186,7 @@ def update_config(contents, filename, last_modified):
     global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
     global ngrams, vectorizer, tf_idf_matrix
     global annotated_list, skipped_list, unannotated_list
-    global pairs, bg_pair, chem_pair, cbc_pair
+    global ref_vals, set_1, set_2, set_3
     if contents is not None:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
@@ -1187,6 +1200,9 @@ def update_config(contents, filename, last_modified):
         PATH_results = config.directories.results
         PATH_ontology = config.ontology.location
         PATH_related = config.ontology.related.location
+
+        if not os.path.exists(PATH_results):
+            os.makedirs(PATH_results)
 
         if 'demo-data' in PATH_data:
             print("Demo data selected.")
@@ -1217,13 +1233,15 @@ def update_config(contents, filename, last_modified):
         unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
         unannotated_list.sort()
 
-        # define item pairs for patient specific tabs
-        pairs = []
-        for each_pair in config.graphs.pairs.values():
-            pairs.append((each_pair['label'], each_pair['items'][0], each_pair['items'][1]))
-        bg_pair = pairs[0][1:]
-        chem_pair = pairs[1][1:]
-        cbc_pair = pairs[2][1:]
+        # define item ref_vals for patient specific tabs
+        ref_vals = []
+        for each_ref_val in config.graphs.ref_vals.values():
+            ref_group = [each_ref_val['label']]
+            ref_group.extend([each_ref_val['items'][i] for i in range(len(each_ref_val['items']))])
+            ref_vals.append(ref_group)
+        set_1 = ref_vals[0][1:]
+        set_2 = ref_vals[1][1:]
+        set_3 = ref_vals[2][1:]
 
     else:
         raise ConfigurationFileError
@@ -1244,6 +1262,21 @@ def update_metadata_tooltip(annotation):
     output = [html.P(f"{each_item}: {metadata[each_item]}") for each_item in metadata.keys() if
               each_item not in ['itemid', 'label']]
     return output
+
+
+@app.callback(
+    Output("search-input", "placeholder"),
+    [
+        Input("ontology-select", "value"),
+    ],
+)
+def update_search_placeholder(ontology):
+    placeholder = ''
+    if ontology == 'loinc':
+        placeholder = 'Search all LOINC®...'
+    elif ontology == 'snomed':
+        placeholder = 'Search all SNOMED-CT...'
+    return placeholder
 
 
 ######################################################################################################
@@ -1402,7 +1435,7 @@ def generate_control_card():
                                                       data=None,
                                                       columns=[{"name": 'CODE', "id": 'CODE'},
                                                                {"name": 'LABEL', "id": 'LABEL'}],
-                                                      fixed_rows={'headers': True},
+                                                      # fixed_rows={'headers': True},
                                                       tooltip_data=[],
                                                       css=[
                                                           {
@@ -1428,6 +1461,9 @@ def generate_control_card():
                                                           'textAlign': 'left',
                                                           'backgroundColor': 'transparent',
                                                           'color': 'black',
+                                                          'overflow': 'hidden',
+                                                          'textOverflow': 'ellipsis',
+                                                          'maxWidth': 0
                                                       },
                                                       style_header={
                                                           'fontWeight': 'bold',
@@ -1441,11 +1477,11 @@ def generate_control_card():
                                                           },
                                                           {
                                                               'if': {'column_id': 'CODE'},
-                                                              'width': '10%'
+                                                              'width': '18%'
                                                           },
                                                           {
                                                               'if': {'column_id': 'LABEL'},
-                                                              'width': '90%'
+                                                              'width': '80%'
                                                           },
                                                       ],
                                                       row_deletable=True,
@@ -1468,7 +1504,7 @@ def generate_control_card():
             html.Hr(
                 style={
                     'margin-top': '14px',
-                    'margin-bottom': '16px'
+                    'margin-bottom': '17px'
                 }
             ),
             html.Div(
@@ -1479,7 +1515,7 @@ def generate_control_card():
                              children=[
                                  dcc.Input(
                                      id="search-input",
-                                     placeholder="Search...",
+                                     placeholder="",
                                      debounce=True,
                                      style={"width": '69%', 'margin-left': '0px', 'float': 'left'},
                                      autoFocus=True,
@@ -1618,17 +1654,6 @@ def serve_layout():
                                                     html.Div(
                                                         className='tab-outer',
                                                         children=[
-                                                            # html.H1(
-                                                            #     id="all-patients-graph-title",
-                                                            #     children=["Calculated Total CO2"],
-                                                            #     style={
-                                                            #         'font-size': 27
-                                                            #     }
-                                                            # ),
-                                                            # html.H2(
-                                                            #     id="all-patients-graph-subtitle",
-                                                            #     children=["Fluid: Blood, Category: Blood gas"],
-                                                            # ),
                                                             dcc.Graph(
                                                                 style={'height': '360px'},
                                                                 id="all_patients_graph",
@@ -1636,7 +1661,7 @@ def serve_layout():
                                                             )
                                                         ]),
                                                 ]),
-                                        dcc.Tab(label=f"{pairs[0][0]}\n(Single Patient)", id="blood_gas_tab",
+                                        dcc.Tab(label=f"{ref_vals[0][0]}\n(Single Patient)", id="set_1_tab",
                                                 disabled=initialize_tab(),
                                                 style={'color': '#1a75f9',
                                                        'padding-top': '15px',
@@ -1650,28 +1675,11 @@ def serve_layout():
                                                 children=[
                                                     dcc.Graph(
                                                         style={'height': '360px'},
-                                                        id="blood_gas_graph",
-                                                        figure=initialize_tab_graph(bg_pair)
+                                                        id="set_1_graph",
+                                                        figure=initialize_tab_graph(set_1)
                                                     )
                                                 ]),
-                                        dcc.Tab(label=f"{pairs[1][0]}\n(Single Patient)", id="chemistry_tab",
-                                                disabled=initialize_tab(),
-                                                style={'color': '#1a75f9',
-                                                       'padding-top': '15px'},
-                                                selected_style={
-                                                    'color': '#1a75f9',
-                                                    'border-top-width': '3px',
-                                                    'padding-top': '15px',
-                                                    'white-space': 'pre'
-                                                },
-                                                children=[
-                                                    dcc.Graph(
-                                                        style={'height': '360px'},
-                                                        id="chemistry_graph",
-                                                        figure=initialize_tab_graph(chem_pair)
-                                                    )
-                                                ]),
-                                        dcc.Tab(label=f"{pairs[2][0]}\n(Single Patient)", id="cbc_tab",
+                                        dcc.Tab(label=f"{ref_vals[1][0]}\n(Single Patient)", id="set_2_tab",
                                                 disabled=initialize_tab(),
                                                 style={'color': '#1a75f9',
                                                        'padding-top': '15px',
@@ -1685,8 +1693,26 @@ def serve_layout():
                                                 children=[
                                                     dcc.Graph(
                                                         style={'height': '360px'},
-                                                        id="cbc_graph",
-                                                        figure=initialize_tab_graph(cbc_pair)
+                                                        id="set_2_graph",
+                                                        figure=initialize_tab_graph(set_2)
+                                                    )
+                                                ]),
+                                        dcc.Tab(label=f"{ref_vals[2][0]}\n(Single Patient)", id="set_3_tab",
+                                                disabled=initialize_tab(),
+                                                style={'color': '#1a75f9',
+                                                       'padding-top': '15px',
+                                                       'white-space': 'pre'},
+                                                selected_style={
+                                                    'color': '#1a75f9',
+                                                    'border-top-width': '3px',
+                                                    'padding-top': '15px',
+                                                    'white-space': 'pre'
+                                                },
+                                                children=[
+                                                    dcc.Graph(
+                                                        style={'height': '360px'},
+                                                        id="set_3_graph",
+                                                        figure=initialize_tab_graph(set_3)
                                                     )
                                                 ]),
                                     ], id='tabs', value='home-tab', style={'height': '75px'}),
@@ -1854,17 +1880,17 @@ def serve_layout():
                             html.Div(id='after_loading', hidden=False),
                         ],
                     ),
-                    # html.Div(
-                    #     id="download-outer",
-                    #     hidden=initialize_download_button(annotated_list),
-                    #     children=[
-                    #         html.Br(),
-                    #         html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
-                    #                     style={'width': '100%', 'color': 'white'},
-                    #                     disabled=False),
-                    #         dcc.Download(id="download-annotations")
-                    #     ]
-                    # ),
+                    html.Div(
+                        id="download-outer",
+                        hidden=initialize_download_button(annotated_list),
+                        children=[
+                            html.Br(),
+                            html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
+                                        style={'width': '100%', 'color': 'white'},
+                                        disabled=False),
+                            dcc.Download(id="download-annotations"),
+                        ]
+                    ),
                 ]
             ),
         ],
