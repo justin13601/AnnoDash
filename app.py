@@ -1006,7 +1006,7 @@ def reset_related_datatable_page(item, _, __, ___):
 @app.callback(
     Output("ontology-datatable", "data"),
     Output("ontology-datatable", "columns"),
-    Output("ontology-datatable", "tooltip_data"),
+    # Output("ontology-datatable", "tooltip_data"),
     [
         Input("submit-btn", "n_clicks"),
         Input("related-datatable", "active_cell"),
@@ -1020,17 +1020,19 @@ def reset_related_datatable_page(item, _, __, ___):
 def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols):
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
-        return curr_data_ontology[0:0], curr_ontology_cols, []
+        return curr_data_ontology[0:0], curr_ontology_cols#, []
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology_new.columns)
     else:
         df_data = pd.DataFrame.from_records(curr_data_ontology)
-    columns = [{"name": i, "id": i} for i in df_data.columns if i in ['CODE', 'LABEL']]
+    columns = [{"name": 'CODE', "id": 'CODE'}, {"name": 'LABEL', "id": 'LABEL'}]
     if related:
         if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
                                                             curr_data_ontology]:
+            print('Ontology code already added!')
             sys.stdout.flush()
             raise PreventUpdate
+        print('Adding ontology code...')
         sys.stdout.flush()
         df_data = pd.concat(
             [df_data, df_ontology_new.loc[df_ontology_new['CODE'] == curr_data_related[related['row_id']]['CODE']]])
@@ -1069,7 +1071,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             'type': 'markdown'}
         tooltip_outputs.append({'LABEL': tooltip_output})
     data = df_data.to_dict('records')
-    return data, columns, tooltip_outputs
+    return data, columns#, tooltip_outputs
 
 
 @app.callback(
