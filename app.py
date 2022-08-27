@@ -1036,16 +1036,16 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     def table_gen(each_row):
         try:
             df_tooltip = pd.DataFrame()
-            # for each_ontology in list_of_ontologies:
-            #     database_file = f'{each_ontology}.db'
-            #     path = os.path.join(PATH_ontology, database_file)
-            #     conn = sqlite3.connect(path)
-            #     c = conn.cursor()
-            #     df_tooltip = pd.read_sql(
-            #         f"SELECT * FROM {each_ontology} WHERE CODE MATCH '\"{each_row['CODE']}\"'",
-            #         conn)
-            #     if not df_tooltip.empty:
-            #         break
+            for each_ontology in list_of_ontologies:
+                database_file = f'{each_ontology}.db'
+                path = os.path.join(PATH_ontology, database_file)
+                conn = sqlite3.connect(path)
+                c = conn.cursor()
+                df_tooltip = pd.read_sql(
+                    f"SELECT * FROM {each_ontology} WHERE CODE MATCH '\"{each_row['CODE']}\"'",
+                    conn)
+                if not df_tooltip.empty:
+                    break
             return df_tooltip
         except:
             return pd.DataFrame()
