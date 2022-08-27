@@ -1011,6 +1011,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     if related:
         if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
                                                             curr_data_ontology]:
+            print('preventing update')
             raise PreventUpdate
         df_data = pd.concat(
             [df_data, df_ontology_new.loc[df_ontology_new['CODE'] == curr_data_related[related['row_id']]['CODE']]])
