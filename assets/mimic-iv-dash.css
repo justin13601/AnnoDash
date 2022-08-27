@@ -169,6 +169,13 @@ P {
     color: black;
 }
 
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table:hover {
+    color: black !important;
+    --accent: none !important;
+    --hover: none !important;
+}
+
+
 /*.table-row:nth-child(even) {*/
 /*    background-color: #272e41;*/
 /*}*/

@@ -724,7 +724,7 @@ def enable_submit_button(ontology):
     ],
     prevent_initial_call=True,
 )
-def enable_download_button(_):
+def enable_download_button(_, __):
     return False
 
 
@@ -973,7 +973,7 @@ def update_graph(item, patient, _):
         Input("search-btn", "n_clicks"),
     ]
 )
-def reset_related_datatable_page(item, _, __):
+def reset_related_datatable_page(item, _, __, ___):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         return 0
@@ -1646,13 +1646,17 @@ def serve_layout():
                                                 disabled=False,
                                                 value='home-tab',
                                                 style={'color': '#1a75f9',
-                                                       'padding-top': '15px',
+                                                       'padding-top': '14px',
                                                        'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
                                                     'border-top-width': '3px',
-                                                    'padding-top': '15px',
+                                                    'padding-top': '14px',
                                                     'white-space': 'pre',
+                                                },
+                                                disabled_style={
+                                                    'padding-top': '14px',
+                                                    'white-space': 'pre'
                                                 },
                                                 children=[
                                                     html.Div(
@@ -1668,12 +1672,16 @@ def serve_layout():
                                         dcc.Tab(label=f"{ref_vals[0][0]}\n(Single Patient)", id="set_1_tab",
                                                 disabled=initialize_tab(),
                                                 style={'color': '#1a75f9',
-                                                       'padding-top': '15px',
+                                                       'padding-top': '14px',
                                                        'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
                                                     'border-top-width': '3px',
-                                                    'padding-top': '15px',
+                                                    'padding-top': '14px',
+                                                    'white-space': 'pre'
+                                                },
+                                                disabled_style={
+                                                    'padding-top': '14px',
                                                     'white-space': 'pre'
                                                 },
                                                 children=[
@@ -1686,12 +1694,16 @@ def serve_layout():
                                         dcc.Tab(label=f"{ref_vals[1][0]}\n(Single Patient)", id="set_2_tab",
                                                 disabled=initialize_tab(),
                                                 style={'color': '#1a75f9',
-                                                       'padding-top': '15px',
+                                                       'padding-top': '14px',
                                                        'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
                                                     'border-top-width': '3px',
-                                                    'padding-top': '15px',
+                                                    'padding-top': '14px',
+                                                    'white-space': 'pre'
+                                                },
+                                                disabled_style={
+                                                    'padding-top': '14px',
                                                     'white-space': 'pre'
                                                 },
                                                 children=[
@@ -1704,12 +1716,16 @@ def serve_layout():
                                         dcc.Tab(label=f"{ref_vals[2][0]}\n(Single Patient)", id="set_3_tab",
                                                 disabled=initialize_tab(),
                                                 style={'color': '#1a75f9',
-                                                       'padding-top': '15px',
+                                                       'padding-top': '14px',
                                                        'white-space': 'pre'},
                                                 selected_style={
                                                     'color': '#1a75f9',
                                                     'border-top-width': '3px',
-                                                    'padding-top': '15px',
+                                                    'padding-top': '14px',
+                                                    'white-space': 'pre'
+                                                },
+                                                disabled_style={
+                                                    'padding-top': '14px',
                                                     'white-space': 'pre'
                                                 },
                                                 children=[
