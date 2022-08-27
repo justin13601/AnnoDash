@@ -184,6 +184,7 @@ def select_ontology(ontology):
     if ontology not in list_of_ontologies:
         raise InvalidOntology
     df_ontology = pd.read_sql(f"SELECT * FROM {ontology}", conn)
+    conn.close()
     ontology_dict = pd.Series(df_ontology.LABEL.values, index=df_ontology.CODE.values).to_dict()
     df_ontology_new = pd.DataFrame(
         {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
@@ -1006,7 +1007,7 @@ def reset_related_datatable_page(item, _, __, ___):
 @app.callback(
     Output("ontology-datatable", "data"),
     Output("ontology-datatable", "columns"),
-    # Output("ontology-datatable", "tooltip_data"),
+    Output("ontology-datatable", "tooltip_data"),
     [
         Input("submit-btn", "n_clicks"),
         Input("related-datatable", "active_cell"),
@@ -1020,7 +1021,7 @@ def reset_related_datatable_page(item, _, __, ___):
 def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols):
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
-        return curr_data_ontology[0:0], curr_ontology_cols#, []
+        return curr_data_ontology[0:0], curr_ontology_cols, []
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology_new.columns)
     else:
@@ -1048,6 +1049,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
                 df_tooltip = pd.read_sql(
                     f"SELECT * FROM {each_ontology} WHERE CODE MATCH '\"{each_row['CODE']}\"'",
                     conn)
+                conn.close()
                 if not df_tooltip.empty:
                     break
             return df_tooltip
@@ -1071,7 +1073,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             'type': 'markdown'}
         tooltip_outputs.append({'LABEL': tooltip_output})
     data = df_data.to_dict('records')
-    return data, columns#, tooltip_outputs
+    return data, columns, tooltip_outputs
 
 
 @app.callback(
@@ -1129,6 +1131,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         c = conn.cursor()
         df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_string}' ORDER BY rank",
                               conn)
+        conn.close()
         if df_data.empty:
             return None, [], True, True, []
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
@@ -1145,6 +1148,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         tokens = re.split('\W+', itemsid_dict[item])
         search_term = ' OR '.join(tokens)
         df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_term}' ORDER BY rank", conn)
+        conn.close()
         if df_data.empty:
             return None, [], True, True, []
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
