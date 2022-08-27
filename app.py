@@ -720,6 +720,7 @@ def enable_submit_button(ontology):
     Output("download-outer", "hidden"),
     [
         Input("submit-btn", "n_clicks"),
+        Input("skip-btn", "n_clicks"),
     ],
     prevent_initial_call=True,
 )
