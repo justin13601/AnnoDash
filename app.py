@@ -970,6 +970,7 @@ def update_graph(item, patient, _):
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("skip-btn", "n_clicks"),
+        Input("search-btn", "n_clicks"),
     ]
 )
 def reset_related_datatable_page(item, _, __):
@@ -977,6 +978,8 @@ def reset_related_datatable_page(item, _, __):
     if triggered_id == 'submit-btn.n_clicks':
         return 0
     elif triggered_id == 'skip-btn.n_clicks':
+        return 0
+    elif triggered_id == 'search-btn.n_clicks':
         return 0
     if not item:
         return 0
