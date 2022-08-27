@@ -419,6 +419,8 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
     table_item_patients = []
     units = []
     for each_item in template_items:
+        if each_item == item:
+            continue
         table_item = df_events.query(f'itemid == {each_item}')
         table_items.append(table_item)
 
@@ -446,9 +448,9 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         except:
             return each_item
 
-    series_names = [series_names_gen(each_item) for each_item in template_items]
+    series_names = [series_names_gen(each_item) for each_item in template_items if each_item != item]
 
-    for i in range(len(template_items)):
+    for i in range(len(table_item_patients)):
         mask = (table_item_patients[i]['charttime'] > start_date) & (table_item_patients[i]['charttime'] <= end_date)
         table_item_patients[i] = table_item_patients[i].loc[mask]
         table_item_patients[i] = table_item_patients[i].sort_values(by="charttime")
@@ -471,17 +473,17 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
                          spikemode='across+marker', secondary_y=True)
 
     fig.update_layout(
-        title={
-            'text': f"{itemsid_dict[item]}",
-            'y': 0.95,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'font': dict(
-                family=kwargs['config'].title_font,
-                size=kwargs['config'].title_size,
-                color=kwargs['config'].title_color
-            )},
+        # title={
+        #     'text': f"{itemsid_dict[item]}",
+        #     'y': 0.95,
+        #     'x': 0.5,
+        #     'xanchor': 'center',
+        #     'yanchor': 'top',
+        #     'font': dict(
+        #         family=kwargs['config'].title_font,
+        #         size=kwargs['config'].title_size,
+        #         color=kwargs['config'].title_color
+        #     )},
         xaxis_title="Time (Hours)",
         font=dict(
             family=kwargs['config'].text_font,
@@ -489,9 +491,9 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
             color=kwargs['config'].text_color
         ),
         hovermode="x",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=0.95, bgcolor='rgba(0,0,0,0)'),
+        legend=dict(orientation="h", yanchor="bottom", y=1, xanchor="center", x=0.47, bgcolor='rgba(0,0,0,0)'),
         legend_tracegroupgap=1,
-        margin=dict(l=50, r=0, t=90, b=20),
+        margin=dict(l=50, r=0, t=40, b=20),
         height=kwargs['config'].height
     )
     return fig
@@ -1957,4 +1959,4 @@ app.layout = serve_layout
 
 # run app.py (MIMIC-Dash v2)
 if __name__ == "__main__":
-    app.run_server(port=8888, debug=False)
+    app.run_server(port=8888, debug=True)
