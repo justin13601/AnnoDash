@@ -58,9 +58,11 @@ def big_query(query):
     client = bigquery.Client()
     query_job = client.query(query)  # API request
     print("The query data:")
+    sys.stdout.flush()
     for row in query_job:
         # row values can be accessed by field name or index
         print("name={}, count={}".format(row[0], row["total_people"]))
+    sys.stdout.flush()
     return
 
 
@@ -101,15 +103,18 @@ class InvalidOntology(Exception):
 
 def load_config(file):
     print(f'Loading {file}...')
+    sys.stdout.flush()
     with open(file, "r") as f:
         configurations = yaml.unsafe_load(f)
         print('Done.\n')
+        sys.stdout.flush()
         return configurations
 
 
 config_file = 'config-demo.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
+    sys.stdout.flush()
     config = load_config(config_file)
 else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
@@ -128,9 +133,11 @@ if not os.path.exists(PATH_results):
 def load_items(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
+    sys.stdout.flush()
     items = pd.read_csv(path)
     dictionary = pd.Series(items[items.columns[1]].values, index=items[items.columns[0]].values).to_dict()
     print('Done.\n')
+    sys.stdout.flush()
     return items, dictionary
 
 
@@ -144,23 +151,27 @@ def tryConvertDate(dates):
 def load_data(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
+    sys.stdout.flush()
     data = pd.read_csv(path)
     # Date, format charttime
     data["charttime"] = data["charttime"].apply(
         lambda x: tryConvertDate(x)
     )  # String -> Datetime
     print('Done.\n')
+    sys.stdout.flush()
     return data
 
 
 # load data
 def load_ontologies():
     print(f'Loading available ontologies:')
+    sys.stdout.flush()
     ontology_files = [each_file.replace(".db", "") for each_file in os.listdir(PATH_ontology) if
                       each_file.endswith('.db')]
     if not ontology_files:
         raise InvalidOntology
     print('Done.\n')
+    sys.stdout.flush()
     return ontology_files
 
 
@@ -178,6 +189,7 @@ def select_ontology(ontology):
         {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
     df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
     print(f"{ontology.upper()} codes processed and selected.\n")
+    sys.stdout.flush()
     return df_ontology, ontology_dict
 
 
@@ -204,11 +216,13 @@ def download_annotation(annotation):
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
+    sys.stdout.flush()
 
 df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
 
 df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
 print("Data ready.\n")
+sys.stdout.flush()
 
 list_of_ontologies = load_ontologies()
 df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
@@ -216,6 +230,7 @@ df_ontology_new = pd.DataFrame(
     {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
 df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 print('Ontology ready.\n')
+sys.stdout.flush()
 
 # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
 if 'LoincClassType_1' in list_of_ontologies:
@@ -226,6 +241,7 @@ if 'LoincClassType_1' in list_of_ontologies:
             tf_idf_matrix = shlv['tf_idf_matrix']
     except FileNotFoundError:
         print("Vectorizer shelve files not found, TF-IDF will not be available for LoincClassType_1.")
+        sys.stdout.flush()
 
 annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
@@ -1012,7 +1028,10 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
                                                             curr_data_ontology]:
             print('preventing update')
+            sys.stdout.flush()
             raise PreventUpdate
+        print('not preventing')
+        sys.stdout.flush()
         df_data = pd.concat(
             [df_data, df_ontology_new.loc[df_ontology_new['CODE'] == curr_data_related[related['row_id']]['CODE']]])
 
@@ -1182,8 +1201,11 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
 )
 def update_config(contents, filename, last_modified):
     print("\n---------------------")
+    sys.stdout.flush()
     print("UPDATING DASHBOARD...")
+    sys.stdout.flush()
     print("---------------------\n")
+    sys.stdout.flush()
     global config
     global list_of_ontologies
     global df_items, df_events, df_ontology, df_ontology_new
@@ -1211,6 +1233,7 @@ def update_config(contents, filename, last_modified):
 
         if 'demo-data' in PATH_data:
             print("Demo data selected.")
+            sys.stdout.flush()
 
         # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
         if 'LoincClassType_1' in list_of_ontologies:
@@ -1221,11 +1244,13 @@ def update_config(contents, filename, last_modified):
                     tf_idf_matrix = shlv['tf_idf_matrix']
             except FileNotFoundError:
                 print("Vectorizer shelve files not found, TF-IDF will not be available for LoincClassType_1.")
+                sys.stdout.flush()
 
         df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
 
         df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
         print("Data loaded.\n")
+        sys.stdout.flush()
 
         list_of_ontologies = load_ontologies()
         df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
@@ -1233,6 +1258,7 @@ def update_config(contents, filename, last_modified):
             {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
         df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
         print('Ontology loaded.\n')
+        sys.stdout.flush()
 
         annotated_list, skipped_list = load_annotations(PATH_results)
         unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
