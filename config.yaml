@@ -28,6 +28,7 @@ _fields:
         _convert_dict: true
         _fields:
           height: 360
+          opacity: 0.3
           spikes: true
           text_color: Black
           text_font: verdana
@@ -37,19 +38,20 @@ _fields:
           title_size: 25
         _locked: false
         _type_safe: true
-      pairs: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+      ref_vals: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
         _fields:
-          pair_one: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+          tab_one: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
               items: !!python/tuple
               - 50821
               - 50818
+              - 50815
               label: Blood Gas
             _locked: false
             _type_safe: true
-          pair_three: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+          tab_three: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
               items: !!python/tuple
@@ -58,7 +60,7 @@ _fields:
               label: Complete Blood Count
             _locked: false
             _type_safe: true
-          pair_two: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
+          tab_two: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
             _convert_dict: true
             _fields:
               items: !!python/tuple
