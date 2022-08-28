@@ -185,6 +185,7 @@ def select_ontology(ontology):
         raise InvalidOntology
     df_ontology = pd.read_sql(f"SELECT * FROM {ontology}", conn)
     conn.close()
+    del conn
     ontology_dict = pd.Series(df_ontology.LABEL.values, index=df_ontology.CODE.values).to_dict()
     df_ontology_new = pd.DataFrame(
         {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
@@ -332,6 +333,8 @@ def generate_all_patients_graph(item, **kwargs):
         fig.update_layout(hovermode="x unified")
         fig.update_traces(marker_color='rgb(100,169,252)')
         ylabel = 'Count'
+        del df_data
+        del table
     else:  # numerical data
         table.replace(np.inf, np.nan)
         table['value'] = pd.to_numeric(table['value'], errors='coerce')
@@ -343,6 +346,8 @@ def generate_all_patients_graph(item, **kwargs):
         group_labels = [f"{itemsid_dict[item]} (%)"]
         fig = ff.create_distplot(hist_data, group_labels, colors=['rgb(44,140,255)'])
         ylabel = ''
+        del table
+    del df_temp
 
     df_temp = df_items.query(f'itemid == {item}').dropna(axis=1, how='all')
     if len(df_temp.columns) > 2:
@@ -417,6 +422,8 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
                    name=f"{itemsid_dict[item]} ({units_target})", hovertemplate='%{y}'),
         secondary_y=True,
     )
+    del table_item_patient_target
+    del mask_plot
 
     table_items_empty = []
     for each_item in template_items:
@@ -1056,6 +1063,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
                     f"SELECT * FROM {each_ontology} WHERE CODE MATCH '\"{each_row['CODE']}\"'",
                     conn)
                 conn.close()
+                del conn
                 if not df_tooltip.empty:
                     break
             return df_tooltip
@@ -1071,6 +1079,8 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             return {}
 
     tooltip_dicts = [dict_gen(each_table) for each_table in tooltip_tables]
+    del tooltip_tables
+
     tooltip_outputs = []
     for each_dict in tooltip_dicts:
         tooltip_output = {
@@ -1141,6 +1151,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_string}' ORDER BY rank",
                               conn)
         conn.close()
+        del conn
         if df_data.empty:
             return None, [], True, True, []
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
@@ -1158,6 +1169,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         search_term = ' OR '.join(tokens)
         df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_term}' ORDER BY rank", conn)
         conn.close()
+        del conn
         if df_data.empty:
             return None, [], True, True, []
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
