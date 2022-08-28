@@ -89,12 +89,12 @@ _fields:
             _field_type: &id001 !!python/name:builtins.str ''
             _ops: []
             _required: false
-            _value: ontology/related
+            _value: null
           umls_apikey: !!python/object:ml_collections.config_dict.config_dict.FieldReference
             _field_type: *id001
             _ops: []
             _required: false
-            _value: 1c3bfb9d-bcd1-472b-8ff5-d58adbb1c047
+            _value: null
         _locked: false
         _type_safe: true
     _locked: false

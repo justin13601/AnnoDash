@@ -16,9 +16,9 @@ cfg.ontology = config_dict.ConfigDict()
 cfg.ontology.location = 'ontology'
 cfg.ontology.related = config_dict.ConfigDict()
 cfg.ontology.related.location = config_dict.placeholder(str)
-cfg.ontology.related.location = 'ontology/related'
+# cfg.ontology.related.location = 'ontology/related'
 cfg.ontology.related.umls_apikey = config_dict.placeholder(str)
-cfg.ontology.related.umls_apikey = '1c3bfb9d-bcd1-472b-8ff5-d58adbb1c047'
+# cfg.ontology.related.umls_apikey = '1c3bfb9d-bcd1-472b-8ff5-d58adbb1c047'
 
 cfg.graphs = config_dict.ConfigDict()
 cfg.graphs.ref_vals = config_dict.ConfigDict()
