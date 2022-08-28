@@ -330,7 +330,7 @@ def generate_all_patients_graph(item, **kwargs):
         fig.update_xaxes(showspikes=True, spikecolor="black", spikethickness=1, spikedash='dot',
                          spikemode='across+marker')
         fig.update_layout(hovermode="x unified")
-        fig.update_traces(marker_color='rgb(100,169,252)', hovertemplate=None)
+        fig.update_traces(marker_color='rgb(100,169,252)')
         ylabel = 'Count'
     else:  # numerical data
         table.replace(np.inf, np.nan)
@@ -485,7 +485,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         #         size=kwargs['config'].title_size,
         #         color=kwargs['config'].title_color
         #     )},
-        xaxis_title="Time (Hours)",
+        # xaxis_title="Time (Hours)",
         font=dict(
             family=kwargs['config'].text_font,
             size=kwargs['config'].text_size,
@@ -494,7 +494,7 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         hovermode="x",
         legend=dict(orientation="h", yanchor="bottom", y=1, xanchor="center", x=0.47, bgcolor='rgba(0,0,0,0)'),
         legend_tracegroupgap=1,
-        margin=dict(l=50, r=0, t=40, b=20),
+        margin=dict(l=50, r=0, t=40, b=40),
         height=kwargs['config'].height
     )
     return fig
