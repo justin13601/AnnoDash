@@ -1440,7 +1440,7 @@ def generate_control_card():
                 children=[
                     dcc.Dropdown(
                         id="ontology-select",
-                        value=None,
+                        value='snomed',
                         options=generate_ontology_options(),
                         disabled=False,
                         clearable=False,
