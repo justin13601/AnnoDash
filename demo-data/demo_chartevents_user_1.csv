@@ -50,7 +50,7 @@ itemid,label,sourceFrequency,sourceAdditionalInfo
 227957,Signs of Injury from Intervention,1871,Restraint/Support Systems
 227956,Urinal/Bedpan,1846,Restraint/Support Systems
 223900,GCS - Verbal Response,3266,Neurological
-220181,Non Invasive BP,8342,Routine Vital Signs
+220181,Non Invasive BP mean,8342,Routine Vital Signs
 220210,Respiratory Rate,13913,Respiratory
 223834,O2 Flow,1090,Respiratory
 223835,Inspired O2 Fraction,1746,Respiratory

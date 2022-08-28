@@ -3,7 +3,7 @@ itemid,label,sourceFrequency,sourceAdditionalInfo
 220210,Respiratory Rate,13913,Respiratory
 220048,Heart Rhythm,12460,Routine Vital Signs
 220180,Non Invasive Blood Pressure diastolic,8349,Routine Vital Signs
-220181,Non Invasive BP,8342,Routine Vital Signs
+220181,Non Invasive BP mean,8342,Routine Vital Signs
 220052,Arterial Blood Pressure mean,5560,Routine Vital Signs
 220051,Arterial Blood Pressure diastolic,5524,Routine Vital Signs
 228905,Altered Respiratory Status NCP - Interventions,5398,Care Plans
