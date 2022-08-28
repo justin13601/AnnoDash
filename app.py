@@ -288,8 +288,8 @@ def table_type(df_column):
 
 
 def generate_ontology_options():
-    ontology_options = [{"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"},
-                        {"label": "LOINC® Core Edition (2.72)", "value": "loinc"}]
+    ontology_options = [{"label": "LOINC® Core Edition (2.72)", "value": "loinc"},
+                        {"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"}]
     return ontology_options
 
 
@@ -396,7 +396,9 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         table_item_target['value'] = pd.to_numeric(table_item_target['value'], errors='coerce')
 
     table_item_patient_target = table_item_target.query(f'subject_id == {patient}')
-    units_target = list(table_item_target['valueuom'])[0]
+    del table_item_target
+
+    units_target = list(table_item_patient_target['valueuom'])[0]
 
     if table_item_patient_target.empty:
         return {}
@@ -416,14 +418,12 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         secondary_y=True,
     )
 
-    table_items = []
-    table_item_patients = []
-    units = []
+    table_items_empty = []
     for each_item in template_items:
         if each_item == item:
             continue
+
         table_item = df_events.query(f'itemid == {each_item}')
-        table_items.append(table_item)
 
         if not pd.to_numeric(table_item['value'], errors='coerce').isnull().all():
             table_item['value'] = pd.to_numeric(table_item['value'], errors='coerce')
@@ -434,34 +434,34 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
                 pass
 
         table_item_patient = table_item.query(f'subject_id == {patient}')
-        table_item_patients.append(table_item_patient)
-
         unit = list(table_item['valueuom'])[0]
-        units.append(unit)
 
-    empty = [table_item_patient.empty for table_item_patient in table_item_patients]
-    if all(empty):
-        return {}
+        if table_item_patient.empty:
+            table_items_empty.append(True)
+            continue
+        else:
+            table_items_empty.append(False)
 
-    def series_names_gen(each_item):
+        del table_item
+
         try:
-            return itemsid_dict[each_item]
+            series_name = itemsid_dict[each_item]
         except:
-            return each_item
+            series_name = each_item
 
-    series_names = [series_names_gen(each_item) for each_item in template_items if each_item != item]
-
-    for i in range(len(table_item_patients)):
-        mask = (table_item_patients[i]['charttime'] > start_date) & (table_item_patients[i]['charttime'] <= end_date)
-        table_item_patients[i] = table_item_patients[i].loc[mask]
-        table_item_patients[i] = table_item_patients[i].sort_values(by="charttime")
+        mask = (table_item_patient['charttime'] > start_date) & (table_item_patient['charttime'] <= end_date)
+        table_item_patient = table_item_patient.loc[mask]
+        table_item_patient = table_item_patient.sort_values(by="charttime")
 
         fig.add_trace(
-            go.Scatter(x=table_item_patients[i]["charttime"], y=table_item_patients[i]["value"], mode='lines+markers',
+            go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
                        marker_symbol='circle-open', opacity=kwargs['config'].opacity,
-                       name=f"{series_names[i]} ({units[i]})", hovertemplate='%{y}'),
+                       name=f"{series_name} ({unit})", hovertemplate='%{y}'),
             secondary_y=False,
         )
+
+    if all(table_items_empty):
+        return {}
 
     if kwargs['config'].spikes:
         fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
@@ -1018,10 +1018,13 @@ def reset_related_datatable_page(item, _, __, ___):
         State("related-datatable", "data"),
         State("ontology-datatable", "data"),
         State("ontology-datatable", "columns"),
-    ]
+    ],
+    prevent_initial_call=True,
 )
 def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols):
     triggered_ids = dash.callback_context.triggered
+    if triggered_ids[0]['prop_id'] == '.':
+        raise PreventUpdate
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
         return curr_data_ontology[0:0], curr_ontology_cols, []
     if not curr_data_ontology:
@@ -1030,11 +1033,12 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         df_data = pd.DataFrame.from_records(curr_data_ontology)
     columns = [{"name": 'CODE', "id": 'CODE'}, {"name": 'LABEL', "id": 'LABEL'}]
     if related:
-        if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
-                                                            curr_data_ontology]:
-            print('Ontology code already added!')
-            sys.stdout.flush()
-            raise PreventUpdate
+        if curr_data_ontology:
+            if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
+                                                                curr_data_ontology]:
+                print('Ontology code already added!')
+                sys.stdout.flush()
+                raise PreventUpdate
         print('Adding ontology code...')
         sys.stdout.flush()
         df_data = pd.concat(
@@ -1440,7 +1444,7 @@ def generate_control_card():
                 children=[
                     dcc.Dropdown(
                         id="ontology-select",
-                        value='snomed',
+                        value=generate_ontology_options()[0]['value'],
                         options=generate_ontology_options(),
                         disabled=False,
                         clearable=False,
