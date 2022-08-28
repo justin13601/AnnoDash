@@ -844,6 +844,8 @@ def reset_annotation(_, __, ontology, prev_ontology_data, curr_ontology_data, it
     ]
 )
 def update_scorer_select(ontology):
+    if ontology is None:
+        raise PreventUpdate
     scorer_options = generate_scorer_options(ontology)
     return scorer_options[0]["value"], scorer_options
 
@@ -1101,6 +1103,9 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
     if triggered_id == 'ontology-select.value':
         select_ontology(ontology_filter)
 
+    if ontology_filter is None:
+        raise PreventUpdate
+
     query = itemsid_dict[item]
     choices = list(df_ontology_new['LABEL'])
     if scorer == 'partial_ratio':
@@ -1316,6 +1321,20 @@ def update_search_placeholder(ontology):
     return placeholder
 
 
+@app.callback(
+    Output("search-input", "disabled"),
+    Output("search-btn", "disabled"),
+    [
+        Input("ontology-select", "value"),
+    ],
+)
+def enable_search(ontology):
+    if ontology:
+        return False, False
+    else:
+        return True, True
+
+
 ######################################################################################################
 # PAGE LAYOUT #
 ######################################################################################################
@@ -1421,7 +1440,7 @@ def generate_control_card():
                 children=[
                     dcc.Dropdown(
                         id="ontology-select",
-                        value=generate_ontology_options()[0]['value'],
+                        value=None,
                         options=generate_ontology_options(),
                         disabled=False,
                         clearable=False,
@@ -1560,12 +1579,13 @@ def generate_control_card():
                                      debounce=True,
                                      style={"width": '69%', 'margin-left': '0px', 'float': 'left'},
                                      autoFocus=True,
+                                     disabled=True
                                  ),
                              ]),
                     html.Button(id="search-btn", children="Search", n_clicks=0,
                                 style={'width': '30%', 'color': 'white',
                                        'float': 'right'},
-                                disabled=False),
+                                disabled=True),
                 ],
                 style={
                     'margin-top': '7px'
