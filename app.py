@@ -288,8 +288,8 @@ def table_type(df_column):
 
 
 def generate_ontology_options():
-    ontology_options = [{"label": "LOINC® Core Edition (2.72)", "value": "loinc"},
-                        {"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"}]
+    ontology_options = [{"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"},
+                        {"label": "LOINC® Core Edition (2.72)", "value": "loinc"}]
     return ontology_options
 
 
