@@ -14,7 +14,7 @@ _fields:
       data: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
         _convert_dict: true
         _fields:
-          filename: CHARTEVENTS.csv
+          filename: CHARTEVENTS_DEMO.csv
           location: demo-data
         _locked: false
         _type_safe: true
