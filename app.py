@@ -176,7 +176,7 @@ def load_ontologies():
 
 
 def select_ontology(ontology):
-    global df_ontology, ontology_dict, df_ontology_new
+    # global df_ontology, ontology_dict, df_ontology_new
     database_file = f'{ontology}.db'
     path = os.path.join(PATH_ontology, database_file)
     conn = sqlite3.connect(path)
@@ -192,7 +192,7 @@ def select_ontology(ontology):
     df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
     print(f"{ontology.upper()} codes processed and selected.\n")
     sys.stdout.flush()
-    return df_ontology, ontology_dict
+    return df_ontology, ontology_dict, df_ontology_new
 
 
 def load_annotations(path):
@@ -227,10 +227,6 @@ print("Data ready.\n")
 sys.stdout.flush()
 
 list_of_ontologies = load_ontologies()
-df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
-df_ontology_new = pd.DataFrame(
-    {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
-df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
 print('Ontology ready.\n')
 sys.stdout.flush()
 
@@ -1025,10 +1021,13 @@ def reset_related_datatable_page(item, _, __, ___):
         State("related-datatable", "data"),
         State("ontology-datatable", "data"),
         State("ontology-datatable", "columns"),
+        State("ontology-select", "value"),
     ],
     prevent_initial_call=True,
 )
-def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols):
+def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols, ontology):
+    df_ontology, ontology_dict, df_ontology_new = select_ontology(ontology)
+
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == '.':
         raise PreventUpdate
@@ -1113,9 +1112,9 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
     if not item:
         return None, [], False, False, []
 
+    df_ontology, ontology_dict, df_ontology_new = select_ontology(ontology_filter)
+
     triggered_id = dash.callback_context.triggered[0]['prop_id']
-    if triggered_id == 'ontology-select.value':
-        select_ontology(ontology_filter)
 
     if ontology_filter is None:
         raise PreventUpdate
@@ -1235,8 +1234,8 @@ def update_config(contents, filename, last_modified):
     sys.stdout.flush()
     global config
     global list_of_ontologies
-    global df_items, df_events, df_ontology, df_ontology_new
-    global itemsid_dict, ontology_dict
+    global df_items, df_events#, df_ontology, df_ontology_new
+    global itemsid_dict#, ontology_dict
     global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
     global ngrams, vectorizer, tf_idf_matrix
     global annotated_list, skipped_list, unannotated_list
@@ -1280,10 +1279,10 @@ def update_config(contents, filename, last_modified):
         sys.stdout.flush()
 
         list_of_ontologies = load_ontologies()
-        df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
-        df_ontology_new = pd.DataFrame(
-            {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
-        df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
+        # df_ontology, ontology_dict = select_ontology(list_of_ontologies[0])
+        # df_ontology_new = pd.DataFrame(
+        #     {'CODE': list(ontology_dict.keys()), 'LABEL': list(ontology_dict.values())})
+        # df_ontology_new = df_ontology_new.reset_index().rename(columns={"index": "id"})
         print('Ontology loaded.\n')
         sys.stdout.flush()
 
