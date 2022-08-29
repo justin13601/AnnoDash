@@ -175,6 +175,11 @@ P {
     --hover: none !important;
 }
 
+.prev-patient {
+    color: white;
+    position: relative;
+    float: left;
+}
 
 /*.table-row:nth-child(even) {*/
 /*    background-color: #272e41;*/

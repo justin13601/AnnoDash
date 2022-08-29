@@ -167,7 +167,7 @@ def list_available_ontologies():
     print(f'Loading available ontologies...')
     sys.stdout.flush()
     ontologies = [each_file.replace(".db", "") for each_file in os.listdir(PATH_ontology) if
-                      each_file.endswith('.db')]
+                  each_file.endswith('.db')]
     if not ontologies:
         raise InvalidOntology
 
@@ -1372,7 +1372,7 @@ def generate_control_card():
                                 [
                                     html.P("This is the content of the second section"),
                                 ],
-                                title="Guide",
+                                title="Getting Started",
                             ),
                             dbc.AccordionItem(
                                 [
@@ -1652,13 +1652,27 @@ def serve_layout():
                         #         )
                         #     ]
                         # ),
-                        dcc.Dropdown(
-                            id="patient-select",
-                            value=initialize_patient_select()[1],
-                            style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
-                                   'color': 'black'},
-                            options=initialize_patient_select()[0],
-                            disabled=False,
+                        html.Div(
+                            [
+                                # html.Div(
+                                #     dmc.ActionIcon(
+                                #         DashIconify(icon="ant-design:left-circle-outlined"), id="prev-patient",
+                                #         n_clicks=0,
+                                #     ),
+                                #     className='prev-patient'
+                                # ),
+                                html.Div(
+                                    dcc.Dropdown(
+                                        id="patient-select",
+                                        value=initialize_patient_select()[1],
+                                        style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
+                                               'color': 'black'},
+                                        options=initialize_patient_select()[0],
+                                        disabled=False,
+                                    ),
+                                    className='patient-select',
+                                ),
+                            ],
                         ),
                     ],
                         style={'width': '20%', 'margin-right': '5%'}),
