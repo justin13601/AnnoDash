@@ -205,12 +205,6 @@ def load_annotations(path):
     return annotated, skipped
 
 
-def download_annotation(annotation):
-    results_folder = config.directories.results
-    path = os.path.join(results_folder, f"{annotation}.json")
-    return send_file(path, as_attachment=True)
-
-
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
     sys.stdout.flush()
@@ -793,8 +787,9 @@ def download_annotations(_):
             # Iterate over all the files in directory
             for folderName, subfolders, filenames in os.walk(config.directories.results):
                 for filename in filenames:
-                    # Add file to zip
-                    zipObj.writestr(filename, os.path.basename(filename))
+                    if '.git' in filename:
+                        continue
+                    zipObj.write(os.path.join(folderName, filename))
 
     return dcc.send_bytes(write_archive, "annotations.zip")
 
@@ -1999,4 +1994,4 @@ app.layout = serve_layout
 
 # run app.py (MIMIC-Dash v2)
 if __name__ == "__main__":
-    app.run_server(port=8888, debug=True)
+    app.run_server(port=8888, debug=False)
