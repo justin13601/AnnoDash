@@ -13,8 +13,8 @@
   <h3 align="center">MIMIC-IV Clinical Dashboard</h3>
 
   <p align="center">
-Clinical Dashboard for Ontology Annotations    <br />
-    (LOINC, SNOMED-CT)
+Dashboard for Clinical Terminology Annotations    <br />
+    (Supports LOINC®, SNOMED-CT)
   </p>
 </div>
 
@@ -46,6 +46,8 @@ Clinical Dashboard for Ontology Annotations    <br />
 <!-- ABOUT THE PROJECT -->
 ## About
 ...
+
+Demo deployed on [https://mimic-iv-dash-demo.herokuapp.com](https://mimic-iv-dash-demo.herokuapp.com).
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -112,11 +114,11 @@ Files required:
   ...
   ```
 * The config.yaml:
-    * Define results directory
-    * Define data directory
-    * Define concepts directory
-    * Define ontology directory (LOINC.csv etc.)
-    * Define up to 3 pairs of lab measurements to plot annotations against (defaults are indicated)
+    * Define results directory (default: /results-json)
+    * Define data directory (default: /demo-data)
+    * Define concepts directory (default: /demo-data)
+    * Define ontology SQLite3 directory (default: /ontology)
+    * Define up to 3 pairs of lab measurements to plot annotations against (defaults vary for lab/chart events)
 
 | ![Home](assets/home.png)          | ![Tabs](assets/tabs.png)          |
 |-----------------------------------|-----------------------------------|
@@ -131,7 +133,9 @@ Demo data and respective licenses are included in the [demo-data folder](/demo-d
 
 - MIMIC-IV Clinical Database demo is available on Physionet (Johnson, A., Bulgarelli, L., Pollard, T., Horng, S., Celi, L. A., & Mark, R. (2022). MIMIC-IV Clinical Database Demo (version 1.0). PhysioNet. https://doi.org/10.13026/jwtp-v091).
 
-- LOINC Ontology Codes are available at https://loinc.org.
+- LOINC® Ontology Codes are available at https://loinc.org.
+
+- SNOMED-CT Ontology Codes are available at https://www.nlm.nih.gov/healthit/snomedct/index.html.
 
 
 
@@ -149,7 +153,12 @@ Distributed under the [MIT][mit] License.
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* Alistair Johnson, DPhil | The Hospital for Sick Children
+* Alistair Johnson, DPhil | The Hospital for Sick Children | Scientist
+* Mjaye Mazwi, MBChB, MD | The Hospital for Sick Children | Staff Physician
+* Danny Eytan, MD, PhD | The Hospital for Sick Children | Staff Physician
+* Oshri Zaulan, MD | The Hospital for Sick Children | Staff Intensivist
+* Azadeh Assadi, MN | The Hospital for Sick Children | Pediatric Nurse Practitioner
+
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
