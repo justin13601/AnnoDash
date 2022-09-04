@@ -1083,6 +1083,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     Output("before_loading", "hidden"),
     Output("after_loading", "hidden"),
     Output("related-datatable", "tooltip_data"),
+    Output("search-input", "value"),
     [
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
@@ -1096,7 +1097,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
 )
 def update_related_datatable(item, _, scorer, ontology_filter, __, search_string):
     if not item:
-        return None, [], False, False, []
+        return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], False, False, [], ''
 
     df_ontology = query_ontology(ontology_filter)
 
@@ -1128,35 +1129,31 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         df_data['id'] = np.arange(len(df_data['CODE']))
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
-    elif triggered_id == 'search-btn.n_clicks':
-        database_file = f'{ontology_filter}.db'
-        path = os.path.join(PATH_ontology, database_file)
-        conn = sqlite3.connect(path)
-        c = conn.cursor()
-        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_string}' ORDER BY rank",
-                              conn)
-        conn.close()
-        del conn
-        if df_data.empty:
-            return None, [], True, True, []
-        match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
-        match_scores = match_scores[::-1]
-        df_data[scorer] = match_scores
-        df_data['id'] = np.arange(len(df_data['CODE']))
-        col_id = df_data.pop('id')
-        df_data.insert(0, col_id.name, col_id)
     elif scorer == 'fts5':
+        query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
+        tokens = re.split('\W+', query)
+        query_tokens = ' OR '.join(tokens)
+        if triggered_id == 'search-btn.n_clicks':
+            if search_string != '':
+                query = search_string
         database_file = f'{ontology_filter}.db'
         path = os.path.join(PATH_ontology, database_file)
         conn = sqlite3.connect(path)
         c = conn.cursor()
-        tokens = re.split('\W+', itemsid_dict[item])
-        search_term = ' OR '.join(tokens)
-        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{search_term}' ORDER BY rank", conn)
+        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '\"{query}\"' ORDER BY rank", conn)
+        if df_data.empty:
+            if triggered_id == 'search-btn.n_clicks':
+                df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query}' ORDER BY rank",
+                                      conn)
+            else:
+                df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query_tokens}' ORDER BY rank",
+                                      conn)
+                query = query_tokens
+
+            if df_data.empty:
+                return None, [{'name': 'No Results Found', 'id': 'none'}], True, True, [], query
         conn.close()
         del conn
-        if df_data.empty:
-            return None, [], True, True, []
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
         match_scores = match_scores[::-1]
         df_data[scorer] = match_scores
@@ -1190,7 +1187,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
             'value': f'**{tooltip_dict[each_value]}**',
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
-    return data, return_columns, True, True, tooltip_outputs
+    return data, return_columns, True, True, tooltip_outputs, query
 
 
 @app.callback(
@@ -1994,4 +1991,4 @@ app.layout = serve_layout
 
 # run app.py (MIMIC-Dash v2)
 if __name__ == "__main__":
-    app.run_server(port=8888, debug=False)
+    app.run_server(port=8888, debug=True)

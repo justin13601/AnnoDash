@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/mimic-iv-dash.iml" filepath="$PROJECT_DIR$/.idea/mimic-iv-dash.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../related_ontologies/.idea/related_ontologies.iml" filepath="$PROJECT_DIR$/../related_ontologies/.idea/related_ontologies.iml" />
     </modules>
   </component>
 </project>
