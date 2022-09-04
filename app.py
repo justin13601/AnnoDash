@@ -1146,8 +1146,9 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
                 df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query}' ORDER BY rank",
                                       conn)
             else:
-                df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query_tokens}' ORDER BY rank",
-                                      conn)
+                df_data = pd.read_sql(
+                    f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query_tokens}' ORDER BY rank",
+                    conn)
                 query = query_tokens
 
             if df_data.empty:
