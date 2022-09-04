@@ -1620,52 +1620,20 @@ def serve_layout():
                                 'existing annotation?',
                     )]
             ),
-            # Banner
             html.Div(
-                id="banner",
-                className="banner",
+                hidden=True,
                 children=[
-                    html.Img(src=app.get_asset_url("mimic.png"), style={'height': '120%', 'width': '10%'}),
-                    html.H5(""),
                     html.Div(children=[
-                        # html.Div(
-                        #     id='patient-copy-outer',
-                        #     hidden=False,
-                        #     children=[
-                        #         dcc.Clipboard(
-                        #             id='patient-copy',
-                        #             title="Copy Patient ID",
-                        #             style={
-                        #                 "color": "#c9ddee",
-                        #                 "fontSize": 15,
-                        #                 "verticalAlign": "center",
-                        #                 'float': 'right',
-                        #                 'margin': 'auto'
-                        #             },
-                        #         )
-                        #     ]
-                        # ),
                         html.Div(
-                            [
-                                # html.Div(
-                                #     dmc.ActionIcon(
-                                #         DashIconify(icon="ant-design:left-circle-outlined"), id="prev-patient",
-                                #         n_clicks=0,
-                                #     ),
-                                #     className='prev-patient'
-                                # ),
-                                html.Div(
-                                    dcc.Dropdown(
-                                        id="patient-select",
-                                        value=initialize_patient_select()[1],
-                                        style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
-                                               'color': 'black'},
-                                        options=initialize_patient_select()[0],
-                                        disabled=False,
-                                    ),
-                                    className='patient-select',
-                                ),
-                            ],
+                            dcc.Dropdown(
+                                id="patient-select",
+                                value=initialize_patient_select()[1],
+                                style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
+                                       'color': 'black'},
+                                options=initialize_patient_select()[0],
+                                disabled=False,
+                            ),
+                            className='patient-select',
                         ),
                     ],
                         style={'width': '20%', 'margin-right': '5%'}),
