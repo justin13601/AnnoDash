@@ -1652,6 +1652,9 @@ def serve_layout():
             html.Div(
                 id="columns-card",
                 className='columns-card',
+                style={
+                  'padding-top': '10px'
+                },
                 children=[
                     # Left column
                     html.Div(
@@ -1845,7 +1848,7 @@ def serve_layout():
                                                                       columns=[],
                                                                       tooltip_data=[],
                                                                       sort_action='native',
-                                                                      # fixed_rows={'headers': True},
+                                                                      fixed_rows={'headers': True},
                                                                       filter_action='native',
                                                                       filter_options={'case': 'insensitive'},
                                                                       style_data={
@@ -1855,7 +1858,7 @@ def serve_layout():
                                                                           'whiteSpace': 'normal'
                                                                       },
                                                                       style_table={
-                                                                          'height': '150px',
+                                                                          'height': '210px',
                                                                           'overflowY': 'auto'
                                                                       },
                                                                       style_cell={
