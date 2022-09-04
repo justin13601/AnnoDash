@@ -20,9 +20,8 @@ c = conn.cursor()
 
 # Create table with headers
 c.execute('''CREATE VIRTUAL TABLE loinc using fts5
-             (CODE, LABEL, COMPONENT, PROPERTY,
-             TIME_ASPCT, SYSTEM, SCALE_TYP,
-             METHOD_TYP, CLASS, CLASSTYPE, SHORTNAME, ONTOLOGY)''')
+             (CODE, LABEL, SYSTEM, SCALE_TYP,
+             METHOD_TYP, CLASS)''')
 conn.commit()
 
 file_name = 'LoincTableCore.csv'
@@ -32,10 +31,11 @@ path = os.path.join(dir, file_name)
 # Convert CSV to SQL
 df_loinc = pd.read_csv(path, low_memory=False)
 df_loinc.rename(columns={'LOINC_NUM': 'CODE', 'LONG_COMMON_NAME': 'LABEL'}, inplace=True)
-df_loinc['ONTOLOGY'] = 'LOINC Core 2.72'
 df_loinc.drop(df_loinc[df_loinc.STATUS != 'ACTIVE'].index, inplace=True)
-df_loinc.drop(['STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged'],
-              axis=1, inplace=True)
+df_loinc.drop(
+    ['STATUS', 'EXTERNAL_COPYRIGHT_NOTICE', 'VersionFirstReleased', 'VersionLastChanged', 'SHORTNAME', 'PROPERTY',
+     'COMPONENT', 'TIME_ASPCT', 'CLASSTYPE'],
+    axis=1, inplace=True)
 df_loinc.to_sql('loinc', conn, if_exists='append', index=False)
 
 ######################################################################
@@ -49,7 +49,7 @@ c = conn.cursor()
 
 # Create table with headers
 c.execute('''CREATE VIRTUAL TABLE snomed using fts5
-             (CODE, LABEL, EFFECTIVE_TIME, PARENTS, CHILDREN, HIERARCHY, ONTOLOGY)''')
+             (CODE, LABEL, EFFECTIVE_TIME, HIERARCHY)''')
 conn.commit()
 
 pymedtermino.LANGUAGE = "en"
@@ -64,7 +64,6 @@ df_snomed = df_snomed.loc[df_snomed['active'] == 1]
 df_snomed = df_snomed.sort_values('effectiveTime').drop_duplicates('id', keep='last')
 df_snomed.drop(['active', 'moduleId', 'definitionStatusId'],
                axis=1, inplace=True)
-df_snomed['ONTOLOGY'] = 'SNOMED-CT International 07/31/2022'
 
 
 def apply_and_concat(dataframe, field, func, column_names):
@@ -83,8 +82,8 @@ def get_term_data(code):
         term = SNOMEDCT[code].term
         LABEL = re.sub("[\(\[].*?[\)\]]", "", term)
         LABEL = LABEL.strip()
-        num_parents = len(SNOMEDCT[code].parents)
-        num_children = len(SNOMEDCT[code].children)
+        # num_parents = len(SNOMEDCT[code].parents)
+        # num_children = len(SNOMEDCT[code].children)
 
         snomed_hierarchies = {
             'Clinical finding': ['finding', 'disorder'],
@@ -109,8 +108,8 @@ def get_term_data(code):
                                 'state of matter', 'unit of presentation', 'product name'],
             'SNOMED CT Model Component': ['attribute', 'link assertion', 'core metadata concept', 'metadata',
                                           'foundation metadata concept', 'linkage concept', 'namespace concept',
-                                          'OWL metadata concept'],
-            'Special concept': ['inactive concept', 'navigational concept'],
+                                          'OWL metadata concept', 'SNOMED RT+CTV3'],
+            'Special concept': ['inactive concept', 'navigational concept', 'special concept'],
             'Record artifact': ['record artifact']
         }
         hierarchy = term[term.rfind('(') + 1:term.rfind(')')]
@@ -119,19 +118,24 @@ def get_term_data(code):
         except:
             hierarchy_not_found.append(code)
             print(f'Top-level hierarchy not found for {code}. Term: {SNOMEDCT[code].term}')
-            return LABEL, num_parents, num_children, np.nan
+            return LABEL, np.nan
+            # return LABEL, num_parents, num_children, np.nan
         hierarchy_label = f'{first_level} -> {hierarchy}'
-        return LABEL, num_parents, num_children, hierarchy_label
+        return LABEL, hierarchy_label
+        # return LABEL, num_parents, num_children, hierarchy_label
     except ValueError:
         # print(f'Suppressed: {code}.')
-        return np.nan, np.nan, np.nan, np.nan
+        return np.nan, np.nan
+        # return np.nan, np.nan, np.nan, np.nan
 
 
 df_snomed.rename(columns={'id': 'CODE', 'effectiveTime': 'EFFECTIVE_TIME'}, inplace=True)
-df_snomed = apply_and_concat(df_snomed, 'CODE', get_term_data, ['LABEL', 'PARENTS', 'CHILDREN', 'HIERARCHY'])
+df_snomed = apply_and_concat(df_snomed, 'CODE', get_term_data, ['LABEL', 'HIERARCHY'])
+# df_snomed = apply_and_concat(df_snomed, 'CODE', get_term_data, ['LABEL', 'PARENTS', 'CHILDREN', 'HIERARCHY'])
 df_snomed = df_snomed[df_snomed['LABEL'].notna()]
 
-df_snomed = df_snomed[['CODE', 'LABEL', 'EFFECTIVE_TIME', 'PARENTS', 'CHILDREN', 'HIERARCHY', 'ONTOLOGY']]
+df_snomed = df_snomed[['CODE', 'LABEL', 'EFFECTIVE_TIME', 'HIERARCHY']]
+# df_snomed = df_snomed[['CODE', 'LABEL', 'EFFECTIVE_TIME', 'PARENTS', 'CHILDREN', 'HIERARCHY', 'ONTOLOGY']]
 
 df_snomed.to_sql('snomed', conn, if_exists='append', index=False)
 
