@@ -49,7 +49,7 @@ c = conn.cursor()
 
 # Create table with headers
 c.execute('''CREATE VIRTUAL TABLE snomed using fts5
-             (CODE, LABEL, EFFECTIVE_TIME, HIERARCHY)''')
+             (CODE, LABEL, EFFECTIVE_TIME, HIERARCHY, SEMANTIC_TAG)''')
 conn.commit()
 
 pymedtermino.LANGUAGE = "en"
@@ -112,29 +112,29 @@ def get_term_data(code):
             'Special concept': ['inactive concept', 'navigational concept', 'special concept'],
             'Record artifact': ['record artifact']
         }
-        hierarchy = term[term.rfind('(') + 1:term.rfind(')')]
+        semantic_tag = term[term.rfind('(') + 1:term.rfind(')')]
         try:
-            first_level = [k for k, v in snomed_hierarchies.items() if hierarchy in v][0]
+            first_level = [k for k, v in snomed_hierarchies.items() if semantic_tag in v][0]
         except:
             hierarchy_not_found.append(code)
             print(f'Top-level hierarchy not found for {code}. Term: {SNOMEDCT[code].term}')
-            return LABEL, np.nan
+            return LABEL, np.nan, np.nan
             # return LABEL, num_parents, num_children, np.nan
-        hierarchy_label = f'{first_level} -> {hierarchy}'
-        return LABEL, hierarchy_label
+        return LABEL, first_level, semantic_tag
+        # hierarchy_label = f'{first_level} -> {hierarchy}'
         # return LABEL, num_parents, num_children, hierarchy_label
     except ValueError:
         # print(f'Suppressed: {code}.')
-        return np.nan, np.nan
+        return np.nan, np.nan, np.nan
         # return np.nan, np.nan, np.nan, np.nan
 
 
 df_snomed.rename(columns={'id': 'CODE', 'effectiveTime': 'EFFECTIVE_TIME'}, inplace=True)
-df_snomed = apply_and_concat(df_snomed, 'CODE', get_term_data, ['LABEL', 'HIERARCHY'])
+df_snomed = apply_and_concat(df_snomed, 'CODE', get_term_data, ['LABEL', 'HIERARCHY', 'SEMANTIC_TAG'])
 # df_snomed = apply_and_concat(df_snomed, 'CODE', get_term_data, ['LABEL', 'PARENTS', 'CHILDREN', 'HIERARCHY'])
 df_snomed = df_snomed[df_snomed['LABEL'].notna()]
 
-df_snomed = df_snomed[['CODE', 'LABEL', 'EFFECTIVE_TIME', 'HIERARCHY']]
+df_snomed = df_snomed[['CODE', 'LABEL', 'EFFECTIVE_TIME', 'HIERARCHY', 'SEMANTIC_TAG']]
 # df_snomed = df_snomed[['CODE', 'LABEL', 'EFFECTIVE_TIME', 'PARENTS', 'CHILDREN', 'HIERARCHY', 'ONTOLOGY']]
 
 df_snomed.to_sql('snomed', conn, if_exists='append', index=False)
