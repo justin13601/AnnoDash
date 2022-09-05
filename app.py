@@ -49,6 +49,7 @@ from google.cloud import bigquery
 import sqlite3
 
 from related_ontologies.related import ngrams, generateRelatedOntologies, TfidfVectorizer, cosine_similarity
+from src.search import SearchSQLite
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -177,16 +178,18 @@ def list_available_ontologies():
 
 
 def query_ontology(ontology):
-    database_file = f'{ontology}.db'
-    path = os.path.join(PATH_ontology, database_file)
-    conn = sqlite3.connect(path)
-    c = conn.cursor()
     if ontology not in list_of_ontologies:
         raise InvalidOntology
-    df_ontology = pd.read_sql(f"SELECT CODE, LABEL FROM {ontology}", conn)
-    conn.close()
-    del conn
-    df_ontology = df_ontology.reset_index().rename(columns={"index": "id"})
+
+    database_file = f'{ontology}.db'
+    path = os.path.join(PATH_ontology, database_file)
+
+    mysearch = SearchSQLite()
+    mysearch.prepareSearch(path)
+    mysearch.getOntology(ontology)
+    mysearch.closeSearch()
+    df_ontology = mysearch.df
+    del mysearch
     return df_ontology
 
 
@@ -588,13 +591,14 @@ def initialize_patient_select():
     return options, first_patient
 
 
-def annotate(item, annotation, ontology, skipped=False):
+def annotate(item, annotation, ontology, comments, skipped=False):
     if skipped:
         item_dict = {'itemid': item,
                      'label': itemsid_dict[item],
                      'ontology': ontology,
-                     'annotatedid': f'Skipped: {annotation}',
-                     'annotatedlabel': 'n/a'
+                     'annotatedid': 'Skipped',
+                     'annotatedlabel': 'n/a',
+                     'comments': comments
                      }
     else:
         # item_row = df_items.query(f'itemid == {item}')
@@ -603,7 +607,8 @@ def annotate(item, annotation, ontology, skipped=False):
                      'ontology': ontology,
                      # 'mimic_loinc': item_row['loinc_code'].item(),      # not available in mimic-iv-v2.0, removed in d-items
                      'annotatedid': [each_id['CODE'] for each_id in annotation],
-                     'annotatedlabel': [each_id['LABEL'] for each_id in annotation]
+                     'annotatedlabel': [each_id['LABEL'] for each_id in annotation],
+                     'comments': comments
                      }
     filename = os.path.join(PATH_results, f"{item}.json")
     with open(filename, "w") as outfile:
@@ -719,10 +724,11 @@ def copy_ontology_datatable(_, data):
     Output("submit-btn", "disabled"),
     [
         Input("ontology-datatable", "data"),
+        Input("skip-checklist", "value"),
     ]
 )
-def enable_submit_button(ontology):
-    if ontology:
+def enable_submit_button(ontology, skip):
+    if ontology or 'skip' in skip:
         return False
     return True
 
@@ -731,45 +737,27 @@ def enable_submit_button(ontology):
     Output("download-outer", "hidden"),
     [
         Input("submit-btn", "n_clicks"),
-        Input("skip-btn", "n_clicks"),
     ],
-    prevent_initial_call=True,
 )
-def enable_download_button(_, __):
+def enable_download_button(_):
+    if annotated_list:
+        return False
     return False
 
 
 @app.callback(
-    Output("skip-other-text", "disabled"),
-    [
-        Input("skip-radio-items", "value"),
-    ],
-    prevent_initial_call=True,
-)
-def show_skip_other(value):
-    if value == 'Other':
-        return False
-    return True
-
-
-@app.callback(
-    Output("skip-other-text", "value"),
-    Output("skip-radio-items", "value"),
+    Output("comments-text", "value"),
+    Output("skip-checklist", "value"),
     [
         Input("submit-btn", "n_clicks"),
-        Input("skip-btn", "n_clicks"),
-        Input("skip-radio-items", "value"),
+        Input("skip-checklist", "value"),
     ],
     prevent_initial_call=True,
 )
-def clear_reset_skip(_, __, skip):
+def clear_reset_skip(_, __):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
-        return '', "Unsure"
-    elif triggered_id == 'skip-btn.n_clicks':
-        return '', "Unsure"
-    elif skip != "Other":
-        return '', no_update
+        return '', []
     else:
         raise PreventUpdate
 
@@ -799,29 +787,25 @@ def download_annotations(_):
     Output("related-datatable", "selected_cells"),
     [
         Input("submit-btn", "n_clicks"),
-        Input("skip-btn", "n_clicks"),
         Input("ontology-select", "value"),
         Input("ontology-datatable", "data_previous"),
     ],
     [
         State("ontology-datatable", "data"),
         State("item-select", "value"),
-        State("skip-radio-items", "value"),
-        State("skip-other-text", "value"),
+        State("skip-checklist", "value"),
+        State("comments-text", "value"),
     ],
     prevent_initial_call=True
 )
-def reset_annotation(_, __, ontology, prev_ontology_data, curr_ontology_data, item,
-                     skip_reason, other_reason):
+def reset_annotation(_, ontology, prev_ontology_data, curr_ontology_data, item,
+                     skip, comments):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
-        annotate(item, curr_ontology_data, ontology)
-        return None, []
-    elif triggered_id == 'skip-btn.n_clicks':
-        if skip_reason == 'Other':
-            annotate(item, other_reason, ontology, skipped=True)
+        if 'skip' in skip:
+            annotate(item, None, ontology, comments, skipped=True)
         else:
-            annotate(item, skip_reason, ontology, skipped=True)
+            annotate(item, curr_ontology_data, ontology, comments)
         return None, []
     elif prev_ontology_data is not None:
         return None, []
@@ -848,27 +832,27 @@ def update_scorer_select(ontology):
     Output("item-select", "value"),
     [
         Input("submit-btn", "n_clicks"),
-        Input("skip-btn", "n_clicks"),
     ],
     [
         State("item-select", "options"),
         State("item-select", "value"),
+        State("skip-checklist", "value"),
     ]
 )
-def update_item_dropdown(_, __, options, value):
+def update_item_dropdown(_, options, value, skip):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == '.':
         raise PreventUpdate
     new_value = value
     if triggered_id == 'submit-btn.n_clicks':
-        if value in unannotated_list:
+        if 'skip' in skip:
+            if value in unannotated_list:
+                unannotated_list.remove(value)
+            skipped_list.append(value)
+            options, new_value = update_item_options(options, value, skipped=True)
+        elif value in unannotated_list:
             unannotated_list.remove(value)
-        options, new_value = update_item_options(options, value)
-    elif triggered_id == 'skip-btn.n_clicks':
-        if value in unannotated_list:
-            unannotated_list.remove(value)
-        skipped_list.append(value)
-        options, new_value = update_item_options(options, value, skipped=True)
+            options, new_value = update_item_options(options, value)
     return options, new_value
 
 
@@ -983,15 +967,12 @@ def update_graph(item, patient, _):
     [
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
-        Input("skip-btn", "n_clicks"),
         Input("search-btn", "n_clicks"),
     ]
 )
-def reset_related_datatable_page(item, _, __, ___):
+def reset_related_datatable_page(item, _, __):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
-        return 0
-    elif triggered_id == 'skip-btn.n_clicks':
         return 0
     elif triggered_id == 'search-btn.n_clicks':
         return 0
@@ -1012,17 +993,23 @@ def reset_related_datatable_page(item, _, __, ___):
         State("ontology-datatable", "data"),
         State("ontology-datatable", "columns"),
         State("ontology-select", "value"),
+        State("skip-checklist", "value"),
     ],
     prevent_initial_call=True,
 )
-def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols, ontology):
-    df_ontology = query_ontology(ontology)
-
+def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology, curr_ontology_cols, ontology, skip):
     triggered_ids = dash.callback_context.triggered
     if triggered_ids[0]['prop_id'] == '.':
         raise PreventUpdate
+    if 'skip' in skip:
+        raise PreventUpdate
     if triggered_ids[0]['prop_id'] == 'submit-btn.n_clicks':
+        if curr_data_ontology is None:
+            return None, curr_ontology_cols, []
         return curr_data_ontology[0:0], curr_ontology_cols, []
+
+    df_ontology = query_ontology(ontology)
+
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology.columns)
     else:
@@ -1042,13 +1029,14 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             for each_ontology in list_of_ontologies:
                 database_file = f'{each_ontology}.db'
                 path = os.path.join(PATH_ontology, database_file)
-                conn = sqlite3.connect(path)
-                c = conn.cursor()
-                df_tooltip = pd.read_sql(
-                    f"SELECT * FROM {each_ontology} WHERE CODE MATCH '\"{each_row['CODE']}\"'",
-                    conn)
-                conn.close()
-                del conn
+
+                mysearch = SearchSQLite()
+                mysearch.prepareSearch(path)
+                mysearch.searchOntologyCode(each_ontology, f'\"{each_row["CODE"]}\"')
+                mysearch.closeSearch()
+                df_tooltip = mysearch.df
+                del mysearch
+
                 if not df_tooltip.empty:
                     break
             return df_tooltip
@@ -1136,25 +1124,36 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         if triggered_id == 'search-btn.n_clicks':
             if search_string != '':
                 query = search_string
+
         database_file = f'{ontology_filter}.db'
         path = os.path.join(PATH_ontology, database_file)
-        conn = sqlite3.connect(path)
-        c = conn.cursor()
-        df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '\"{query}\"' ORDER BY rank", conn)
+
+        mysearch = SearchSQLite()
+        mysearch.prepareSearch(path)
+        mysearch.searchOntologyLabel(ontology_filter, f'\"{query}\"')
+        mysearch.closeSearch()
+        df_data = mysearch.df
+        del mysearch
+
         if df_data.empty:
             if triggered_id == 'search-btn.n_clicks':
-                df_data = pd.read_sql(f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query}' ORDER BY rank",
-                                      conn)
+                mysearch = SearchSQLite()
+                mysearch.prepareSearch(path)
+                mysearch.searchOntologyLabel(ontology_filter, f'{query}')
+                mysearch.closeSearch()
+                df_data = mysearch.df
+                del mysearch
             else:
-                df_data = pd.read_sql(
-                    f"SELECT * FROM {ontology_filter} WHERE LABEL MATCH '{query_tokens}' ORDER BY rank",
-                    conn)
+                mysearch = SearchSQLite()
+                mysearch.prepareSearch(path)
+                mysearch.searchOntologyLabel(ontology_filter, f'{query_tokens}')
+                mysearch.closeSearch()
+                df_data = mysearch.df
+                del mysearch
                 query = query_tokens
 
             if df_data.empty:
                 return None, [{'name': 'No Results Found', 'id': 'none'}], True, True, [], query
-        conn.close()
-        del conn
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
         match_scores = match_scores[::-1]
         df_data[scorer] = match_scores
@@ -1188,6 +1187,9 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
             'value': f'**{tooltip_dict[each_value]}**',
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
+
+    if len(data) > 250:
+        data = data[0:250]
     return data, return_columns, True, True, tooltip_outputs, query
 
 
@@ -1394,7 +1396,7 @@ def generate_control_card():
                             "fontSize": 15,
                             "verticalAlign": "center",
                             'float': 'right',
-                            'margin-top': '0px'
+                            'margin-top': '-2px'
                         },
                     )
                 ]
@@ -1406,11 +1408,6 @@ def generate_control_card():
                 value=initialize_item_select()[1],
                 style={"border-radius": 0, "margin-bottom": "15px"},
                 options=initialize_item_select()[0],
-            ),
-            html.Hr(
-                style={
-                    'margin-bottom': '13px'
-                }
             ),
             html.Div(
                 id='ontology-copy-outer',
@@ -1546,44 +1543,42 @@ def generate_control_card():
                          )]
                      ),
             html.Div(
+                id="skip-outer",
+                hidden=False,
+                style={'margin-top': '11px'},
+                children=[
+                    dcc.Checklist(
+                        id='skip-checklist',
+                        options=[
+                            {'label': 'Skip', 'value': 'skip'},
+                        ],
+                        value=[],
+                        style={'width': '16%', 'color': 'white', 'textAlign': 'left',
+                               'verticalAlign': 'center', 'float': 'left', 'margin-top': '6px'},
+                    ),
+                    html.Div(id='comments-outer',
+                             hidden=False,
+                             children=[
+                                 dcc.Input(
+                                     id="comments-text",
+                                     placeholder="Comments",
+                                     debounce=True,
+                                     style={"width": '83%', 'margin-left': '0px', 'float': 'right'},
+                                     autoFocus=True,
+                                     disabled=False
+                                 ),
+                             ]),
+                ],
+            ),
+            html.Div(
                 id="submit-btn-outer",
                 hidden=False,
                 children=[
                     html.Button(id="submit-btn", children="Submit & Next", n_clicks=0,
                                 style={'width': '100%', 'color': 'white',
-                                       'margin-top': '12px', 'margin-bottom': '6px'},
-                                disabled=True),
+                                       'margin-top': '11px', 'margin-bottom': '6px'},
+                                disabled=False),
                 ],
-            ),
-            html.Hr(
-                style={
-                    'margin-top': '14px',
-                    'margin-bottom': '17px'
-                }
-            ),
-            html.Div(
-                id='search-ontology-outer',
-                children=[
-                    html.Div(id='search-outer',
-                             hidden=False,
-                             children=[
-                                 dcc.Input(
-                                     id="search-input",
-                                     placeholder="",
-                                     debounce=True,
-                                     style={"width": '69%', 'margin-left': '0px', 'float': 'left'},
-                                     autoFocus=True,
-                                     disabled=True
-                                 ),
-                             ]),
-                    html.Button(id="search-btn", children="Search", n_clicks=0,
-                                style={'width': '30%', 'color': 'white',
-                                       'float': 'right'},
-                                disabled=True),
-                ],
-                style={
-                    'margin-top': '7px'
-                },
             ),
         ],
         style={'width': '100%', 'color': 'black',
@@ -1653,7 +1648,7 @@ def serve_layout():
                 id="columns-card",
                 className='columns-card',
                 style={
-                  'padding-top': '10px'
+                    'padding-top': '10px'
                 },
                 children=[
                     # Left column
@@ -1773,183 +1768,205 @@ def serve_layout():
                                     ], id='tabs', value='home-tab', style={'height': '75px'}),
                                 ],
                             ),
-                            html.Div(
-                                id="skip-outer",
-                                hidden=False,
-                                style={'margin-top': '6px'},
-                                children=[
-                                    dcc.RadioItems(
-                                        id='skip-radio-items',
-                                        options=['Unsure', 'Invalid Source Data', 'Other'],
-                                        value='Unsure',
-                                        style={'width': '43%', 'color': 'white', 'textAlign': 'left',
-                                               'verticalAlign': 'center', 'float': 'left', 'margin-top': '6px'},
-                                        labelStyle={'margin-right': '30px'},
-                                        inline=True,
-                                    ),
-                                    html.Div(id='skip-other-outer',
-                                             hidden=False,
-                                             children=[
-                                                 dcc.Input(
-                                                     id="skip-other-text",
-                                                     placeholder="Reason...",
-                                                     debounce=True,
-                                                     style={"width": '24%', 'margin-left': '0px', 'float': 'left'},
-                                                     autoFocus=True,
-                                                     disabled=True
-                                                 ),
-                                             ]),
-                                    html.Button(id="skip-btn", children="Skip", n_clicks=0,
-                                                style={'width': '30%', 'color': 'white',
-                                                       'float': 'right'},
-                                                disabled=False),
-                                ],
-                            ),
                         ],
+                        style={
+                            'background-color': 'rgba(0, 0, 0, 0)'
+                        },
                     ),
                 ]
+            ),
+            html.Div(
+                className='results-card',
+                children=[
+                    html.Hr(
+                        style={
+                            'margin-top': '10px',
+                            'margin-bottom': '7px'
+                        }
+                    ),
+                ],
             ),
             html.Div(
                 id='results-card',
                 className='results-card',
                 children=[
+                    # search column
                     html.Div(
-                        id="annotation-outer",
-                        hidden=False,
+                        id="search-column",
                         children=[
-                            html.Div(id='before_loading', hidden=False),
-                            dcc.Loading(
-                                id="related-loading",
-                                type="dot",
-                                color='#2c89f2',
+                            html.Div(
+                                id='search-ontology-outer',
                                 children=[
-                                    dcc.Clipboard(
-                                        id='related-copy',
-                                        title="Copy Search Results",
-                                        style={
-                                            "color": "#c9ddee",
-                                            "fontSize": 15,
-                                            "verticalAlign": "center",
-                                            'float': 'right',
-                                            'margin': 'auto'
-                                        },
-                                    ),
                                     html.P(
-                                        style={'margin-top': '15px'},
+                                        style={'margin-top': '1px'},
                                         children=[
-                                            html.B('Results (click on rows to select):'),
+                                            html.B('Search Parameters:'),
                                         ]),
-                                    html.Div(
-                                        id="related-datatable-outer",
-                                        className='related-datatable',
-                                        hidden=False,
-                                        children=dash_table.DataTable(id='related-datatable',
-                                                                      data=None,
-                                                                      columns=[],
-                                                                      tooltip_data=[],
-                                                                      sort_action='native',
-                                                                      fixed_rows={'headers': True},
-                                                                      filter_action='native',
-                                                                      filter_options={'case': 'insensitive'},
-                                                                      style_data={
-                                                                          'width': 'auto',
-                                                                          'maxWidth': '100px',
-                                                                          'minWidth': '100px',
-                                                                          'whiteSpace': 'normal'
-                                                                      },
-                                                                      style_table={
-                                                                          'height': '210px',
-                                                                          'overflowY': 'auto'
-                                                                      },
-                                                                      style_cell={
-                                                                          'textAlign': 'left',
-                                                                          'backgroundColor': 'transparent'
-                                                                      },
-                                                                      style_header={
-                                                                          'fontWeight': 'bold',
-                                                                          'color': '#2c8cff'
-                                                                      },
-                                                                      style_data_conditional=[
-                                                                          {  # 'active' | 'selected'
-                                                                              'if': {'state': 'active'},
-                                                                              'backgroundColor': 'transparent',
-                                                                              'border': '1px solid lightgray'
-                                                                          },
-                                                                          {
-                                                                              'if': {'column_id': 'LABEL'},
-                                                                              'width': '200px',
-                                                                              'maxWidth': '200px',
-                                                                              'minWidth': '200px',
-                                                                          },
-                                                                          {
-                                                                              'if': {'column_id': 'RELEVANCE'},
-                                                                              'width': '1px',
-                                                                              'maxWidth': '1px',
-                                                                              'minWidth': '1px',
-                                                                          }
-                                                                      ],
-                                                                      page_size=20,
-                                                                      # virtualization=True,
-                                                                      merge_duplicate_headers=True,
-                                                                      style_as_list_view=True,
-                                                                      css=[
-                                                                          {
-                                                                              'selector': '.previous-page, .next-page, '
-                                                                                          '.first-page, .last-page',
-                                                                              'rule': 'color: #2c8cff'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.previous-page:hover',
-                                                                              'rule': 'color: #002552'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.next-page:hover',
-                                                                              'rule': 'color: #002552'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.first-page:hover',
-                                                                              'rule': 'color: #002552'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.last-page:hover',
-                                                                              'rule': 'color: #002552'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.column-header--sort:hover',
-                                                                              'rule': 'color: #2c8cff'
-                                                                          },
-                                                                          {
-                                                                              'selector': 'input.dash-filter--case--insensitive',
-                                                                              'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.dash-tooltip',
-                                                                              'rule': 'border-width: 0px; background-color: #000000;'
-                                                                          },
-                                                                          {
-                                                                              'selector': '.dash-table-tooltip',
-                                                                              'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
-                                                                          }
-                                                                      ],
-                                                                      tooltip_delay=0,
-                                                                      tooltip_duration=None,
-                                                                      )
-                                    ),
-                                ]
+                                    html.Div(id='search-outer',
+                                             hidden=False,
+                                             children=[
+                                                 dcc.Input(
+                                                     id="search-input",
+                                                     placeholder="",
+                                                     debounce=True,
+                                                     style={"width": '100%', 'margin-left': '0px'},
+                                                     autoFocus=True,
+                                                     disabled=True
+                                                 ),
+                                             ]),
+                                    html.Button(id="search-btn", children="Search", n_clicks=0,
+                                                style={'width': '100%', 'color': 'white',
+                                                       'margin-top': '165px'},
+                                                disabled=True),
+                                ],
                             ),
-                            html.Div(id='after_loading', hidden=False),
+                        ],
+                        style={
+                            'float': 'left',
+                            'width': '20%',
+                        },
+                    ),
+                    # results column
+                    html.Div(
+                        id="search-results-column",
+                        style={
+                            'margin-left': '2rem',
+                            'width': '75%',
+                            'float': 'right',
+                        },
+                        children=[
+                            html.Div(
+                                id="annotation-outer",
+                                hidden=False,
+                                children=[
+                                    html.Div(id='before_loading', hidden=False),
+                                    dcc.Loading(
+                                        id="related-loading",
+                                        type="dot",
+                                        color='#2c89f2',
+                                        children=[
+                                            dcc.Clipboard(
+                                                id='related-copy',
+                                                title="Copy Search Results",
+                                                style={
+                                                    "color": "#c9ddee",
+                                                    "fontSize": 15,
+                                                    "verticalAlign": "center",
+                                                    'float': 'right',
+                                                    'margin': 'auto'
+                                                },
+                                            ),
+                                            html.P(
+                                                style={'margin-top': '1px'},
+                                                children=[
+                                                    html.B('Results (click on rows to select):'),
+                                                ]),
+                                            html.Div(
+                                                id="related-datatable-outer",
+                                                className='related-datatable',
+                                                hidden=False,
+                                                children=dash_table.DataTable(id='related-datatable',
+                                                                              data=None,
+                                                                              columns=[],
+                                                                              tooltip_data=[],
+                                                                              sort_action='native',
+                                                                              fixed_rows={'headers': True},
+                                                                              filter_action='native',
+                                                                              filter_options={'case': 'insensitive'},
+                                                                              style_data={
+                                                                                  'width': 'auto',
+                                                                                  'maxWidth': '100px',
+                                                                                  'minWidth': '100px',
+                                                                                  'whiteSpace': 'normal'
+                                                                              },
+                                                                              style_table={
+                                                                                  'height': '240px',
+                                                                                  'overflowY': 'auto'
+                                                                              },
+                                                                              style_cell={
+                                                                                  'textAlign': 'left',
+                                                                                  'backgroundColor': 'transparent'
+                                                                              },
+                                                                              style_header={
+                                                                                  'fontWeight': 'bold',
+                                                                                  'color': '#2c8cff'
+                                                                              },
+                                                                              style_data_conditional=[
+                                                                                  {  # 'active' | 'selected'
+                                                                                      'if': {'state': 'active'},
+                                                                                      'backgroundColor': 'transparent',
+                                                                                      'border': '1px solid lightgray'
+                                                                                  },
+                                                                                  {
+                                                                                      'if': {'column_id': 'RELEVANCE'},
+                                                                                      'width': '1%',
+                                                                                      'maxWidth': '1%',
+                                                                                      'minWidth': '1%',
+                                                                                  }
+                                                                              ],
+                                                                              # page_size=20,
+                                                                              # virtualization=True,
+                                                                              merge_duplicate_headers=True,
+                                                                              style_as_list_view=True,
+                                                                              css=[
+                                                                                  {
+                                                                                      'selector': '.previous-page, .next-page, '
+                                                                                                  '.first-page, .last-page',
+                                                                                      'rule': 'color: #2c8cff'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.previous-page:hover',
+                                                                                      'rule': 'color: #002552'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.next-page:hover',
+                                                                                      'rule': 'color: #002552'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.first-page:hover',
+                                                                                      'rule': 'color: #002552'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.last-page:hover',
+                                                                                      'rule': 'color: #002552'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.column-header--sort:hover',
+                                                                                      'rule': 'color: #2c8cff'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': 'input.dash-filter--case--insensitive',
+                                                                                      'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.dash-tooltip',
+                                                                                      'rule': 'border-width: 0px; background-color: #000000;'
+                                                                                  },
+                                                                                  {
+                                                                                      'selector': '.dash-table-tooltip',
+                                                                                      'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
+                                                                                  }
+                                                                              ],
+                                                                              tooltip_delay=0,
+                                                                              tooltip_duration=None,
+                                                                              )
+                                            ),
+                                        ]
+                                    ),
+                                    html.Div(id='after_loading', hidden=False),
+                                ],
+                            ),
                         ],
                     ),
                     html.Div(
                         id="download-outer",
                         hidden=initialize_download_button(annotated_list),
                         children=[
-                            html.Br(),
                             html.Button(id="download-btn", children="Download current annotations.zip", n_clicks=0,
-                                        style={'width': '100%', 'color': 'white'},
+                                        style={'width': '100%', 'color': 'white', 'margin-top': '10px'},
                                         disabled=False),
                             dcc.Download(id="download-annotations"),
-                        ]
+                        ],
                     ),
                 ]
             ),
