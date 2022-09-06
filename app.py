@@ -7,46 +7,47 @@ Created on May 10, 2022
 """
 
 import os
-import io
+# import io
 import re
 import sys
-import csv
-import time
+# import csv
+# import time
 import json
 import yaml
 import errno
 import base64
-import requests
+# import requests
 from datetime import timedelta, datetime as dt
-from collections import defaultdict
-from ml_collections import config_dict
+from collections import Counter
+# from collections import defaultdict
+# from ml_collections import config_dict
 from zipfile import ZipFile
 
-import plotly.express as px
+# import plotly.express as px
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
 import dash
 import dash_bootstrap_components as dbc
-import dash_mantine_components as dmc
-from dash_iconify import DashIconify
+# import dash_mantine_components as dmc
+# from dash_iconify import DashIconify
 from dash import Dash, html, dcc, dash_table, ALL, ctx
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
-from dash.dash import no_update
-from flask import Flask, send_file
+# from dash.dash import no_update
+# from flask import Flask, send_file
 
 import numpy as np
 import pandas as pd
-import scipy
-import scipy.sparse as sp
-import jaro
-import pickle
+# import scipy
+# import scipy.sparse as sp
+# import jaro
+# import pickle
 import shelve
-from fuzzywuzzy import fuzz, process
-from ftfy import fix_text
+# from fuzzywuzzy import fuzz, process
+# from ftfy import fix_text
 from google.cloud import bigquery
-import sqlite3
+# import sqlite3
 
 from related_ontologies.related import ngrams, generateRelatedOntologies, TfidfVectorizer, cosine_similarity
 from src.search import SearchSQLite
@@ -237,17 +238,6 @@ annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
 
-# define item ref_vals for patient specific tabs
-ref_vals = []
-for each_ref_val in config.graphs.ref_vals.values():
-    ref_group = [each_ref_val['label']]
-    ref_group.extend([each_ref_val['items'][i] for i in range(len(each_ref_val['items']))])
-    ref_vals.append(ref_group)
-set_1 = ref_vals[0][1:]  # LABITEMS: 50821, 50818, add FiO2; ITEMS: 223900, 223901, 220739
-set_2 = ref_vals[1][
-        1:]  # LABITEMS: 50912, 50971, add Sodium & Glucose; ITEMS: 223834, 223835, 220339, add 223849, 229314
-set_3 = ref_vals[2][1:]  # LABITEMS: 51222, 51300; ITEMS: 220045, 220181, 220210, 220277, 223761
-
 
 ######################################################################################################
 # FUNCTIONS #
@@ -381,82 +371,41 @@ def generate_all_patients_graph(item, **kwargs):
     return fig
 
 
-def generate_tab_graph(item, patient, template_items, **kwargs):
+def generate_tab_graph(item, patients, **kwargs):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    table_item_target = df_events.query(f'itemid == {item}')
-    if not pd.to_numeric(table_item_target['value'], errors='coerce').isnull().all():
-        table_item_target['value'] = pd.to_numeric(table_item_target['value'], errors='coerce')
-
-    table_item_patient_target = table_item_target.query(f'subject_id == {patient}')
-    del table_item_target
-
-    units_target = list(table_item_patient_target['valueuom'])[0]
-
-    if table_item_patient_target.empty:
+    table_item = df_events.query(f'itemid == {item}')
+    if table_item.empty:
         return {}
+    if not pd.to_numeric(table_item['value'], errors='coerce').isnull().all():
+        table_item['value'] = pd.to_numeric(table_item['value'], errors='coerce')
 
-    start_date = min(min(table_item_patient_target['charttime']),
-                     min(table_item_patient_target['charttime'])) - timedelta(hours=12)
-    end_date = start_date + timedelta(hours=96) + timedelta(hours=12)
-
-    mask_plot = (table_item_patient_target['charttime'] > start_date) & (
-            table_item_patient_target['charttime'] <= end_date)
-    table_item_patient_target = table_item_patient_target.loc[mask_plot]
-    table_item_patient_target = table_item_patient_target.sort_values(by="charttime")
-
-    fig.add_trace(
-        go.Scatter(x=table_item_patient_target["charttime"], y=table_item_patient_target["value"], mode='lines+markers',
-                   name=f"{itemsid_dict[item]} ({units_target})", hovertemplate='%{y}'),
-        secondary_y=True,
-    )
-    del table_item_patient_target
-    del mask_plot
-
-    table_items_empty = []
-    for each_item in template_items:
-        if each_item == item:
-            continue
-
-        table_item = df_events.query(f'itemid == {each_item}')
-
-        if not pd.to_numeric(table_item['value'], errors='coerce').isnull().all():
-            table_item['value'] = pd.to_numeric(table_item['value'], errors='coerce')
-        else:
-            try:
-                table_item['value'] = table_item['valuenum']
-            except:
-                pass
-
-        table_item_patient = table_item.query(f'subject_id == {patient}')
-        unit = list(table_item['valueuom'])[0]
-
+    units = list(table_item['valueuom'])[0]
+    for each_patient in patients:
+        table_item_patient = table_item.query(f'subject_id == {each_patient}')
         if table_item_patient.empty:
-            table_items_empty.append(True)
             continue
-        else:
-            table_items_empty.append(False)
-
-        del table_item
-
-        try:
-            series_name = itemsid_dict[each_item]
-        except:
-            series_name = each_item
+        start_date = min(table_item_patient['charttime'])
+        end_date = start_date + timedelta(hours=96)
 
         mask = (table_item_patient['charttime'] > start_date) & (table_item_patient['charttime'] <= end_date)
         table_item_patient = table_item_patient.loc[mask]
         table_item_patient = table_item_patient.sort_values(by="charttime")
 
+        def charttime_to_deltatime(charttime_series):
+            deltatime_series = charttime_series.apply(lambda x: abs(x - start_date).total_seconds() / 3600)
+            return deltatime_series
+
+        table_item_patient['charttime'] = charttime_to_deltatime(table_item_patient['charttime'])
+
         fig.add_trace(
             go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
-                       marker_symbol='circle-open', opacity=kwargs['config'].opacity,
-                       name=f"{series_name} ({unit})", hovertemplate='%{y}'),
+                       name=f"Patient {each_patient}", hovertemplate='%{y}'),
             secondary_y=False,
         )
 
-    if all(table_items_empty):
-        return {}
+    del table_item_patient
+    del mask
 
     if kwargs['config'].spikes:
         fig.update_xaxes(showspikes=True, spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
@@ -464,23 +413,11 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
         fig.update_yaxes(showspikes=True,
                          spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
                          spikemode='across+marker', secondary_y=False)
-        fig.update_yaxes(showspikes=True,
-                         spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
-                         spikemode='across+marker', secondary_y=True)
 
+    fig.update_traces(mode="markers+lines", hovertemplate='Value: %{y:.1f}<extra></extra>')
+    fig.update_yaxes(title_text=f"Value ({units})")
     fig.update_layout(
-        # title={
-        #     'text': f"{itemsid_dict[item]}",
-        #     'y': 0.95,
-        #     'x': 0.5,
-        #     'xanchor': 'center',
-        #     'yanchor': 'top',
-        #     'font': dict(
-        #         family=kwargs['config'].title_font,
-        #         size=kwargs['config'].title_size,
-        #         color=kwargs['config'].title_color
-        #     )},
-        # xaxis_title="Time (Hours)",
+        xaxis_title="Time (Hour)",
         font=dict(
             family=kwargs['config'].text_font,
             size=kwargs['config'].text_size,
@@ -496,40 +433,14 @@ def generate_tab_graph(item, patient, template_items, **kwargs):
 
 
 def query_patients(item):
-    list_of_items = [item]
-    list_of_items = list_of_items + set_1 + set_2 + set_3
-    list_of_patient_sets = []
     target_table = df_events.query(f'itemid == {item}')
     if target_table.empty:
         return []
-    for each_item in list_of_items:
-        table = df_events.query(f'itemid == {each_item}')
-        list_of_patient_sets.append(set(table['subject_id'].unique()))
 
-    map_reduce_list = []
-    for i in range(0, len(list_of_patient_sets)):
-        for each_item in list_of_patient_sets[i]:
-            map_reduce_list.append([each_item, i])
+    patients_sorted = Counter(list(target_table['subject_id'])).most_common()
+    ranked_patients = [i[0] for i in patients_sorted]
 
-    dict_grouped = {}
-    for each_ref in map_reduce_list:
-        if each_ref[0] not in dict_grouped:
-            dict_grouped[each_ref[0]] = each_ref[1:]
-        else:
-            dict_grouped[each_ref[0]].append(each_ref[1])
-
-    second_map_reduce_list = []
-    for each_key in dict_grouped:
-        if len(dict_grouped[each_key]) > 1:
-            second_map_reduce_list.append([tuple(dict_grouped[each_key]), each_key])
-
-    ranked_patients = sorted(second_map_reduce_list, key=lambda x: (len(x[0]), x[1]))[::-1]
-    ranked_patients = [patient for patient in ranked_patients if 0 in patient[0]]
-    list_of_patients_ranked = [subject_id[1] for subject_id in ranked_patients]
-
-    patients = [{"label": f"Patient {each_patient}", "value": each_patient} for each_patient in
-                list_of_patients_ranked]
-    return patients
+    return ranked_patients
 
 
 def initialize_download_button(annotated):
@@ -542,33 +453,6 @@ def initialize_all_patients_graph():
     items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
     fig = generate_all_patients_graph(items[0]["value"], config=config.graphs.kwargs)
     return fig
-
-
-def initialize_tab_graph(template_items):
-    items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    patients = query_patients(items[0]["value"])
-    try:
-        if not patients[0]:
-            return {}
-    except IndexError:
-        return {}
-    first_patient = patients[0]["value"]
-    fig = generate_tab_graph(items[0]["value"], first_patient, template_items=template_items,
-                             config=config.graphs.kwargs)
-    return fig
-
-
-def initialize_tab():
-    items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    patients = query_patients(items[0]["value"])
-    try:
-        if not patients[0]:
-            return True
-    except IndexError:
-        return True
-    first_patient = patients[0]["value"]
-    disabled = update_graph(items[0]["value"], first_patient, None)[2]
-    return disabled
 
 
 def initialize_item_select():
@@ -676,21 +560,6 @@ def copy_ontology(_, ontology):
     clipboard = f'{ontology}'
     return clipboard
 
-
-# @app.callback(
-#     Output("patient-copy", "content"),
-#     [
-#         Input("patient-copy", "n_clicks"),
-#     ],
-#     [
-#         State("patient-select", "value"),
-#     ]
-# )
-# def copy_patient(_, patient):
-#     if patient is None:
-#         raise PreventUpdate
-#     return str(patient)
-#
 
 @app.callback(
     Output("related-copy", "content"),
@@ -857,50 +726,17 @@ def update_item_dropdown(_, options, value, skip):
 
 
 @app.callback(
-    Output("patient-select", "options"),
-    Output("patient-select", "disabled"),
-    Output("patient-select", "value"),
+    Output("tabs", "value"),
     [
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
-    ],
-)
-def update_patient_dropdown(item, _):
-    options = []
-    disabled = True
-
-    # triggered_id = dash.callback_context.triggered[0]['prop_id']
-    # if triggered_id == 'next-btn.n_clicks':
-    #     return
-
-    if item:
-        table = df_events.query(f'itemid == {item}')
-        if table.empty:
-            return options, disabled, None
-        df_temp = pd.to_numeric(table['value'], errors='coerce')
-        if df_temp.isna().sum().sum() / df_temp.shape[0] > 0.5:
-            return options, disabled, None
-        options = query_patients(item)
-        disabled = False
-        if options:
-            first_patient = options[0]["value"]
-            return options, disabled, first_patient
-        return options, disabled, None
-    return options, disabled, None
-
-
-@app.callback(
-    Output("tabs", "value"),
-    [
-        Input("patient-select", "value"),
-        Input("submit-btn", "n_clicks"),
     ]
 )
-def update_tabs_view(patient, _):
+def update_tabs_view(item, _):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         return "home-tab"
-    elif patient is not None:
+    elif item is not None:
         raise PreventUpdate
     else:
         return "home-tab"
@@ -908,58 +744,32 @@ def update_tabs_view(patient, _):
 
 @app.callback(
     Output("all_patients_graph", "figure"),
-    Output("set_1_graph", "figure"),
-    Output("set_1_tab", "disabled"),
-    Output("set_2_graph", "figure"),
-    Output("set_2_tab", "disabled"),
-    Output("set_3_graph", "figure"),
-    Output("set_3_tab", "disabled"),
+    Output("patient_tab_graph", "figure"),
+    Output("patient_tab", "disabled"),
     [
         Input("item-select", "value"),
-        Input("patient-select", "value"),
         Input("submit-btn", "n_clicks"),
     ],
 )
-def update_graph(item, patient, _):
+def update_graph(item, _):
     disabled = True
 
     if item is None:
-        return {}, {}, disabled, {}, disabled, {}, disabled
+        return {}, {}, disabled
 
-    if patient:
-        list_of_items = [set_1[0], set_1[1], set_2[0], set_2[1], set_3[0], set_3[1]]
-        item_exists = []
-        tabs = []
-        for each_item in list_of_items:
-            table = df_events.query(f'itemid == {each_item}')
-            patients_with_item = set(table['subject_id'].unique())
-            if patient in patients_with_item:
-                item_exists.append(True)
-            else:
-                item_exists.append(False)
-        for i in range(0, len(item_exists), 2):
-            if item_exists[i] and item_exists[i + 1]:
-                tabs.append(True)
-            else:
-                tabs.append(False)
+    patients = query_patients(item)
+    if patients:
         disabled = False
-        if tabs[0]:
-            tab_1 = (generate_tab_graph(item, patient, set_1, config=config.graphs.kwargs), disabled)
+        if len(patients) > 5:
+            top_patients = patients[0:5]
         else:
-            tab_1 = ({}, True)
-        if tabs[1]:
-            tab_2 = (generate_tab_graph(item, patient, set_2, config=config.graphs.kwargs), disabled)
-        else:
-            tab_2 = ({}, True)
-        if tabs[2]:
-            tab_3 = (generate_tab_graph(item, patient, set_3, config=config.graphs.kwargs), disabled)
-        else:
-            tab_3 = ({}, True)
-        tab_item = generate_all_patients_graph(item, config=config.graphs.kwargs)
+            top_patients = patients
+        patient_tab = (generate_tab_graph(item, top_patients, config=config.graphs.kwargs), disabled)
+    else:
+        patient_tab = ({}, True)
+    all_patients_graph = generate_all_patients_graph(item, config=config.graphs.kwargs)
 
-        return tab_item, tab_1[0], tab_1[1], tab_2[0], tab_2[1], tab_3[0], tab_3[1]
-    return generate_all_patients_graph(item,
-                                       config=config.graphs.kwargs), {}, disabled, {}, disabled, {}, disabled
+    return all_patients_graph, patient_tab[0], patient_tab[1]
 
 
 @app.callback(
@@ -1224,7 +1034,6 @@ def update_config(contents, filename, last_modified):
     global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
     global ngrams, vectorizer, tf_idf_matrix
     global annotated_list, skipped_list, unannotated_list
-    global ref_vals, set_1, set_2, set_3
     if contents is not None:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
@@ -1270,16 +1079,6 @@ def update_config(contents, filename, last_modified):
         annotated_list, skipped_list = load_annotations(PATH_results)
         unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
         unannotated_list.sort()
-
-        # define item ref_vals for patient specific tabs
-        ref_vals = []
-        for each_ref_val in config.graphs.ref_vals.values():
-            ref_group = [each_ref_val['label']]
-            ref_group.extend([each_ref_val['items'][i] for i in range(len(each_ref_val['items']))])
-            ref_vals.append(ref_group)
-        set_1 = ref_vals[0][1:]
-        set_2 = ref_vals[1][1:]
-        set_3 = ref_vals[2][1:]
 
     else:
         raise ConfigurationFileError
@@ -1618,20 +1417,6 @@ def serve_layout():
             html.Div(
                 hidden=True,
                 children=[
-                    html.Div(children=[
-                        html.Div(
-                            dcc.Dropdown(
-                                id="patient-select",
-                                value=initialize_patient_select()[1],
-                                style={'position': 'relative', 'bottom': '2px', 'border-radius': '0px',
-                                       'color': 'black'},
-                                options=initialize_patient_select()[0],
-                                disabled=False,
-                            ),
-                            className='patient-select',
-                        ),
-                    ],
-                        style={'width': '20%', 'margin-right': '5%'}),
                     dcc.Upload(
                         id='upload-data-btn',
                         children=[
@@ -1699,8 +1484,8 @@ def serve_layout():
                                                             )
                                                         ]),
                                                 ]),
-                                        dcc.Tab(label=f"{ref_vals[0][0]}\n(Single Patient)", id="set_1_tab",
-                                                disabled=initialize_tab(),
+                                        dcc.Tab(label='Sample Records\n(Individual Patients)', id="patient_tab",
+                                                disabled=False,
                                                 style={'color': '#1a75f9',
                                                        'padding-top': '14px',
                                                        'white-space': 'pre'},
@@ -1717,52 +1502,8 @@ def serve_layout():
                                                 children=[
                                                     dcc.Graph(
                                                         style={'height': '360px'},
-                                                        id="set_1_graph",
-                                                        figure=initialize_tab_graph(set_1)
-                                                    )
-                                                ]),
-                                        dcc.Tab(label=f"{ref_vals[1][0]}\n(Single Patient)", id="set_2_tab",
-                                                disabled=initialize_tab(),
-                                                style={'color': '#1a75f9',
-                                                       'padding-top': '14px',
-                                                       'white-space': 'pre'},
-                                                selected_style={
-                                                    'color': '#1a75f9',
-                                                    'border-top-width': '3px',
-                                                    'padding-top': '14px',
-                                                    'white-space': 'pre'
-                                                },
-                                                disabled_style={
-                                                    'padding-top': '14px',
-                                                    'white-space': 'pre'
-                                                },
-                                                children=[
-                                                    dcc.Graph(
-                                                        style={'height': '360px'},
-                                                        id="set_2_graph",
-                                                        figure=initialize_tab_graph(set_2)
-                                                    )
-                                                ]),
-                                        dcc.Tab(label=f"{ref_vals[2][0]}\n(Single Patient)", id="set_3_tab",
-                                                disabled=initialize_tab(),
-                                                style={'color': '#1a75f9',
-                                                       'padding-top': '14px',
-                                                       'white-space': 'pre'},
-                                                selected_style={
-                                                    'color': '#1a75f9',
-                                                    'border-top-width': '3px',
-                                                    'padding-top': '14px',
-                                                    'white-space': 'pre'
-                                                },
-                                                disabled_style={
-                                                    'padding-top': '14px',
-                                                    'white-space': 'pre'
-                                                },
-                                                children=[
-                                                    dcc.Graph(
-                                                        style={'height': '360px'},
-                                                        id="set_3_graph",
-                                                        figure=initialize_tab_graph(set_3)
+                                                        id="patient_tab_graph",
+                                                        figure={}
                                                     )
                                                 ]),
                                     ], id='tabs', value='home-tab', style={'height': '75px'}),
