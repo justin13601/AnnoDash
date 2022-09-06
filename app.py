@@ -1643,6 +1643,12 @@ def serve_layout():
                                                                                       'width': '1%',
                                                                                       'maxWidth': '1%',
                                                                                       'minWidth': '1%',
+                                                                                  },
+                                                                                  {
+                                                                                      'if': {'column_id': 'CODE'},
+                                                                                      'width': '10%',
+                                                                                      'maxWidth': '10%',
+                                                                                      'minWidth': '10%',
                                                                                   }
                                                                               ],
                                                                               # page_size=20,
