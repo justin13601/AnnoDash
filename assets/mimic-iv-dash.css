@@ -117,6 +117,10 @@ P {
     display: inline-block;
 }
 
+.loading-wrapper > div {
+    visibility: visible !important;
+}
+
 .custom-tooltip {
     background-color: #000000;
     color: #ffffff;
