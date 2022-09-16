@@ -34,7 +34,7 @@ import dash_bootstrap_components as dbc
 from dash import Dash, html, dcc, dash_table, ALL, ctx
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from dash.exceptions import PreventUpdate
-# from dash.dash import no_update
+from dash.dash import no_update
 # from flask import Flask, send_file
 
 import numpy as np
@@ -373,6 +373,9 @@ def generate_all_patients_graph(item, **kwargs):
 
 def generate_tab_graph(item, patients, **kwargs):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
+    symbols = ['circle', 'x', 'star-triangle-up', 'star-triangle-down', 'star']
+    colours = ['rgb(100, 143, 255)', 'rgb(120, 94, 240)', 'rgb(220, 38, 127)', 'rgb(254, 97, 0)',
+               'rgb(255, 176, 0)']
 
     table_item = df_events.query(f'itemid == {item}')
     if table_item.empty:
@@ -381,7 +384,7 @@ def generate_tab_graph(item, patients, **kwargs):
         table_item['value'] = pd.to_numeric(table_item['value'], errors='coerce')
 
     units = list(table_item['valueuom'])[0]
-    for each_patient in patients:
+    for i, each_patient in enumerate(patients):
         table_item_patient = table_item.query(f'subject_id == {each_patient}')
         if table_item_patient.empty:
             continue
@@ -398,11 +401,40 @@ def generate_tab_graph(item, patients, **kwargs):
 
         table_item_patient['charttime'] = charttime_to_deltatime(table_item_patient['charttime'])
 
-        fig.add_trace(
-            go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
-                       name=f"Patient {each_patient}", hovertemplate='%{y}'),
-            secondary_y=False,
-        )
+        if table_item.isna().sum().sum() / table_item.shape[0] > 0.5:  # text data
+            if i == 0:
+                fig.add_trace(
+                    go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='markers',
+                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               marker=dict(color=colours[i])),
+                    secondary_y=False,
+                )
+            else:
+                fig.add_trace(
+                    go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='markers',
+                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               marker=dict(color=colours[i]),
+                               visible='legendonly'),
+                    secondary_y=False,
+                )
+        else:  # numerical data
+            if i < 3:
+                fig.add_trace(
+                    go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
+                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               marker=dict(color=colours[i])),
+                    secondary_y=False,
+                )
+            else:
+                fig.add_trace(
+                    go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
+                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               marker=dict(color=colours[i]),
+                               visible='legendonly'),
+                    secondary_y=False,
+                )
+
+        fig['data'][i]['marker']['symbol'] = symbols[i]
 
     del table_item_patient
     del mask
@@ -414,7 +446,6 @@ def generate_tab_graph(item, patients, **kwargs):
                          spikecolor="black", spikesnap="cursor", spikethickness=1, spikedash='dot',
                          spikemode='across+marker', secondary_y=False)
 
-    fig.update_traces(mode="markers+lines", hovertemplate='Value: %{y:.1f}<extra></extra>')
     fig.update_yaxes(title_text=f"Value ({units})")
     fig.update_layout(
         xaxis_title="Time (Hour)",
@@ -524,6 +555,24 @@ def update_item_options(options, item, skipped=False):
     else:
         new_value = options[0]['value']
     return options, new_value
+
+
+def filter_datatable(data, filter_search, scorer, ontology_filter):
+    if ontology_filter == 'loinc':
+        new_data = [row for row in data if row['CLASS'] in filter_search]
+    elif ontology_filter == 'snomed':
+        new_data = [row for row in data if row['HIERARCHY'] in filter_search]
+    else:
+        raise InvalidOntology
+    df_newdata = pd.DataFrame.from_records(new_data)
+    tooltip_dict = df_newdata[scorer].to_dict()
+    tooltip_outputs = []
+    for each_value in tooltip_dict:
+        tooltip_output = {
+            'value': f'**{tooltip_dict[each_value]}**',
+            'type': 'markdown'}
+        tooltip_outputs.append({'RELEVANCE': tooltip_output})
+    return new_data, tooltip_outputs
 
 
 ######################################################################################################
@@ -736,8 +785,8 @@ def update_tabs_view(item, _):
     triggered_id = dash.callback_context.triggered[0]['prop_id']
     if triggered_id == 'submit-btn.n_clicks':
         return "home-tab"
-    elif item is not None:
-        raise PreventUpdate
+    # elif item is not None:
+    #     raise PreventUpdate
     else:
         return "home-tab"
 
@@ -876,30 +925,59 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
 
 
 @app.callback(
+    Output("filter-search", "options"),
+    Output("filter-search", "placeholder"),
+    [
+        Input("store-search-results", "data"),
+    ],
+    [
+        State("ontology-select", "value"),
+    ]
+)
+def update_filter_search_dropdown(data, ontology):
+    if ontology == 'loinc':
+        filters = set([i['CLASS'] for i in data])
+        placeholder = "Select Class..."
+    elif ontology == 'snomed':
+        filters = set([i['HIERARCHY'] for i in data])
+        placeholder = "Select Hierarchy..."
+    else:
+        raise InvalidOntology
+    options = [{"label": each_filter, "value": each_filter} for each_filter in filters]
+    return options, placeholder
+
+
+@app.callback(
     Output("related-datatable", "data"),
     Output("related-datatable", "columns"),
-    Output("before_loading", "hidden"),
-    Output("after_loading", "hidden"),
     Output("related-datatable", "tooltip_data"),
     Output("search-input", "value"),
+    Output("store-search-results", "data"),
     [
         Input("item-select", "value"),
         Input("submit-btn", "n_clicks"),
         Input("scorer-select", "value"),
         Input("ontology-select", "value"),
         Input("search-btn", "n_clicks"),
+        Input("filter-search", "value"),
     ],
     [
         State("search-input", "value"),
+        State("store-search-results", "data"),
     ]
 )
-def update_related_datatable(item, _, scorer, ontology_filter, __, search_string):
+def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data):
     if not item:
-        return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], False, False, [], ''
+        return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 
     df_ontology = query_ontology(ontology_filter)
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
+
+    if triggered_id == 'filter-search.value':
+        if filter_search:
+            filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
+            return filtered_data, no_update, tooltip_output, no_update, no_update
 
     if ontology_filter is None:
         raise PreventUpdate
@@ -963,7 +1041,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
                 query = query_tokens
 
             if df_data.empty:
-                return None, [{'name': 'No Results Found', 'id': 'none'}], True, True, [], query
+                return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
         match_scores = match_scores[::-1]
         df_data[scorer] = match_scores
@@ -972,6 +1050,9 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
         df_data.insert(0, col_id.name, col_id)
     else:
         raise ScorerNotAvailable
+
+    if len(df_data.index) > 250:
+        df_data = df_data.iloc[:250]
 
     scores = df_data[scorer]
 
@@ -998,9 +1079,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, search_string
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
-    if len(data) > 250:
-        data = data[0:250]
-    return data, return_columns, True, True, tooltip_outputs, query
+    return data, return_columns, tooltip_outputs, query, data
 
 
 @app.callback(
@@ -1399,7 +1478,7 @@ def serve_layout():
                 placement='right',
                 fade=True,
             ),
-            # dcc.Store(id='df_items-store'),
+            dcc.Store(id='store-search-results'),
             # dcc.Store(id='df_events-store'),
             # dcc.Store(id='df_ontology-store'),
             # dcc.Store(id='itemsid_dict-store'),
@@ -1555,9 +1634,18 @@ def serve_layout():
                                                      disabled=True
                                                  ),
                                              ]),
+                                    html.Div(style={'margin-top': '15px'}),
+                                    html.Div([
+                                        dcc.Dropdown(
+                                            id='filter-search',
+                                            multi=True,
+                                            placeholder="Select Class...",
+                                            style={'border-radius': 0, 'color': 'black'},
+                                        ),
+                                    ],
+                                        style={'height': '135px', 'overflow-y': 'auto', 'background-color': 'white'}),
                                     html.Button(id="search-btn", children="Search", n_clicks=0,
-                                                style={'width': '100%', 'color': 'white',
-                                                       'margin-top': '165px'},
+                                                style={'width': '100%', 'color': 'white', 'margin-top': '15px'},
                                                 disabled=True),
                                 ],
                             ),
@@ -1580,127 +1668,133 @@ def serve_layout():
                                 id="annotation-outer",
                                 hidden=False,
                                 children=[
-                                    html.Div(id='before_loading', hidden=False),
-                                    dcc.Loading(
-                                        id="related-loading",
-                                        type="dot",
-                                        color='#2c89f2',
+                                    html.Div(
+                                        className='loading-wrapper',
                                         children=[
-                                            dcc.Clipboard(
-                                                id='related-copy',
-                                                title="Copy Search Results",
-                                                style={
-                                                    "color": "#c9ddee",
-                                                    "fontSize": 15,
-                                                    "verticalAlign": "center",
-                                                    'float': 'right',
-                                                    'margin': 'auto'
-                                                },
-                                            ),
-                                            html.P(
-                                                style={'margin-top': '1px'},
+                                            dcc.Loading(
+                                                id="related-loading",
+                                                type="dot",
+                                                color='#2c89f2',
                                                 children=[
-                                                    html.B('Results (click on rows to select):'),
-                                                ]),
-                                            html.Div(
-                                                id="related-datatable-outer",
-                                                className='related-datatable',
-                                                hidden=False,
-                                                children=dash_table.DataTable(id='related-datatable',
-                                                                              data=None,
-                                                                              columns=[],
-                                                                              tooltip_data=[],
-                                                                              sort_action='native',
-                                                                              fixed_rows={'headers': True},
-                                                                              filter_action='native',
-                                                                              filter_options={'case': 'insensitive'},
-                                                                              style_data={
-                                                                                  'width': 'auto',
-                                                                                  'maxWidth': '100px',
-                                                                                  'minWidth': '100px',
-                                                                                  'whiteSpace': 'normal'
-                                                                              },
-                                                                              style_table={
-                                                                                  'height': '240px',
-                                                                                  'overflowY': 'auto'
-                                                                              },
-                                                                              style_cell={
-                                                                                  'textAlign': 'left',
-                                                                                  'backgroundColor': 'transparent'
-                                                                              },
-                                                                              style_header={
-                                                                                  'fontWeight': 'bold',
-                                                                                  'color': '#2c8cff'
-                                                                              },
-                                                                              style_data_conditional=[
-                                                                                  {  # 'active' | 'selected'
-                                                                                      'if': {'state': 'active'},
-                                                                                      'backgroundColor': 'transparent',
-                                                                                      'border': '1px solid lightgray'
-                                                                                  },
-                                                                                  {
-                                                                                      'if': {'column_id': 'RELEVANCE'},
-                                                                                      'width': '1%',
-                                                                                      'maxWidth': '1%',
-                                                                                      'minWidth': '1%',
-                                                                                  },
-                                                                                  {
-                                                                                      'if': {'column_id': 'CODE'},
-                                                                                      'width': '10%',
-                                                                                      'maxWidth': '10%',
-                                                                                      'minWidth': '10%',
-                                                                                  }
-                                                                              ],
-                                                                              # page_size=20,
-                                                                              # virtualization=True,
-                                                                              merge_duplicate_headers=True,
-                                                                              style_as_list_view=True,
-                                                                              css=[
-                                                                                  {
-                                                                                      'selector': '.previous-page, .next-page, '
-                                                                                                  '.first-page, .last-page',
-                                                                                      'rule': 'color: #2c8cff'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.previous-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.next-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.first-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.last-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.column-header--sort:hover',
-                                                                                      'rule': 'color: #2c8cff'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': 'input.dash-filter--case--insensitive',
-                                                                                      'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.dash-tooltip',
-                                                                                      'rule': 'border-width: 0px; background-color: #000000;'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.dash-table-tooltip',
-                                                                                      'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
-                                                                                  }
-                                                                              ],
-                                                                              tooltip_delay=0,
-                                                                              tooltip_duration=None,
-                                                                              )
+                                                    dcc.Clipboard(
+                                                        id='related-copy',
+                                                        title="Copy Search Results",
+                                                        style={
+                                                            "color": "#c9ddee",
+                                                            "fontSize": 15,
+                                                            "verticalAlign": "center",
+                                                            'float': 'right',
+                                                            'margin': 'auto'
+                                                        },
+                                                    ),
+                                                    html.P(
+                                                        style={'margin-top': '1px'},
+                                                        children=[
+                                                            html.B('Results (click on rows to select):'),
+                                                        ]),
+                                                    html.Div(
+                                                        id="related-datatable-outer",
+                                                        className='related-datatable',
+                                                        hidden=False,
+                                                        children=dash_table.DataTable(id='related-datatable',
+                                                                                      data=None,
+                                                                                      columns=[],
+                                                                                      tooltip_data=[],
+                                                                                      sort_action='native',
+                                                                                      fixed_rows={'headers': True},
+                                                                                      filter_action='native',
+                                                                                      filter_options={
+                                                                                          'case': 'insensitive'},
+                                                                                      style_data={
+                                                                                          'width': 'auto',
+                                                                                          'maxWidth': '100px',
+                                                                                          'minWidth': '100px',
+                                                                                          'whiteSpace': 'normal'
+                                                                                      },
+                                                                                      style_table={
+                                                                                          'height': '240px',
+                                                                                          'overflowY': 'auto'
+                                                                                      },
+                                                                                      style_cell={
+                                                                                          'textAlign': 'left',
+                                                                                          'backgroundColor': 'transparent'
+                                                                                      },
+                                                                                      style_header={
+                                                                                          'fontWeight': 'bold',
+                                                                                          'color': '#2c8cff'
+                                                                                      },
+                                                                                      style_data_conditional=[
+                                                                                          {  # 'active' | 'selected'
+                                                                                              'if': {'state': 'active'},
+                                                                                              'backgroundColor': 'transparent',
+                                                                                              'border': '1px solid lightgray'
+                                                                                          },
+                                                                                          {
+                                                                                              'if': {
+                                                                                                  'column_id': 'RELEVANCE'},
+                                                                                              'width': '1%',
+                                                                                              'maxWidth': '1%',
+                                                                                              'minWidth': '1%',
+                                                                                          },
+                                                                                          {
+                                                                                              'if': {
+                                                                                                  'column_id': 'CODE'},
+                                                                                              'width': '10%',
+                                                                                              'maxWidth': '10%',
+                                                                                              'minWidth': '10%',
+                                                                                          }
+                                                                                      ],
+                                                                                      # page_size=20,
+                                                                                      # virtualization=True,
+                                                                                      merge_duplicate_headers=True,
+                                                                                      style_as_list_view=True,
+                                                                                      css=[
+                                                                                          {
+                                                                                              'selector': '.previous-page, .next-page, '
+                                                                                                          '.first-page, .last-page',
+                                                                                              'rule': 'color: #2c8cff'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.previous-page:hover',
+                                                                                              'rule': 'color: #002552'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.next-page:hover',
+                                                                                              'rule': 'color: #002552'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.first-page:hover',
+                                                                                              'rule': 'color: #002552'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.last-page:hover',
+                                                                                              'rule': 'color: #002552'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.column-header--sort:hover',
+                                                                                              'rule': 'color: #2c8cff'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': 'input.dash-filter--case--insensitive',
+                                                                                              'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.dash-tooltip',
+                                                                                              'rule': 'border-width: 0px; background-color: #000000;'
+                                                                                          },
+                                                                                          {
+                                                                                              'selector': '.dash-table-tooltip',
+                                                                                              'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
+                                                                                          }
+                                                                                      ],
+                                                                                      tooltip_delay=0,
+                                                                                      tooltip_duration=None,
+                                                                                      )
+                                                    ),
+                                                ]
                                             ),
                                         ]
                                     ),
-                                    html.Div(id='after_loading', hidden=False),
                                 ],
                             ),
                         ],
