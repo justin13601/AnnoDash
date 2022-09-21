@@ -405,14 +405,14 @@ def generate_tab_graph(item, patients, **kwargs):
             if i == 0:
                 fig.add_trace(
                     go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='markers',
-                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               name=f"Patient {each_patient}", hovertemplate='%{y}<extra></extra>',
                                marker=dict(color=colours[i])),
                     secondary_y=False,
                 )
             else:
                 fig.add_trace(
                     go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='markers',
-                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               name=f"Patient {each_patient}", hovertemplate='%{y}<extra></extra>',
                                marker=dict(color=colours[i]),
                                visible='legendonly'),
                     secondary_y=False,
@@ -421,14 +421,14 @@ def generate_tab_graph(item, patients, **kwargs):
             if i < 3:
                 fig.add_trace(
                     go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
-                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               name=f"Patient {each_patient}", hovertemplate='%{y:.1f}<extra></extra>',
                                marker=dict(color=colours[i])),
                     secondary_y=False,
                 )
             else:
                 fig.add_trace(
                     go.Scatter(x=table_item_patient["charttime"], y=table_item_patient["value"], mode='lines+markers',
-                               name=f"Patient {each_patient}", hovertemplate='Value: %{y:.1f}<extra></extra>',
+                               name=f"Patient {each_patient}", hovertemplate='%{y:.1f}<extra></extra>',
                                marker=dict(color=colours[i]),
                                visible='legendonly'),
                     secondary_y=False,
