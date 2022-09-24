@@ -1,11 +1,13 @@
 import os
 import time
 import lucene
+from java.io import File
+from org.apache.lucene import analysis, document, index, queryparser, search, store
 from lupyne import engine
 
 from src.search import SearchSQLite, SearchPyLucene, SearchTF_IDF
 
-ontology_path = '/mnt/c/users/justin/PycharmProjects/mimic-iv-dash/ontology'
+ontology_path = '../ontology'
 
 load = False
 
@@ -44,15 +46,16 @@ if not load:
     indexer.set('METHOD_TYP', stored=True)
     indexer.set('CLASS', stored=True)
     for index, each in df_loinc.iterrows():
-        indexer.add(CODE=each['CODE'], LABEL=each['LABEL'], SYSTEM=each['SYSTEM'], SCALE_TYP=each['SCALE_TYP'],
-                    METHOD_TYP=str(each['METHOD_TYP']), CLASS=each['CLASS'])
+        indexer.add(CODE=each['CODE'], LABEL=each['LABEL'], SYSTEM=each['SYSTEM'],
+                    SCALE_TYP=each['SCALE_TYP'], METHOD_TYP=str(each['METHOD_TYP']),
+                    CLASS=each['CLASS'])
     indexer.commit()
 
 hits = indexer.search('LABEL: test')
 for hit in hits:
     print(hit.dict)
     print(f"{hit['CODE']} - {hit['LABEL']}: {hit.score}")
-print(len(hits))
+print(len(hits))  # 640
 
 ######################################################################
 # SNOMED
@@ -78,7 +81,7 @@ hits = indexer.search('LABEL: test')
 for hit in hits:
     print(hit.dict)
     print(f"{hit['CODE']} - {hit['LABEL']}: {hit.score}")
-print(len(hits))
+print(len(hits))  # 2661
 
 executionTime = (time.time() - startTime)
 print('Execution time in seconds: ' + str(executionTime))
