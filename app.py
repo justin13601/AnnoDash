@@ -49,8 +49,8 @@ import shelve
 from google.cloud import bigquery
 # import sqlite3
 
-from related_ontologies.related import ngrams, generateRelatedOntologies, TfidfVectorizer, cosine_similarity
-from src.search import SearchSQLite
+from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
+from src.search import SearchSQLite, SearchPyLucene, SearchTF_IDF
 
 
 # from callbacks.all_callbacks import callback_manager
@@ -60,11 +60,9 @@ def big_query(query):
     client = bigquery.Client()
     query_job = client.query(query)  # API request
     print("The query data:")
-    sys.stdout.flush()
     for row in query_job:
         # row values can be accessed by field name or index
         print("name={}, count={}".format(row[0], row["total_people"]))
-    sys.stdout.flush()
     return
 
 
@@ -91,7 +89,7 @@ app.config.suppress_callback_exceptions = True
 ######################################################################################################
 # callback_manager.attach_to_app(app)
 
-class ScorerNotAvailable(Exception):
+class FunctionUnavailable(Exception):
     pass
 
 
@@ -105,28 +103,24 @@ class InvalidOntology(Exception):
 
 def load_config(file):
     print(f'Loading {file}...')
-    sys.stdout.flush()
     with open(file, "r") as f:
         configurations = yaml.unsafe_load(f)
         print('Done.\n')
-        sys.stdout.flush()
         return configurations
 
 
 config_file = 'config-demo.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
-    sys.stdout.flush()
     config = load_config(config_file)
 else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
 # paths
-PATH_data = config.directories.data.location
-PATH_items = config.directories.concepts.location
-PATH_results = config.directories.results
+PATH_data = config.data
+PATH_items = config.concepts
+PATH_results = config.results
 PATH_ontology = config.ontology.location
-PATH_related = config.ontology.related.location
 
 if not os.path.exists(PATH_results):
     os.makedirs(PATH_results)
@@ -135,11 +129,9 @@ if not os.path.exists(PATH_results):
 def load_items(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
-    sys.stdout.flush()
     items = pd.read_csv(path)
     dictionary = pd.Series(items[items.columns[1]].values, index=items[items.columns[0]].values).to_dict()
     print('Done.\n')
-    sys.stdout.flush()
     return items, dictionary
 
 
@@ -153,28 +145,23 @@ def tryConvertDate(dates):
 def load_data(path):
     filename = os.path.basename(path).strip()
     print(f'Loading {filename}...')
-    sys.stdout.flush()
     data = pd.read_csv(path)
     # Date, format charttime
     data["charttime"] = data["charttime"].apply(
         lambda x: tryConvertDate(x)
     )  # String -> Datetime
     print('Done.\n')
-    sys.stdout.flush()
     return data
 
 
 # load data
 def list_available_ontologies():
     print(f'Loading available ontologies...')
-    sys.stdout.flush()
-    ontologies = [each_file.replace(".db", "") for each_file in os.listdir(PATH_ontology) if
-                  each_file.endswith('.db')]
+    directory_contents = os.listdir(PATH_ontology)
+    ontologies = [item for item in directory_contents if os.path.isdir(os.path.join(PATH_ontology, item))]
     if not ontologies:
         raise InvalidOntology
-
     print(f"{', '.join(each_ontology.upper() for each_ontology in ontologies)} codes available.\n")
-    sys.stdout.flush()
     return ontologies
 
 
@@ -183,7 +170,7 @@ def query_ontology(ontology):
         raise InvalidOntology
 
     database_file = f'{ontology}.db'
-    path = os.path.join(PATH_ontology, database_file)
+    path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
 
     mysearch = SearchSQLite()
     mysearch.prepareSearch(path)
@@ -211,32 +198,46 @@ def load_annotations(path):
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
-    sys.stdout.flush()
 
-df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
+df_events = load_data(PATH_data)
 
-df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
+df_items, itemsid_dict = load_items(PATH_items)
 print("Data ready.\n")
-sys.stdout.flush()
 
 list_of_ontologies = list_available_ontologies()
 print('Ontology ready.\n')
-sys.stdout.flush()
-
-# load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
-if 'LoincClassType_1' in list_of_ontologies:
-    try:
-        with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
-            ngrams = shlv['ngrams']
-            vectorizer = shlv['model']
-            tf_idf_matrix = shlv['tf_idf_matrix']
-    except FileNotFoundError:
-        print("Vectorizer shelve files not found, TF-IDF will not be available for LoincClassType_1.")
-        sys.stdout.flush()
 
 annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
+
+# load indices if needed
+if config.ontology.search == 'pylucene':
+    loaded_indices = {}
+    try:
+        print("Loading PyLucene Indices...")
+        for each in list_of_ontologies:
+            myindexer = SearchPyLucene()
+            myindexer.prepareEngine()
+            myindexer.loadIndex(os.path.join(PATH_ontology, each))
+            loaded_indices[each] = myindexer
+        print("Done.")
+    except OSError:
+        raise OSError("Indices not found.")
+    except:
+        raise FunctionUnavailable
+elif config.ontology.search == 'tf-idf':
+    try:
+        print("Loading TF-IDF Index...")
+        with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
+            ngrams = shlv['ngrams']
+            vectorizer = shlv['model']
+            tf_idf_matrix = shlv['tf_idf_matrix']
+        print("Done.")
+    except FileNotFoundError:
+        raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
+    except:
+        raise FunctionUnavailable
 
 
 ######################################################################################################
@@ -279,8 +280,12 @@ def generate_scorer_options(ontology):
         options = ["jaro_winkler", "partial_ratio"]
     elif 'SNOMED' in ontology:
         options = ["jaro_winkler", "partial_ratio", "UMLS"]
-    else:
+    elif config.ontology.search == 'sqlite':
         options = ["fts5"]
+    elif config.ontology.search == 'pylucene':
+        options = ["pylucene"]
+    else:
+        raise FunctionUnavailable
 
     scorer_options = [{"label": each_scorer.replace('_', ' '), "value": each_scorer} for each_scorer in options]
     return scorer_options
@@ -365,7 +370,7 @@ def generate_all_patients_graph(item, **kwargs):
             size=kwargs['config'].text_size,
             color=kwargs['config'].text_color
         ),
-        height=kwargs['config'].height,
+        height=360,
         margin=dict(l=50, r=50, t=90, b=20),
     )
     return fig
@@ -458,7 +463,7 @@ def generate_tab_graph(item, patients, **kwargs):
         legend=dict(orientation="h", yanchor="bottom", y=1, xanchor="center", x=0.47, bgcolor='rgba(0,0,0,0)'),
         legend_tracegroupgap=1,
         margin=dict(l=50, r=0, t=40, b=40),
-        height=kwargs['config'].height
+        height=360,
     )
     return fig
 
@@ -482,7 +487,7 @@ def initialize_download_button(annotated):
 
 def initialize_all_patients_graph():
     items = [{"label": f'{each_id}: {itemsid_dict[each_id]}', "value": each_id} for each_id in unannotated_list]
-    fig = generate_all_patients_graph(items[0]["value"], config=config.graphs.kwargs)
+    fig = generate_all_patients_graph(items[0]["value"], config=config.kwargs)
     return fig
 
 
@@ -558,12 +563,15 @@ def update_item_options(options, item, skipped=False):
 
 
 def filter_datatable(data, filter_search, scorer, ontology_filter):
-    if ontology_filter == 'loinc':
-        new_data = [row for row in data if row['CLASS'] in filter_search]
-    elif ontology_filter == 'snomed':
-        new_data = [row for row in data if row['HIERARCHY'] in filter_search]
+    if not filter_search:
+        new_data = data
     else:
-        raise InvalidOntology
+        if ontology_filter == 'loinc':
+            new_data = [row for row in data if row['CLASS'] in filter_search]
+        elif ontology_filter == 'snomed':
+            new_data = [row for row in data if row['HIERARCHY'] in filter_search]
+        else:
+            raise InvalidOntology
     df_newdata = pd.DataFrame.from_records(new_data)
     tooltip_dict = df_newdata[scorer].to_dict()
     tooltip_outputs = []
@@ -813,10 +821,10 @@ def update_graph(item, _):
             top_patients = patients[0:5]
         else:
             top_patients = patients
-        patient_tab = (generate_tab_graph(item, top_patients, config=config.graphs.kwargs), disabled)
+        patient_tab = (generate_tab_graph(item, top_patients, config=config.kwargs), disabled)
     else:
         patient_tab = ({}, True)
-    all_patients_graph = generate_all_patients_graph(item, config=config.graphs.kwargs)
+    all_patients_graph = generate_all_patients_graph(item, config=config.kwargs)
 
     return all_patients_graph, patient_tab[0], patient_tab[1]
 
@@ -887,7 +895,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             df_tooltip = pd.DataFrame()
             for each_ontology in list_of_ontologies:
                 database_file = f'{each_ontology}.db'
-                path = os.path.join(PATH_ontology, database_file)
+                path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
 
                 mysearch = SearchSQLite()
                 mysearch.prepareSearch(path)
@@ -935,6 +943,8 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     ]
 )
 def update_filter_search_dropdown(data, ontology):
+    if not data:
+        return [], "No Classes Available"
     if ontology == 'loinc':
         filters = set([i['CLASS'] for i in data])
         placeholder = "Select Class..."
@@ -975,9 +985,8 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
     triggered_id = dash.callback_context.triggered[0]['prop_id']
 
     if triggered_id == 'filter-search.value':
-        if filter_search:
-            filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
-            return filtered_data, no_update, tooltip_output, no_update, no_update
+        filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
+        return filtered_data, no_update, tooltip_output, no_update, no_update
 
     if ontology_filter is None:
         raise PreventUpdate
@@ -995,10 +1004,10 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
                                             vectorizer=vectorizer,
                                             tf_idf_matrix=tf_idf_matrix)
     elif scorer == 'UMLS':
-        results = generateRelatedOntologies(query, choices, method='UMLS', apikey=config.ontology.related.umls_apikey)
+        results = generateRelatedOntologies(query, choices, method='UMLS', apikey=config.ontology.umls_apikey)
         query_2 = itemsid_dict[item]
         results_2 = generateRelatedOntologies(query_2, choices, method='UMLS',
-                                              apikey=config.ontology.related.umls_apikey)
+                                              apikey=config.ontology.umls_apikey)
         results_all = results + results_2
         df_data = pd.DataFrame.from_records(results_all, columns=['LABEL', 'CODE'])
         df_data[scorer] = np.array([100] * len(df_data['CODE']))
@@ -1014,7 +1023,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
                 query = search_string
 
         database_file = f'{ontology_filter}.db'
-        path = os.path.join(PATH_ontology, database_file)
+        path = os.path.join(os.path.join(PATH_ontology, ontology_filter), database_file)
 
         mysearch = SearchSQLite()
         mysearch.prepareSearch(path)
@@ -1048,8 +1057,19 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         df_data['id'] = np.arange(len(df_data['CODE']))
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
+    elif scorer == 'pylucene':
+        if triggered_id == 'search-btn.n_clicks':
+            query = search_string
+        loaded_indices[ontology_filter].executeSearch(query)
+        df_data = loaded_indices[ontology_filter].results
+
+        if df_data.empty:
+            return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
+        df_data['id'] = np.arange(len(df_data['CODE']))
+        col_id = df_data.pop('id')
+        df_data.insert(0, col_id.name, col_id)
     else:
-        raise ScorerNotAvailable
+        raise FunctionUnavailable
 
     if len(df_data.index) > 250:
         df_data = df_data.iloc[:250]
@@ -1101,17 +1121,14 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
 )
 def update_config(contents, filename, last_modified):
     print("\n---------------------")
-    sys.stdout.flush()
     print("UPDATING DASHBOARD...")
-    sys.stdout.flush()
     print("---------------------\n")
-    sys.stdout.flush()
+
     global config
     global list_of_ontologies
     global df_items, df_events
     global itemsid_dict
-    global PATH_data, PATH_items, PATH_results, PATH_ontology, PATH_related
-    global ngrams, vectorizer, tf_idf_matrix
+    global PATH_data, PATH_items, PATH_results, PATH_ontology
     global annotated_list, skipped_list, unannotated_list
     if contents is not None:
         content_type, content_string = contents.split(',')
@@ -1121,44 +1138,59 @@ def update_config(contents, filename, last_modified):
         else:
             raise ConfigurationFileError
 
-        PATH_data = config.directories.data.location
-        PATH_items = config.directories.concepts.location
-        PATH_results = config.directories.results
+        # paths
+        PATH_data = config.data
+        PATH_items = config.concepts
+        PATH_results = config.results
         PATH_ontology = config.ontology.location
-        PATH_related = config.ontology.related.location
 
         if not os.path.exists(PATH_results):
             os.makedirs(PATH_results)
 
         if 'demo-data' in PATH_data:
             print("Demo data selected.")
-            sys.stdout.flush()
 
-        # load tf_idf matrix if LoincClassType_1 is a loaded ontology, can add other class types as long as it's fitted:
-        if 'LoincClassType_1' in list_of_ontologies:
-            try:
-                with shelve.open(os.path.join(PATH_related, 'tf_idf.shlv'), protocol=5) as shlv:
-                    ngrams = shlv['ngrams']
-                    vectorizer = shlv['model']
-                    tf_idf_matrix = shlv['tf_idf_matrix']
-            except FileNotFoundError:
-                print("Vectorizer shelve files not found, TF-IDF will not be available for LoincClassType_1.")
-                sys.stdout.flush()
+        df_events = load_data(PATH_data)
 
-        df_events = load_data(os.path.join(PATH_data, config.directories.data.filename))
-
-        df_items, itemsid_dict = load_items(os.path.join(PATH_items, config.directories.concepts.filename))
-        print("Data loaded.\n")
-        sys.stdout.flush()
+        df_items, itemsid_dict = load_items(PATH_items)
+        print("Data ready.\n")
 
         list_of_ontologies = list_available_ontologies()
-        print('Ontology loaded.\n')
-        sys.stdout.flush()
+        print('Ontology ready.\n')
 
         annotated_list, skipped_list = load_annotations(PATH_results)
         unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
         unannotated_list.sort()
 
+        # load indices if needed
+        if config.ontology.search == 'pylucene':
+            global loaded_indices
+            loaded_indices = {}
+            try:
+                print("Loading PyLucene Indices...")
+                for each in list_of_ontologies:
+                    myindexer = SearchPyLucene()
+                    myindexer.prepareEngine()
+                    myindexer.loadIndex(os.path.join(PATH_ontology, each))
+                    loaded_indices[each] = myindexer
+                print("Done.")
+            except OSError:
+                raise OSError("Indices not found.")
+            except:
+                raise FunctionUnavailable
+        elif config.ontology.search == 'tf-idf':
+            try:
+                print("Loading TF-IDF Index...")
+                global ngrams, vectorizer, tf_idf_matrix
+                with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
+                    ngrams = shlv['ngrams']
+                    vectorizer = shlv['model']
+                    tf_idf_matrix = shlv['tf_idf_matrix']
+                print("Done.")
+            except FileNotFoundError:
+                raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
+            except:
+                raise FunctionUnavailable
     else:
         raise ConfigurationFileError
 
@@ -1821,4 +1853,4 @@ app.layout = serve_layout
 
 # run app.py (MIMIC-Dash v2)
 if __name__ == "__main__":
-    app.run_server(port=8888, debug=True)
+    app.run_server(port=8888, debug=True, use_reloader=False)
