@@ -1,5 +1,6 @@
 import sqlite3
 import lucene
+import numpy as np
 from lupyne import engine
 import pandas as pd
 
@@ -39,12 +40,15 @@ class SearchPyLucene:
     def prepareEngine(self):
         lucene.initVM()
 
-    def createIndexLite(self, df, path):
+    def createIndex(self, df, path):
         self.indexer = engine.Indexer(path)
-        # optional fields not added
-        self.indexer.set('CODE', stored=True)
-        self.indexer.set('LABEL', engine.Field.Text, stored=True)
+        for each_col in df.columns:
+            if each_col == 'LABEL':
+                self.indexer.set('LABEL', engine.Field.Text, stored=True)
+            else:
+                self.indexer.set(each_col, stored=True)
         for index, each_row in df.iterrows():
+            # implement way to add each col containing additional info for ontology code
             self.indexer.add(CODE=each_row['CODE'], LABEL=each_row['LABEL'])
         self.indexer.commit()
 
@@ -61,6 +65,8 @@ class SearchPyLucene:
             hits_list.append(entry)
         try:
             self.results = pd.DataFrame(hits_list, columns=list(hits_list[0].keys()))
+            for each_col in self.results.columns:
+                self.results.loc[self.results[each_col] == 'None', each_col] = np.nan
         except IndexError:
             self.results = pd.DataFrame()
 
