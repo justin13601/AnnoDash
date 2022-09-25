@@ -1,23 +1,25 @@
 import os
 import time
 import lucene
-from java.io import File
-from org.apache.lucene import analysis, document, index, queryparser, search, store
-from lupyne import engine
+from org.apache.lucene import queryparser, search
+from org.apache.lucene.index import IndexWriterConfig, IndexWriter, DirectoryReader
+from org.apache.lucene.store import SimpleFSDirectory
+from org.apache.lucene.analysis import Analyzer
+from org.apache.lucene.analysis.standard import StandardTokenizer
+from org.apache.lucene.analysis.core import WhitespaceAnalyzer, LowerCaseFilter, WhitespaceTokenizer, StopFilter, \
+    StopAnalyzer
+from org.apache.lucene.analysis.en import PorterStemFilter
+from org.apache.lucene.document import Document, Field, TextField
+from org.apache.pylucene.analysis import PythonAnalyzer
 
-from src.search import SearchSQLite, SearchPyLucene, SearchTF_IDF
+from java.nio.file import Paths
 
-ontology_path = '../ontology'
-
-load = False
-
-
-# https://stackoverflow.com/questions/47668000/pylucene-indexer-and-retriever-sample
+from src.search import SearchSQLite
 
 
 def query_ontology(ontology):
     database_file = f'{ontology}.db'
-    path = os.path.join(os.path.join(ontology_path, ontology), database_file)
+    path = os.path.join(os.path.join('../ontology', ontology), database_file)
 
     mysearch = SearchSQLite()
     mysearch.prepareSearch(path)
@@ -28,6 +30,20 @@ def query_ontology(ontology):
     return df_ontology
 
 
+class PorterStemmerAnalyzer(PythonAnalyzer):
+    def __init__(self):
+        PythonAnalyzer.__init__(self)
+
+    def createComponents(self, fieldName):
+        source = StandardTokenizer()
+        result = LowerCaseFilter(source)
+        result = PorterStemFilter(result)
+        return Analyzer.TokenStreamComponents(source, result)
+
+
+ontology_path = "../ontology"
+load = False
+
 startTime = time.time()
 ######################################################################
 # LOINC
@@ -35,53 +51,83 @@ startTime = time.time()
 
 df_loinc = query_ontology('loinc')
 lucene.initVM()
-storeDirectory = os.path.join(ontology_path, 'loinc')
-indexer = engine.Indexer(storeDirectory)
+
+analyzer = PorterStemmerAnalyzer()
+config = IndexWriterConfig(analyzer)
+store = SimpleFSDirectory(Paths.get(os.path.join(ontology_path, 'loinc')))
 
 if not load:
-    indexer.set('CODE', stored=True)
-    indexer.set('LABEL', engine.Field.Text, stored=True)
-    indexer.set('SYSTEM', stored=True)
-    indexer.set('SCALE_TYP', stored=True)
-    indexer.set('METHOD_TYP', stored=True)
-    indexer.set('CLASS', stored=True)
-    for index, each in df_loinc.iterrows():
-        indexer.add(CODE=each['CODE'], LABEL=each['LABEL'], SYSTEM=each['SYSTEM'],
-                    SCALE_TYP=each['SCALE_TYP'], METHOD_TYP=str(each['METHOD_TYP']),
-                    CLASS=each['CLASS'])
-    indexer.commit()
+    writer = IndexWriter(store, config)
+    for i, each_row in df_loinc.iterrows():
+        doc = Document()
+        for each_col in df_loinc.columns:
+            try:
+                doc.add(Field(each_col, each_row[each_col], TextField.TYPE_STORED))
+            except:
+                doc.add(Field(each_col, str(each_row[each_col]), TextField.TYPE_STORED))
+        writer.addDocument(doc)
+    writer.close()
 
-hits = indexer.search('LABEL: test')
-for hit in hits:
-    print(hit.dict)
-    print(f"{hit['CODE']} - {hit['LABEL']}: {hit.score}")
-print(len(hits))  # 640
+# search the index:
+ireader = DirectoryReader.open(store)
+isearcher = search.IndexSearcher(ireader)
+
+# Parse a simple query that searches for "tests":
+parser = queryparser.classic.QueryParser('LABEL', analyzer)
+query = parser.parse('tests')
+print(query)
+hits = isearcher.search(query, len(df_loinc.index)).scoreDocs
+print(len(hits))  # 820
+
+# # Iterate through the results:
+# for hit in hits:
+#     hitDoc = isearcher.doc(hit.doc)
+#     print(hitDoc['LABEL'])
+
+ireader.close()
+store.close()
 
 ######################################################################
 # SNOMED
 ######################################################################
 
-df_loinc = query_ontology('snomed')
+df_snomed = query_ontology('snomed')
 lucene.initVM()
-storeDirectory = os.path.join(ontology_path, 'snomed')
-indexer = engine.Indexer(storeDirectory)
+
+analyzer = PorterStemmerAnalyzer()
+config = IndexWriterConfig(analyzer)
+store = SimpleFSDirectory(Paths.get(os.path.join(ontology_path, 'snomed')))
 
 if not load:
-    indexer.set('CODE', stored=True)
-    indexer.set('LABEL', engine.Field.Text, stored=True)
-    indexer.set('EFFECTIVE_TIME', stored=True)
-    indexer.set('HIERARCHY', stored=True)
-    indexer.set('SEMANTIC_TAG', stored=True)
-    for index, each in df_loinc.iterrows():
-        indexer.add(CODE=each['CODE'], LABEL=each['LABEL'], EFFECTIVE_TIME=each['EFFECTIVE_TIME'],
-                    HIERARCHY=each['HIERARCHY'], SEMANTIC_TAG=each['SEMANTIC_TAG'])
-    indexer.commit()
+    writer = IndexWriter(store, config)
+    for i, each_row in df_snomed.iterrows():
+        doc = Document()
+        for each_col in df_snomed.columns:
+            try:
+                doc.add(Field(each_col, each_row[each_col], TextField.TYPE_STORED))
+            except:
+                doc.add(Field(each_col, str(each_row[each_col]), TextField.TYPE_STORED))
+        writer.addDocument(doc)
+    writer.close()
 
-hits = indexer.search('LABEL: test')
-for hit in hits:
-    print(hit.dict)
-    print(f"{hit['CODE']} - {hit['LABEL']}: {hit.score}")
-print(len(hits))  # 2661
+# search the index:
+ireader = DirectoryReader.open(store)
+isearcher = search.IndexSearcher(ireader)
+
+# Parse a simple query that searches for "tests":
+parser = queryparser.classic.QueryParser('LABEL', analyzer)
+query = parser.parse('tests')
+print(query)
+hits = isearcher.search(query, len(df_loinc.index)).scoreDocs
+print(len(hits))  # 820
+
+# # Iterate through the results:
+# for hit in hits:
+#     hitDoc = isearcher.doc(hit.doc)
+#     print(hitDoc['LABEL'])
+
+ireader.close()
+store.close()
 
 executionTime = (time.time() - startTime)
 print('Execution time in seconds: ' + str(executionTime))
