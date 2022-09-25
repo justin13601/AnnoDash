@@ -1241,6 +1241,17 @@ def enable_search(ontology):
         return True, True
 
 
+@app.callback(
+    Output("list-suggested-inputs", "children"),
+    [
+        Input("ontology-select", "value"),
+    ],
+)
+def generate_suggestions(ontology):
+    options = [html.Option(value=label) for label in query_ontology(ontology)['LABEL'].tolist()[:250]]
+    return options
+
+
 ######################################################################################################
 # PAGE LAYOUT #
 ######################################################################################################
@@ -1657,8 +1668,14 @@ def serve_layout():
                                     html.Div(id='search-outer',
                                              hidden=False,
                                              children=[
+                                                 html.Datalist(
+                                                     id='list-suggested-inputs',
+                                                     children=[]
+                                                 ),
                                                  dcc.Input(
                                                      id="search-input",
+                                                     type='text',
+                                                     list='list-suggested-inputs',
                                                      placeholder="",
                                                      debounce=True,
                                                      style={"width": '100%', 'margin-left': '0px'},
