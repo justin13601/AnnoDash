@@ -1,8 +1,20 @@
-import sqlite3
-import lucene
 import numpy as np
-from lupyne import engine
 import pandas as pd
+import sqlite3
+from lupyne import engine
+import lucene
+from org.apache.lucene import queryparser, search
+from org.apache.lucene.index import IndexWriterConfig, IndexWriter, DirectoryReader
+from org.apache.lucene.store import SimpleFSDirectory
+from org.apache.lucene.analysis import Analyzer
+from org.apache.lucene.analysis.standard import StandardTokenizer
+from org.apache.lucene.analysis.core import WhitespaceAnalyzer, LowerCaseFilter, WhitespaceTokenizer, StopFilter, \
+    StopAnalyzer
+from org.apache.lucene.analysis.en import PorterStemFilter
+from org.apache.lucene.document import Document, Field, TextField
+from org.apache.pylucene.analysis import PythonAnalyzer
+
+from java.nio.file import Paths
 
 
 class SearchSQLite:
@@ -30,6 +42,58 @@ class SearchSQLite:
 
     def closeSearch(self):
         self.conn.close()
+
+
+class PorterStemmerAnalyzer(PythonAnalyzer):
+    def __init__(self):
+        PythonAnalyzer.__init__(self)
+
+    def createComponents(self, fieldName):
+        source = StandardTokenizer()
+        result = LowerCaseFilter(source)
+        result = PorterStemFilter(result)
+        return Analyzer.TokenStreamComponents(source, result)
+
+
+class SearchPyLucene:
+    def __init__(self, results=None, analyzer=None, config=None, store=None):
+        self.results = results
+        self.analyzer = analyzer
+        self.config = config
+        self.store = store
+
+    def prepareEngine(self):
+        lucene.initVM()
+        self.analyzer = PorterStemmerAnalyzer()
+        self.config = IndexWriterConfig(self.analyzer)
+
+    def loadIndex(self, path):
+        self.store = SimpleFSDirectory(Paths.get(path))
+
+    # createIndex not implemented
+
+    def executeSearch(self, query):
+        lucene.getVMEnv().attachCurrentThread()
+        ireader = DirectoryReader.open(self.store)
+        isearcher = search.IndexSearcher(ireader)
+
+        # Parse a simple query that searches for "tests":
+        parser = queryparser.classic.QueryParser('LABEL', self.analyzer)
+        query = parser.parse(query)
+        scoreDocs = isearcher.search(query, 250).scoreDocs
+        hits = [isearcher.doc(scoreDoc.doc) for scoreDoc in scoreDocs]
+        hits_list = []
+        for i, hit in enumerate(hits):
+            table = dict((field.name(), field.stringValue()) for field in hit.getFields())
+            entry = {each_col: hit[each_col] for each_col in table.keys()}
+            entry['pylucene'] = round(scoreDocs[i].score, 1)
+            hits_list.append(entry)
+        try:
+            self.results = pd.DataFrame(hits_list, columns=list(hits_list[0].keys()))
+            for each_col in self.results.columns:
+                self.results.loc[self.results[each_col] == 'None', each_col] = np.nan
+        except IndexError:
+            self.results = pd.DataFrame()
 
 
 class SearchLupyne:
