@@ -32,7 +32,7 @@ class SearchSQLite:
         self.conn.close()
 
 
-class SearchPyLucene:
+class SearchLupyne:
     def __init__(self, results=None, indexer=None):
         self.results = results
         self.indexer = indexer
