@@ -42,7 +42,7 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
 
 
 ontology_path = "../ontology"
-load = True
+load = False
 
 startTime = time.time()
 ######################################################################
