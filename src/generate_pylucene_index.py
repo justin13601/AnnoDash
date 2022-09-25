@@ -119,7 +119,7 @@ parser = queryparser.classic.QueryParser('LABEL', analyzer)
 query = parser.parse('tests')
 print(query)
 hits = isearcher.search(query, len(df_loinc.index)).scoreDocs
-print(len(hits))  # 820
+print(len(hits))  # 2913
 
 # # Iterate through the results:
 # for hit in hits:
