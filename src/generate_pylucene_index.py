@@ -42,7 +42,7 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
 
 
 ontology_path = "../ontology"
-load = False
+load = True
 
 startTime = time.time()
 ######################################################################
@@ -79,10 +79,10 @@ print(query)
 hits = isearcher.search(query, len(df_loinc.index)).scoreDocs
 print(len(hits))  # 820
 
-# # Iterate through the results:
-# for hit in hits:
-#     hitDoc = isearcher.doc(hit.doc)
-#     print(hitDoc['LABEL'])
+# Iterate through the results:
+for hit in hits:
+    hitDoc = isearcher.doc(hit.doc)
+    print(hitDoc)
 
 ireader.close()
 store.close()
