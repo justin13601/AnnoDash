@@ -13,6 +13,8 @@ import sys
 # import csv
 # import time
 import json
+
+import lucene
 import yaml
 import errno
 import base64
@@ -1060,7 +1062,11 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
     elif scorer == 'pylucene':
         if triggered_id == 'search-btn.n_clicks':
             query = search_string
-        loaded_indices[ontology_filter].executeSearch(query)
+        try:
+            loaded_indices[ontology_filter].executeSearch(query)
+        except lucene.JavaError:
+            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
+            loaded_indices[ontology_filter].executeSearch(query)
         df_data = loaded_indices[ontology_filter].results
 
         if df_data.empty:
@@ -1244,11 +1250,18 @@ def enable_search(ontology):
 @app.callback(
     Output("list-suggested-inputs", "children"),
     [
+        Input("item-select", "value"),
         Input("ontology-select", "value"),
     ],
 )
-def generate_suggestions(ontology):
-    options = [html.Option(value=label) for label in query_ontology(ontology)['LABEL'].tolist()[:250]]
+def generate_suggestions(item, ontology):
+    query = itemsid_dict[item]
+    loaded_indices[ontology].executeSearch(query)
+    df_data = loaded_indices[ontology].results
+    if df_data.empty:
+        return []
+
+    options = [html.Option(value=label) for label in df_data['LABEL'].tolist()]
     return options
 
 
@@ -1668,9 +1681,15 @@ def serve_layout():
                                     html.Div(id='search-outer',
                                              hidden=False,
                                              children=[
-                                                 html.Datalist(
-                                                     id='list-suggested-inputs',
-                                                     children=[]
+                                                 html.Div(
+                                                     className="datalist",
+                                                     children=[
+                                                         html.Datalist(
+                                                             id='list-suggested-inputs',
+                                                             children=generate_suggestions(unannotated_list[0],
+                                                                                           list_of_ontologies[0])
+                                                         ),
+                                                     ],
                                                  ),
                                                  dcc.Input(
                                                      id="search-input",
