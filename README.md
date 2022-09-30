@@ -92,7 +92,7 @@ ratio.
 
 ## Getting Started
 
-Below are steps to download, install, and run the dashboard locally.
+Below are steps to download, install, and run the dashboard locally. Leave all configuration fields the same to run the demo.
 
 ### Requirements
 
@@ -126,9 +126,15 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
    ```
 
 3. Install PyLucene and associated Java libraries.
+    ```sh
+    # shell script to install jcc and pylucene
+    ```
 
-
-4. Edit ```config.yaml``` with desired directories and configurations.
+4. Edit ```/src/generate_config.py``` with desired directories and configurations and run:
+    ```sh
+   python3 generate_config.py
+    ```
+   This creates the ```config.yaml``` required by the dashboard.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -164,16 +170,17 @@ Run app and visit http://127.0.0.1:8888/:
     * Define string search algorithm (default: ```pylucene```)
     * Define dashboard aesthetics for graphs (defaults are shown in the configuration file)
 
-#### Other Files
+#### Other Relevant Files
 
 ```/src/generate_config.py``` is used to generate the ```config.yaml``` file.
 
-```/src/generate_pylucene_index.py``` is used to generate the index used by PyLucene for ontology querying.
-
-```/src/generate_ontology_database.py``` is used to generate the ```.db``` database files used to store the ontology
+```/src/generate_ontology_database.py``` uses SQLite3 to generate the ```.db``` database files used to store the
+ontology
 vocabulary.
 
-```/src/search.py``` includes all ontology searching code.
+```/src/generate_pylucene_index.py``` is used to generate the index used by PyLucene for ontology querying.
+
+```/src/search.py``` includes classes for ontology searching.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
