@@ -52,7 +52,7 @@ patient data and natural language processing algorithms.
 
 The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Extensions, such as machine learning-powered plugins and search algorithms, can be easily added.
 
-Latest demo with ```chartevents``` & ```d_items``` from MIMIC-IV v2.0 ```icu``` module loaded is deployed on
+The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module loaded is deployed on
 Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/).
 
 #### Overview
