@@ -47,7 +47,7 @@ Dashboard for Clinical Terminology Annotations    <br />
 ## About
 ...
 
-Demo deployed on [https://mimic-iv-dash-demo.herokuapp.com](https://mimic-iv-dash-demo.herokuapp.com).
+Latest demo deployed on Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/).
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
