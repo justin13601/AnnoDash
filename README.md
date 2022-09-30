@@ -140,7 +140,7 @@ Run app and visit http://127.0.0.1:8888/:
    python3 app.py
    ```
 
-#### Files required:
+#### Required Files:
 
 * A ```.csv``` file containing all patient observations/data (missingness allowed, except for the ```itemid``` column):
   ```
