@@ -138,7 +138,7 @@ Run app and visit http://127.0.0.1:8888/:
 
 Files required:
 
-* A .csv file containing all patient observations/data (missingness allowed):
+* A .csv file containing all patient observations/data (missingness allowed, except for the ```itemid``` column):
   ```
   itemid,subject_id,charttime,value,valueuom
   52038,123,2150-01-01 10:00:00,5,mEq/L
