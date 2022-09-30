@@ -701,7 +701,7 @@ def download_annotations(_):
     def write_archive(bytes_io):
         with ZipFile(bytes_io, mode="w") as zipObj:
             # Iterate over all the files in directory
-            for folderName, subfolders, filenames in os.walk(config.directories.results):
+            for folderName, subfolders, filenames in os.walk(config.save_directory):
                 for filename in filenames:
                     if '.git' in filename:
                         continue
