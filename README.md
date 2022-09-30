@@ -47,10 +47,11 @@ Dashboard for Clinical Terminology Annotations    <br />
 ## About
 
 MIMIC-Dash is a deployable clinical terminology annotation dashboard developed primarily in Python using Plotly Dash. It
-allows users to annotate terminology/items on a straightforward interface supported by visualizations of associated
+allows users to annotate concepts/items on a straightforward interface supported by visualizations of associated
 patient data and natural language processing algorithms.
 
-The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Extensions, such as machine learning-powered plugins and search algorithms, can be easily added.
+The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Extensions, such as machine
+learning-powered plugins and search algorithms, can be easily added.
 
 The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module loaded is deployed on
 Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/).
@@ -77,11 +78,14 @@ records over a 96-hour window. Both numerical and text data are supported.
 The user annotates target items by first selecting the to-be annotated item in the first dropdown. The following
 dropdown allows users to select the target ontology (LOINC® or SNOMED-CT). Code suggestions are then generated in the
 bottom table. Users are able to select their target annotation and by submitting, the appropriate data is saved
-in ```JSON``` files.
+in ```.json``` files.
 
 #### Ontology Search
 
-The dashboard automatically generates ontology code suggestions based on the target item. A string search supported by PyLucene and the Porter stemming algorithm sorts results by relevance, as indicated by the colour of the circles. Several other methods of string search are available, such as FTS5 in SQLite3, TF-IDF, Jaro-Winkler, and Fuzzy partial ratio.
+The dashboard automatically generates ontology code suggestions based on the target item. A string search supported by
+PyLucene and the Porter stemming algorithm sorts results by relevance, as indicated by the colour of the circles.
+Several other methods of string search are available, such as FTS5 in SQLite3, TF-IDF, Jaro-Winkler, and Fuzzy partial
+ratio.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 <!-- GETTING STARTED -->
@@ -124,7 +128,7 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
 3. Install PyLucene and associated Java libraries.
 
 
-4. Edit config.yaml with desired directories and configurations.
+4. Edit ```config.yaml``` with desired directories and configurations.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -136,28 +140,40 @@ Run app and visit http://127.0.0.1:8888/:
    python3 app.py
    ```
 
-Files required:
+#### Files required:
 
-* A .csv file containing all patient observations/data (missingness allowed, except for the ```itemid``` column):
+* A ```.csv``` file containing all patient observations/data (missingness allowed, except for the ```itemid``` column):
   ```
   itemid,subject_id,charttime,value,valueuom
   52038,123,2150-01-01 10:00:00,5,mEq/L
   52038,123,2150-01-01 11:00:00,6,ug/mL
   ...
   ```
-* A .csv file containing all concepts to be annotated in id-label pairs, {id: label}:
+* A ```.csv``` file containing all concepts to be annotated in id-label pairs, {id: label}:
   ```
   itemid,label
   52038,Base Excess
   52041,pH
   ...
   ```
-* The config.yaml:
-    * Define results directory (default: /results-json)
-    * Define data directory (default: /demo-data)
-    * Define concepts directory (default: /demo-data)
-    * Define ontology SQLite3 directory (default: /ontology)
-    * Define up to 3 pairs of lab measurements to plot annotations against (defaults vary for lab/chart events)
+* The ```config.yaml```:
+    * Define results directory (default: ```/results-json/demo```)
+    * Define location of the source data ```.csv``` (default: ```/demo-data/CHARTEVENTS.csv```)
+    * Define location of the concepts ```.csv``` (default: ```/demo-data/demo_chartevents_user_1.csv```)
+    * Define location of ontology SQLite3 databases (default: ```/ontology```)
+    * Define string search algorithm (default: ```pylucene```)
+    * Define dashboard aesthetics for graphs (defaults are shown in the configuration file)
+
+#### Other Files
+
+```/src/generate_config.py``` is used to generate the ```config.yaml``` file.
+
+```/src/generate_pylucene_index.py``` is used to generate the index used by PyLucene for ontology querying.
+
+```/src/generate_ontology_database.py``` is used to generate the ```.db``` database files used to store the ontology
+vocabulary.
+
+```/src/search.py``` includes all ontology searching code.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
