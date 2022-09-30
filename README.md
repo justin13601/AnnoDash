@@ -2,7 +2,6 @@
 
 [![Python](https://ForTheBadge.com/images/badges/made-with-python.svg)](https://colab.research.google.com/)
 
-
 [![DOI](https://zenodo.org/badge/490904949.svg)](https://zenodo.org/badge/latestdoi/490904949)
 
 <!-- PROJECT LOGO -->
@@ -10,7 +9,7 @@
 <div align="center">
     <img src="assets/mimic.png" alt="Logo" height="80">
 
-  <h3 align="center">MIMIC-IV Clinical Dashboard</h3>
+<h3 align="center">MIMIC-IV Clinical Dashboard</h3>
 
   <p align="center">
 Dashboard for Clinical Terminology Annotations    <br />
@@ -30,7 +29,7 @@ Dashboard for Clinical Terminology Annotations    <br />
     <li>
       <a href="#getting-started">Getting Started</a>
       <ul>
-        <li><a href="#requirements">Prerequisites</a></li>
+        <li><a href="#requirements">Requirements</a></li>
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
@@ -44,27 +43,56 @@ Dashboard for Clinical Terminology Annotations    <br />
 
 
 <!-- ABOUT THE PROJECT -->
-## About
-...
 
-Latest demo deployed on Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/).
+## About
+
+MIMIC-Dash is a deployable clinical terminology annotation dashboard developed primarily in Python using Plotly Dash. It
+allows users to annotate terminology/items on a straightforward interface supported by visualizations of associated
+patient data and natural language processing algorithms.
+
+The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Extensions, such as machine learning-powered plugins and search algorithms, can be easily added.
+
+Latest demo with ```chartevents``` & ```d_items``` from MIMIC-IV v2.0 ```icu``` module loaded is deployed on
+Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/).
+
+#### Overview
+
+![Home](assets/dash.png)
+The top left of the dashboard features a section that keeps track of to-be annotated items and target ontology codes for
+the user. Top right contains the data visualization component. The bottom half includes components dedicated to querying
+and displaying ontology codes.
+
+#### Data Visualization
+
+| ![graph1](assets/graph1.png)       | ![graph2](assets/graph2.png)        |
+|------------------------------------|-------------------------------------|
+
+The dashboard is supported by visualization of relevant patient data. For any given target item, patient observations
+are queried from the source data. The ```Distribution Overview``` tab contains a distribution summarizing all patient
+observations. ```Sample Records``` selects the top 5 patients (as ranked by most observations) and displays their
+records over a 96-hour window. Both numerical and text data are supported.
+
+#### Annotation
+
+The user annotates target items by first selecting the to-be annotated item in the first dropdown. The following
+dropdown allows users to select the target ontology (LOINC® or SNOMED-CT). Code suggestions are then generated in the
+bottom table. Users are able to select their target annotation and by submitting, the appropriate data is saved
+in ```JSON``` files.
+
+#### Ontology Search
+
+The dashboard automatically generates ontology code suggestions based on the target item. A string search supported by PyLucene and the Porter stemming algorithm sorts results by relevance, as indicated by the colour of the circles. Several other methods of string search are available, such as FTS5 in SQLite3, TF-IDF, Jaro-Winkler, and Fuzzy partial ratio.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
 <!-- GETTING STARTED -->
+
 ## Getting Started
 
-...
-
-
-<p align="right">(<a href="#top">back to top</a>)</p>
-
+Below are steps to download, install, and run the dashboard locally.
 
 ### Requirements
 
-The dashboard requires the following to run:
+The dashboard requires the following major packages to run:
 
 * [Dash][dash]~=2.6.0
 * [Pandas][pandas]~=1.4.2
@@ -73,29 +101,40 @@ The dashboard requires the following to run:
 * [PyYAML][pyyaml]~=6.0
 * [SciPy][scipy]~=1.7.3
 
-All packages are listed in ```requirements.txt```.
+All other packages are listed in ```requirements.txt```.
+
+Additionally, the latest version of the dashboard requires PyLucene for its primary ontology code searching algorithm.
+Please follow setup instructions available [here](https://lucene.apache.org/pylucene/install.html).
 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
-
 ### Installation
 
-Clone:
+1. Clone repository:
    ```sh
    git clone https://github.com/justin13601/mimic-iv-dash.git
    ```
 
+2. Install requirements:
+   ```sh
+   pip install -r requirements.txt
+   ```
+
+3. Install PyLucene and associated Java libraries.
+
+
+4. Edit config.yaml with desired directories and configurations.
+
 <p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
 
 ## Usage
 
-```
-python3 app.py
-```
+Run app and visit http://127.0.0.1:8888/:
+
+   ```sh
+   python3 app.py
+   ```
 
 Files required:
 
@@ -120,28 +159,24 @@ Files required:
     * Define ontology SQLite3 directory (default: /ontology)
     * Define up to 3 pairs of lab measurements to plot annotations against (defaults vary for lab/chart events)
 
-| ![Home](assets/home.png)          | ![Tabs](assets/tabs.png)          |
-|-----------------------------------|-----------------------------------|
-| ![Annotate](assets/annotate1.png) | ![Annotate](assets/annotate2.png) |
-
-
-
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 ## Demo Data
+
 Demo data and respective licenses are included in the [demo-data folder](/demo-data).
 
-- MIMIC-IV Clinical Database demo is available on Physionet (Johnson, A., Bulgarelli, L., Pollard, T., Horng, S., Celi, L. A., & Mark, R. (2022). MIMIC-IV Clinical Database Demo (version 1.0). PhysioNet. https://doi.org/10.13026/jwtp-v091).
+- MIMIC-IV Clinical Database demo is available on Physionet (Johnson, A., Bulgarelli, L., Pollard, T., Horng, S., Celi,
+  L. A., & Mark, R. (2022). MIMIC-IV Clinical Database Demo (version 1.0).
+  PhysioNet. https://doi.org/10.13026/jwtp-v091).
 
 - LOINC® Ontology Codes are available at https://loinc.org.
 
 - SNOMED-CT Ontology Codes are available at https://www.nlm.nih.gov/healthit/snomedct/index.html.
 
-
-
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 <!-- LICENSE -->
+
 ## License
 
 Distributed under the [MIT][mit] License.
@@ -151,6 +186,7 @@ Distributed under the [MIT][mit] License.
 
 
 <!-- ACKNOWLEDGMENTS -->
+
 ## Acknowledgments
 
 * Alistair Johnson, DPhil | The Hospital for Sick Children | Scientist
@@ -158,7 +194,6 @@ Distributed under the [MIT][mit] License.
 * Danny Eytan, MD, PhD | The Hospital for Sick Children | Staff Physician
 * Oshri Zaulan, MD | The Hospital for Sick Children | Staff Intensivist
 * Azadeh Assadi, MN | The Hospital for Sick Children | Pediatric Nurse Practitioner
-
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
