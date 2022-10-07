@@ -1,0 +1,18 @@
+service: mimic-dash
+runtime: custom
+env: flex
+
+basic_scaling:
+    max_instances: 2
+    idle_timeout: 10m
+
+resources:
+    cpu: 1
+    memory_gb: 1
+    disk_size_gb: 10
+
+entrypoint: gunicorn -b 0.0.0.0:8080 app:server
+
+
+
+
