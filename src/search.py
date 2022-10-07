@@ -63,7 +63,10 @@ class SearchPyLucene:
         self.store = store
 
     def prepareEngine(self):
-        lucene.initVM()
+        try:
+            lucene.initVM()
+        except:
+            lucene.getVMEnv().attachCurrentThread()
         self.analyzer = PorterStemmerAnalyzer()
         self.config = IndexWriterConfig(self.analyzer)
 
