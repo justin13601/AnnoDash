@@ -77,7 +77,7 @@ class SearchPyLucene:
         ireader = DirectoryReader.open(self.store)
         isearcher = search.IndexSearcher(ireader)
 
-        # Parse a simple query that searches for "tests":
+        # Parse a simple query that searches in label col:
         parser = queryparser.classic.QueryParser('LABEL', self.analyzer)
         query = parser.parse(query)
         scoreDocs = isearcher.search(query, 250).scoreDocs
