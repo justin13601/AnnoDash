@@ -7,4 +7,5 @@ RUN pip install -r requirements.txt
 COPY . ./
 
 WORKDIR .
+EXPOSE 8080
 ENTRYPOINT gunicorn -b 0.0.0.0:8080 app:server
