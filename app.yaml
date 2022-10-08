@@ -7,7 +7,6 @@ resources:
   memory_gb: 25
   disk_size_gb: 25
 
-entrypoint: gunicorn -b 0.0.0.0:8080 app:server
 
 
 
