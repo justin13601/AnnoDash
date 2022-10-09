@@ -54,7 +54,7 @@ The dashboard seeks to provide a flexible and customizable solution for clinical
 learning-powered plugins and search algorithms, can be easily added.
 
 The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module loaded is deployed on
-Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/).
+Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/) and on Google App Engine [here](https://mimic-dash-dot-kind-lab.nn.r.appspot.com/).
 
 #### Overview
 
