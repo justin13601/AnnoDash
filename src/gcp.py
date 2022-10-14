@@ -1,7 +1,18 @@
 import os
 
-import cloudstorage
-from google.appengine.api import app_identity
+# import cloudstorage
+# from google.appengine.api import app_identity
+from google.cloud import storage, bigquery
+
+
+def big_query(query):
+    client = bigquery.Client()
+    query_job = client.query(query)  # API request
+    print("The query data:")
+    for row in query_job:
+        # row values can be accessed by field name or index
+        print("name={}, count={}".format(row[0], row["total_people"]))
+    return
 
 
 def get(self):
