@@ -18,9 +18,10 @@ from java.nio.file import Paths
 
 
 class SearchSQLite:
-    def __init__(self, conn=None, df=None):
+    def __init__(self, conn=None, df=None, local=True):
         self.conn = conn
         self.df = df
+        self.local = local
 
     def prepareSearch(self, path_to_db):
         self.conn = sqlite3.connect(path_to_db)
