@@ -13,8 +13,6 @@ import sys
 # import csv
 # import time
 import json
-
-import lucene
 import yaml
 import errno
 import base64
@@ -43,30 +41,22 @@ import numpy as np
 import pandas as pd
 # import scipy
 # import scipy.sparse as sp
+import lucene
 # import jaro
 # import pickle
 import shelve
 # from fuzzywuzzy import fuzz, process
 # from ftfy import fix_text
-from google.cloud import bigquery
-# import sqlite3
+import sqlite3
+from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
 from src.search import SearchSQLite, SearchPyLucene, SearchTF_IDF
 
-
+# from src.gcp import *
 # from callbacks.all_callbacks import callback_manager
 
-
-def big_query(query):
-    client = bigquery.Client()
-    query_job = client.query(query)  # API request
-    print("The query data:")
-    for row in query_job:
-        # row values can be accessed by field name or index
-        print("name={}, count={}".format(row[0], row["total_people"]))
-    return
-
+local = False
 
 ######################################################################################################
 # APP #
@@ -171,15 +161,30 @@ def query_ontology(ontology):
     if ontology not in list_of_ontologies:
         raise InvalidOntology
 
-    database_file = f'{ontology}.db'
-    path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
+    if local:
+        database_file = f'{ontology}.db'
+        path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
 
-    mysearch = SearchSQLite()
-    mysearch.prepareSearch(path)
-    mysearch.getOntology(ontology)
-    mysearch.closeSearch()
-    df_ontology = mysearch.df
-    del mysearch
+        mysearch = SearchSQLite(local=local)
+        mysearch.prepareSearch(path)
+        mysearch.getOntology(ontology)
+        mysearch.closeSearch()
+        df_ontology = mysearch.df
+        del mysearch
+    else:
+        BUCKET_NAME = "kind-lab.appspot.com"  # Change as per your setup
+        OBJECT_NAME = f"/ontology/{ontology}/{ontology}.db"  # Change as per your setup
+        DATABASE_NAME_IN_RUNTIME = f"/tmp/{ontology}.db"  # Remember that only the /tmp folder is writable within the directory
+        QUERY = f"SELECT CODE, LABEL FROM {ontology}"  # Change as per your query
+
+        storage_client = storage.Client()
+
+        bucket = storage_client.bucket(BUCKET_NAME)
+        blob = bucket.blob(OBJECT_NAME)
+        connection = sqlite3.connect(DATABASE_NAME_IN_RUNTIME)
+
+        with connection:
+            df_ontology = pd.read_sql_query(QUERY, connection)
     return df_ontology
 
 
@@ -670,7 +675,7 @@ def enable_submit_button(ontology, skip):
 def enable_download_button(_):
     if annotated_list:
         return False
-    return False
+    return True
 
 
 @app.callback(
@@ -701,7 +706,7 @@ def download_annotations(_):
     def write_archive(bytes_io):
         with ZipFile(bytes_io, mode="w") as zipObj:
             # Iterate over all the files in directory
-            for folderName, subfolders, filenames in os.walk(config.save_directory):
+            for folderName, subfolders, filenames in os.walk(PATH_results):
                 for filename in filenames:
                     if '.git' in filename:
                         continue
@@ -972,19 +977,26 @@ def update_filter_search_dropdown(data, ontology):
         Input("ontology-select", "value"),
         Input("search-btn", "n_clicks"),
         Input("filter-search", "value"),
+        Input("search-input", "value"),
     ],
     [
-        State("search-input", "value"),
         State("store-search-results", "data"),
+        State("list-suggested-inputs", "children"),
     ]
 )
-def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data):
+def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data,
+                             suggestions):
     if not item:
         return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 
+    listed_options = [option['props']['value'] for option in suggestions]
     df_ontology = query_ontology(ontology_filter)
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
+
+    if triggered_id == 'search-input.value':
+        if search_string not in listed_options:
+            raise PreventUpdate
 
     if triggered_id == 'filter-search.value':
         filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
@@ -1060,7 +1072,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
     elif scorer == 'pylucene':
-        if triggered_id == 'search-btn.n_clicks':
+        if triggered_id == 'search-btn.n_clicks' or search_string in listed_options:
             query = search_string
         try:
             loaded_indices[ontology_filter].executeSearch(query)
@@ -1234,17 +1246,32 @@ def update_search_placeholder(ontology):
 
 
 @app.callback(
-    Output("search-input", "disabled"),
+    Output("search-btn", "style"),
     Output("search-btn", "disabled"),
+    Output("store-search-query", "data"),
     [
-        Input("ontology-select", "value"),
+        Input("submit-btn", "n_clicks"),
+        Input("search-btn", "n_clicks"),
+        Input("search-input", "value"),
     ],
+    [
+        State("store-search-query", "data"),
+    ],
+    prevent_initial_call=True,
 )
-def enable_search(ontology):
-    if ontology:
-        return False, False
+def change_search_button_style(_, __, new_query, curr_query):
+    style = {'width': '100%', 'color': 'grey', 'margin-top': '15px'}
+    if curr_query is None:
+        return no_update, True, new_query
+    triggered_id = dash.callback_context.triggered[0]['prop_id']
+    if triggered_id == 'submit-btn.n_clicks':
+        return style, True, new_query
+    elif triggered_id == 'search-btn.n_clicks':
+        return style, True, new_query
     else:
-        return True, True
+        if new_query != curr_query:
+            style = {'width': '100%', 'color': 'white', 'margin-top': '15px'}
+        return style, False, no_update
 
 
 @app.callback(
@@ -1535,7 +1562,7 @@ def serve_layout():
                 fade=True,
             ),
             dcc.Store(id='store-search-results'),
-            # dcc.Store(id='df_events-store'),
+            dcc.Store(id='store-search-query'),
             # dcc.Store(id='df_ontology-store'),
             # dcc.Store(id='itemsid_dict-store'),
             # dcc.Store(id='ontology_dict-store'),
@@ -1696,10 +1723,10 @@ def serve_layout():
                                                      type='text',
                                                      list='list-suggested-inputs',
                                                      placeholder="",
-                                                     debounce=True,
+                                                     debounce=False,
                                                      style={"width": '100%', 'margin-left': '0px'},
                                                      autoFocus=True,
-                                                     disabled=True
+                                                     disabled=False
                                                  ),
                                              ]),
                                     html.Div(style={'margin-top': '15px'}),
@@ -1713,8 +1740,8 @@ def serve_layout():
                                     ],
                                         style={'height': '135px', 'overflow-y': 'auto', 'background-color': 'white'}),
                                     html.Button(id="search-btn", children="Search", n_clicks=0,
-                                                style={'width': '100%', 'color': 'white', 'margin-top': '15px'},
-                                                disabled=True),
+                                                style={'width': '100%', 'color': 'grey', 'margin-top': '15px'},
+                                                disabled=False),
                                 ],
                             ),
                         ],
@@ -1889,5 +1916,5 @@ app.layout = serve_layout
 
 # run app.py (MIMIC-Dash v2)
 if __name__ == "__main__":
-    app.run_server(debug=True, host="0.0.0.0", port=8080, use_reloader=False)
-    # app.run_server(port=8888, debug=True, use_reloader=False)
+    # app.run_server(debug=True, host="0.0.0.0", port=8080, use_reloader=False)
+    app.run_server(port=8888, debug=True, use_reloader=False)
