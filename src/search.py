@@ -82,6 +82,8 @@ class SearchPyLucene:
             ontology_relpath = os.path.relpath(self.path, BUCKET_NAME)
             BUCKET_PATH = os.path.join('ontology', ontology_relpath)
             INDEX_LOCATION_IN_RUNTIME = f"/tmp/{self.ontology}/"  # Remember that only the /tmp folder is writable within the directory
+            if not os.path.isdir(INDEX_LOCATION_IN_RUNTIME):
+                os.makedirs(INDEX_LOCATION_IN_RUNTIME)
 
             storage_client = storage.Client(project=os.environ['PROJECT_ID'])
             bucket = storage_client.get_bucket(BUCKET_NAME)
