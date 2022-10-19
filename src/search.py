@@ -1,4 +1,5 @@
 import os
+import pathlib
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -25,12 +26,14 @@ class SearchSQLite:
         self.path = path_to_db
         if '.appspot.com' in self.path:
             BUCKET_NAME = os.environ['BUCKET_NAME']
+            ontology_relpath = os.path.relpath(self.path, BUCKET_NAME)
+            BUCKET_PATH = os.path.join('ontology', ontology_relpath)
             head, tail = os.path.split(self.path)
             DATABASE_NAME_IN_RUNTIME = f"/tmp/{tail}"  # Remember that only the /tmp folder is writable within the directory
 
             storage_client = storage.Client()
             bucket = storage_client.bucket(BUCKET_NAME)
-            blob = bucket.blob(self.path)
+            blob = bucket.blob(BUCKET_PATH)
             blob.download_to_filename(DATABASE_NAME_IN_RUNTIME)
 
             self.path = DATABASE_NAME_IN_RUNTIME
@@ -62,6 +65,7 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
     def __init__(self):
         PythonAnalyzer.__init__(self)
 
+    # camelCase to override java function?
     def createComponents(self, fieldName):
         source = StandardTokenizer()
         result = LowerCaseFilter(source)
@@ -70,26 +74,32 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
 
 
 class SearchPyLucene:
-    def __init__(self, results=None, analyzer=None, config=None, store=None):
-        self.results = results
-        self.analyzer = analyzer
-        self.config = config
-        self.store = store
-
-    def prepareEngine(self):
+    def __init__(self, ontology, path):
+        self.ontology = ontology
+        self.path = os.path.join(os.path.join('ontology', path))
+        # if '.appspot.com' in self.path:
+        #     BUCKET_NAME = os.environ['BUCKET_NAME']
+        #     ontology_relpath = os.path.relpath(self.path, BUCKET_NAME)
+        #     BUCKET_PATH = os.path.join('ontology', ontology_relpath)
+        #     head, tail = os.path.split(self.path)
+        #     DATABASE_NAME_IN_RUNTIME = f"/tmp/{tail}"  # Remember that only the /tmp folder is writable within the directory
+        #
+        #     storage_client = storage.Client()
+        #     bucket = storage_client.bucket(BUCKET_NAME)
+        #     blob = bucket.blob(BUCKET_PATH)
+        #     blob.download_to_filename(DATABASE_NAME_IN_RUNTIME)
+        #
+        #     self.path = DATABASE_NAME_IN_RUNTIME
         try:
             lucene.initVM()
         except:
             lucene.getVMEnv().attachCurrentThread()
         self.analyzer = PorterStemmerAnalyzer()
         self.config = IndexWriterConfig(self.analyzer)
+        self.store = SimpleFSDirectory(Paths.get(self.path))
+        self.results = pd.DataFrame()
 
-    def loadIndex(self, path):
-        self.store = SimpleFSDirectory(Paths.get(path))
-
-    # createIndex not implemented
-
-    def executeSearch(self, query):
+    def execute_search(self, query):
         lucene.getVMEnv().attachCurrentThread()
         ireader = DirectoryReader.open(self.store)
         isearcher = search.IndexSearcher(ireader)
@@ -112,48 +122,48 @@ class SearchPyLucene:
         except IndexError:
             self.results = pd.DataFrame()
 
-
-class SearchLupyne:
-    def __init__(self, results=None, indexer=None):
-        self.results = results
-        self.indexer = indexer
-
-    def prepareEngine(self):
-        lucene.initVM()
-
-    def createIndex(self, df, path):
-        self.indexer = engine.Indexer(path)
-        for each_col in df.columns:
-            if each_col == 'LABEL':
-                self.indexer.set('LABEL', engine.Field.Text, stored=True)
-            else:
-                self.indexer.set(each_col, stored=True)
-        for index, each_row in df.iterrows():
-            # implement way to add each col containing additional info for ontology code
-            self.indexer.add(CODE=each_row['CODE'], LABEL=each_row['LABEL'])
-        self.indexer.commit()
-
-    def loadIndex(self, path):
-        self.indexer = engine.Indexer(path)
-
-    def executeSearch(self, query):
-        lucene.getVMEnv().attachCurrentThread()
-        hits = self.indexer.search(f'LABEL: {query}')
-        hits_list = []
-        for i, hit in enumerate(hits):
-            entry = {each_col: hit[each_col] for each_col in hit.keys()}
-            entry['pylucene'] = round(hit.score, 1)
-            hits_list.append(entry)
-        try:
-            self.results = pd.DataFrame(hits_list, columns=list(hits_list[0].keys()))
-            for each_col in self.results.columns:
-                self.results.loc[self.results[each_col] == 'None', each_col] = np.nan
-        except IndexError:
-            self.results = pd.DataFrame()
-
-
-class SearchTF_IDF:
-    def __init__(self, ngram=None, vectorizer=None, matrix=None):
-        self.ngram = ngram
-        self.vectorizer = vectorizer
-        self.matrix = matrix
+# not used currently
+# class SearchLupyne:
+#     def __init__(self, results=None, indexer=None):
+#         self.results = results
+#         self.indexer = indexer
+#
+#     def prepareEngine(self):
+#         lucene.initVM()
+#
+#     def createIndex(self, df, path):
+#         self.indexer = engine.Indexer(path)
+#         for each_col in df.columns:
+#             if each_col == 'LABEL':
+#                 self.indexer.set('LABEL', engine.Field.Text, stored=True)
+#             else:
+#                 self.indexer.set(each_col, stored=True)
+#         for index, each_row in df.iterrows():
+#             # implement way to add each col containing additional info for ontology code
+#             self.indexer.add(CODE=each_row['CODE'], LABEL=each_row['LABEL'])
+#         self.indexer.commit()
+#
+#     def loadIndex(self, path):
+#         self.indexer = engine.Indexer(path)
+#
+#     def executeSearch(self, query):
+#         lucene.getVMEnv().attachCurrentThread()
+#         hits = self.indexer.search(f'LABEL: {query}')
+#         hits_list = []
+#         for i, hit in enumerate(hits):
+#             entry = {each_col: hit[each_col] for each_col in hit.keys()}
+#             entry['pylucene'] = round(hit.score, 1)
+#             hits_list.append(entry)
+#         try:
+#             self.results = pd.DataFrame(hits_list, columns=list(hits_list[0].keys()))
+#             for each_col in self.results.columns:
+#                 self.results.loc[self.results[each_col] == 'None', each_col] = np.nan
+#         except IndexError:
+#             self.results = pd.DataFrame()
+#
+#
+# class SearchTF_IDF:
+#     def __init__(self, ngram=None, vectorizer=None, matrix=None):
+#         self.ngram = ngram
+#         self.vectorizer = vectorizer
+#         self.matrix = matrix
