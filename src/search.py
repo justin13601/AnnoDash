@@ -31,7 +31,7 @@ class SearchSQLite:
             head, tail = os.path.split(self.path)
             DATABASE_NAME_IN_RUNTIME = f"/tmp/{tail}"  # Remember that only the /tmp folder is writable within the directory
 
-            storage_client = storage.Client(project=os.environ['PROJECT'])
+            storage_client = storage.Client(project=os.environ['PROJECT_ID'])
             bucket = storage_client.bucket(BUCKET_NAME)
             blob = bucket.blob(BUCKET_PATH)
             blob.download_to_filename(DATABASE_NAME_IN_RUNTIME)
@@ -83,7 +83,7 @@ class SearchPyLucene:
             BUCKET_PATH = os.path.join('ontology', ontology_relpath)
             INDEX_LOCATION_IN_RUNTIME = f"/tmp/{self.ontology}/"  # Remember that only the /tmp folder is writable within the directory
 
-            storage_client = storage.Client(project=os.environ['PROJECT'])
+            storage_client = storage.Client(project=os.environ['PROJECT_ID'])
             bucket = storage_client.get_bucket(BUCKET_NAME)
             blobs = bucket.list_blobs(prefix=BUCKET_PATH)
             for blob in blobs:
