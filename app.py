@@ -51,12 +51,11 @@ import sqlite3
 from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
-from src.search import SearchSQLite, SearchPyLucene, SearchTF_IDF
+from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
 
 # from src.gcp import *
 # from callbacks.all_callbacks import callback_manager
-
-local = True
+# callback_manager.attach_to_app(app)
 
 ######################################################################################################
 # APP #
@@ -79,9 +78,8 @@ app.config.suppress_callback_exceptions = True
 ######################################################################################################
 # DATA #
 ######################################################################################################
-# callback_manager.attach_to_app(app)
 
-class FunctionUnavailable(Exception):
+class MIMICDashError(Exception):
     pass
 
 
@@ -118,10 +116,10 @@ if not os.path.exists(PATH_results):
     os.makedirs(PATH_results)
 
 
-def load_items(path):
-    filename = os.path.basename(path).strip()
+def load_items(item_path):
+    filename = os.path.basename(item_path).strip()
     print(f'Loading {filename}...')
-    items = pd.read_csv(path)
+    items = pd.read_csv(item_path)
     dictionary = pd.Series(items[items.columns[1]].values, index=items[items.columns[0]].values).to_dict()
     print('Done.\n')
     return items, dictionary
@@ -134,10 +132,10 @@ def tryConvertDate(dates):
         return dates
 
 
-def load_data(path):
-    filename = os.path.basename(path).strip()
+def load_data(data_path):
+    filename = os.path.basename(data_path).strip()
     print(f'Loading {filename}...')
-    data = pd.read_csv(path)
+    data = pd.read_csv(data_path)
     # Date, format charttime
     data["charttime"] = data["charttime"].apply(
         lambda x: tryConvertDate(x)
@@ -160,14 +158,14 @@ def list_available_ontologies():
     return ontologies
 
 
-def load_annotations(path):
-    annotation_files = [each_json for each_json in os.listdir(path) if each_json.endswith('.json')]
+def load_annotations(annotations_path):
+    annotation_files = [each_json for each_json in os.listdir(annotations_path) if each_json.endswith('.json')]
     annotated = [int(each_item.strip('.json')) for each_item in annotation_files if
                  int(each_item.strip('.json')) in list(itemsid_dict.keys())]
     skipped = []
     for each_file in annotation_files:
         if int(each_file.strip('.json')) in list(itemsid_dict.keys()):
-            with open(os.path.join(path, each_file)) as jsonFile:
+            with open(os.path.join(annotations_path, each_file)) as jsonFile:
                 data = json.load(jsonFile)
                 if type(data['annotatedid']) is not list:
                     if 'skipped' in data['annotatedid'].lower().strip():
@@ -195,41 +193,41 @@ def set_up_search(ontologies: list) -> (dict, dict):
     search_objects = {}
     for ontology in ontologies:
         database_file = f'{ontology}.db'
-        path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
+        database_path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
 
-        search_objects[ontology] = SearchSQLite(ontology, path)
-    return search_objects
+        search_objects[ontology] = SearchSQLite(ontology, database_path)
+
+    # load indices if needed
+    index_objects = {}
+    if config.ontology.search == 'pylucene':
+        try:
+            print("Loading PyLucene Indices...")
+            for each in list_of_ontologies:
+                path = os.path.join(os.path.join(PATH_ontology, each))
+                # myindexer = SearchPyLucene(each, path)
+                myindexer = SearchPyLucene(each, each)
+                index_objects[each] = myindexer
+            print("Done.")
+        except OSError:
+            raise OSError("Indices not found.")
+        except:
+            raise MIMICDashError
+    elif config.ontology.search == 'tf-idf':
+        try:
+            print("Loading TF-IDF Index...")
+            with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
+                index_objects['ngrams'] = shlv['ngrams']
+                index_objects['vectorizer'] = shlv['model']
+                index_objects['tf_idf_matrix'] = shlv['tf_idf_matrix']
+            print("Done.")
+        except FileNotFoundError:
+            raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
+        except:
+            raise MIMICDashError
+    return search_objects, index_objects
 
 
-my_searches = set_up_search(list_of_ontologies)
-
-# load indices if needed
-if config.ontology.search == 'pylucene':
-    loaded_indices = {}
-    try:
-        print("Loading PyLucene Indices...")
-        for each in list_of_ontologies:
-            myindexer = SearchPyLucene()
-            myindexer.prepareEngine()
-            myindexer.loadIndex(os.path.join(PATH_ontology, each))
-            loaded_indices[each] = myindexer
-        print("Done.")
-    except OSError:
-        raise OSError("Indices not found.")
-    except:
-        raise FunctionUnavailable
-elif config.ontology.search == 'tf-idf':
-    try:
-        print("Loading TF-IDF Index...")
-        with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
-            ngrams = shlv['ngrams']
-            vectorizer = shlv['model']
-            tf_idf_matrix = shlv['tf_idf_matrix']
-        print("Done.")
-    except FileNotFoundError:
-        raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
-    except:
-        raise FunctionUnavailable
+my_searches, my_indices = set_up_search(list_of_ontologies)
 
 
 ######################################################################################################
@@ -277,7 +275,7 @@ def generate_scorer_options(ontology):
     elif config.ontology.search == 'pylucene':
         options = ["pylucene"]
     else:
-        raise FunctionUnavailable
+        raise MIMICDashError
 
     scorer_options = [{"label": each_scorer.replace('_', ' '), "value": each_scorer} for each_scorer in options]
     return scorer_options
@@ -992,8 +990,8 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         # NLP: tf_idf
         df_data = generateRelatedOntologies(query, choices, method='tf_idf',
                                             df_ontology=df_ontology,
-                                            vectorizer=vectorizer,
-                                            tf_idf_matrix=tf_idf_matrix)
+                                            vectorizer=my_indices['vectorizer'],
+                                            tf_idf_matrix=my_indices['tf_idf_matrix'])
     elif scorer == 'UMLS':
         results = generateRelatedOntologies(query, choices, method='UMLS', apikey=config.ontology.umls_apikey)
         query_2 = itemsid_dict[item]
@@ -1033,11 +1031,11 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         if triggered_id == 'search-btn.n_clicks' or search_string in listed_options:
             query = search_string
         try:
-            loaded_indices[ontology_filter].executeSearch(query)
+            my_indices[ontology_filter].execute_search(query)
         except lucene.JavaError:
             query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
-            loaded_indices[ontology_filter].executeSearch(query)
-        df_data = loaded_indices[ontology_filter].results
+            my_indices[ontology_filter].execute_search(query)
+        df_data = my_indices[ontology_filter].results
 
         if df_data.empty:
             return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
@@ -1045,7 +1043,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
     else:
-        raise FunctionUnavailable
+        raise MIMICDashError
 
     if len(df_data.index) > 250:
         df_data = df_data.iloc[:250]
@@ -1187,8 +1185,8 @@ def change_search_button_style(_, __, new_query, curr_query):
 )
 def generate_suggestions(item, ontology):
     query = itemsid_dict[item]
-    loaded_indices[ontology].executeSearch(query)
-    df_data = loaded_indices[ontology].results
+    my_indices[ontology].execute_search(query)
+    df_data = my_indices[ontology].results
     if df_data.empty:
         return []
 
