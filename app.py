@@ -60,6 +60,7 @@ from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
 ######################################################################################################
 # APP #
 ######################################################################################################
+
 app = dash.Dash(
     __name__,
     meta_tags=[
@@ -204,8 +205,7 @@ def set_up_search(ontologies: list) -> (dict, dict):
             print("Loading PyLucene Indices...")
             for each in list_of_ontologies:
                 path = os.path.join(os.path.join(PATH_ontology, each))
-                # myindexer = SearchPyLucene(each, path)
-                myindexer = SearchPyLucene(each, each)
+                myindexer = SearchPyLucene(each, path)
                 index_objects[each] = myindexer
             print("Done.")
         except OSError:
