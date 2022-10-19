@@ -56,7 +56,7 @@ from src.search import SearchSQLite, SearchPyLucene, SearchTF_IDF
 # from src.gcp import *
 # from callbacks.all_callbacks import callback_manager
 
-local = False
+local = True
 
 ######################################################################################################
 # APP #
@@ -149,43 +149,15 @@ def load_data(path):
 # load data
 def list_available_ontologies():
     print(f'Loading available ontologies...')
-    directory_contents = os.listdir(PATH_ontology)
-    ontologies = [item for item in directory_contents if os.path.isdir(os.path.join(PATH_ontology, item))]
+    if '.appspot.com' in PATH_ontology:
+        ontologies = ['loinc', 'snomed']
+    else:
+        directory_contents = os.listdir(PATH_ontology)
+        ontologies = [item for item in directory_contents if os.path.isdir(os.path.join(PATH_ontology, item))]
     if not ontologies:
         raise InvalidOntology
     print(f"{', '.join(each_ontology.upper() for each_ontology in ontologies)} codes available.\n")
     return ontologies
-
-
-def query_ontology(ontology):
-    if ontology not in list_of_ontologies:
-        raise InvalidOntology
-
-    if local:
-        database_file = f'{ontology}.db'
-        path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
-
-        mysearch = SearchSQLite(local=local)
-        mysearch.prepareSearch(path)
-        mysearch.getOntology(ontology)
-        mysearch.closeSearch()
-        df_ontology = mysearch.df
-        del mysearch
-    else:
-        BUCKET_NAME = "kind-lab.appspot.com"  # Change as per your setup
-        OBJECT_NAME = f"/ontology/{ontology}/{ontology}.db"  # Change as per your setup
-        DATABASE_NAME_IN_RUNTIME = f"/tmp/{ontology}.db"  # Remember that only the /tmp folder is writable within the directory
-        QUERY = f"SELECT CODE, LABEL FROM {ontology}"  # Change as per your query
-
-        storage_client = storage.Client()
-
-        bucket = storage_client.bucket(BUCKET_NAME)
-        blob = bucket.blob(OBJECT_NAME)
-        connection = sqlite3.connect(DATABASE_NAME_IN_RUNTIME)
-
-        with connection:
-            df_ontology = pd.read_sql_query(QUERY, connection)
-    return df_ontology
 
 
 def load_annotations(path):
@@ -217,6 +189,19 @@ print('Ontology ready.\n')
 annotated_list, skipped_list = load_annotations(PATH_results)
 unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
+
+
+def set_up_search(ontologies: list) -> (dict, dict):
+    search_objects = {}
+    for ontology in ontologies:
+        database_file = f'{ontology}.db'
+        path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
+
+        search_objects[ontology] = SearchSQLite(ontology, path)
+    return search_objects
+
+
+my_searches = set_up_search(list_of_ontologies)
 
 # load indices if needed
 if config.ontology.search == 'pylucene':
@@ -882,7 +867,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             return None, curr_ontology_cols, []
         return curr_data_ontology[0:0], curr_ontology_cols, []
 
-    df_ontology = query_ontology(ontology)
+    df_ontology = my_searches[ontology].get_all_ontology()
 
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology.columns)
@@ -901,16 +886,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         try:
             df_tooltip = pd.DataFrame()
             for each_ontology in list_of_ontologies:
-                database_file = f'{each_ontology}.db'
-                path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
-
-                mysearch = SearchSQLite()
-                mysearch.prepareSearch(path)
-                mysearch.searchOntologyCode(each_ontology, f'\"{each_row["CODE"]}\"')
-                mysearch.closeSearch()
-                df_tooltip = mysearch.df
-                del mysearch
-
+                df_tooltip = my_searches[ontology].search_ontology_by_code(f'\"{each_row["CODE"]}\"')
                 if not df_tooltip.empty:
                     break
             return df_tooltip
@@ -990,7 +966,8 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 
     listed_options = [option['props']['value'] for option in suggestions]
-    df_ontology = query_ontology(ontology_filter)
+
+    df_ontology = my_searches[ontology_filter].get_all_ontology()
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
 
@@ -1036,33 +1013,14 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             if search_string != '':
                 query = search_string
 
-        database_file = f'{ontology_filter}.db'
-        path = os.path.join(os.path.join(PATH_ontology, ontology_filter), database_file)
-
-        mysearch = SearchSQLite()
-        mysearch.prepareSearch(path)
-        mysearch.searchOntologyLabel(ontology_filter, f'\"{query}\"')
-        mysearch.closeSearch()
-        df_data = mysearch.df
-        del mysearch
+        df_data = my_searches[ontology_filter].search_ontology_by_label(f'\"{query}\"')
 
         if df_data.empty:
             if triggered_id == 'search-btn.n_clicks':
-                mysearch = SearchSQLite()
-                mysearch.prepareSearch(path)
-                mysearch.searchOntologyLabel(ontology_filter, f'{query}')
-                mysearch.closeSearch()
-                df_data = mysearch.df
-                del mysearch
+                df_data = my_searches[ontology_filter].search_ontology_by_label(f'{query}')
             else:
-                mysearch = SearchSQLite()
-                mysearch.prepareSearch(path)
-                mysearch.searchOntologyLabel(ontology_filter, f'{query_tokens}')
-                mysearch.closeSearch()
-                df_data = mysearch.df
-                del mysearch
+                df_data = my_searches[ontology_filter].search_ontology_by_label(f'{query_tokens}')
                 query = query_tokens
-
             if df_data.empty:
                 return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
         match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
@@ -1155,60 +1113,6 @@ def update_config(contents, filename, last_modified):
             config = yaml.unsafe_load(decoded)
         else:
             raise ConfigurationFileError
-
-        # paths
-        PATH_data = config.data
-        PATH_items = config.concepts
-        PATH_results = config.results
-        PATH_ontology = config.ontology.location
-
-        if not os.path.exists(PATH_results):
-            os.makedirs(PATH_results)
-
-        if 'demo-data' in PATH_data:
-            print("Demo data selected.")
-
-        df_events = load_data(PATH_data)
-
-        df_items, itemsid_dict = load_items(PATH_items)
-        print("Data ready.\n")
-
-        list_of_ontologies = list_available_ontologies()
-        print('Ontology ready.\n')
-
-        annotated_list, skipped_list = load_annotations(PATH_results)
-        unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
-        unannotated_list.sort()
-
-        # load indices if needed
-        if config.ontology.search == 'pylucene':
-            global loaded_indices
-            loaded_indices = {}
-            try:
-                print("Loading PyLucene Indices...")
-                for each in list_of_ontologies:
-                    myindexer = SearchPyLucene()
-                    myindexer.prepareEngine()
-                    myindexer.loadIndex(os.path.join(PATH_ontology, each))
-                    loaded_indices[each] = myindexer
-                print("Done.")
-            except OSError:
-                raise OSError("Indices not found.")
-            except:
-                raise FunctionUnavailable
-        elif config.ontology.search == 'tf-idf':
-            try:
-                print("Loading TF-IDF Index...")
-                global ngrams, vectorizer, tf_idf_matrix
-                with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
-                    ngrams = shlv['ngrams']
-                    vectorizer = shlv['model']
-                    tf_idf_matrix = shlv['tf_idf_matrix']
-                print("Done.")
-            except FileNotFoundError:
-                raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
-            except:
-                raise FunctionUnavailable
     else:
         raise ConfigurationFileError
 
