@@ -8,6 +8,7 @@ resources:
   disk_size_gb: 25
 
 env_variables:
+  BUCKET_NAME: kind-lab.appspot.com
 
 
 
