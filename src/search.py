@@ -31,7 +31,7 @@ class SearchSQLite:
             head, tail = os.path.split(self.path)
             DATABASE_NAME_IN_RUNTIME = f"/tmp/{tail}"  # Remember that only the /tmp folder is writable within the directory
 
-            storage_client = storage.Client()
+            storage_client = storage.Client(project=os.environ['PROJECT'])
             bucket = storage_client.bucket(BUCKET_NAME)
             blob = bucket.blob(BUCKET_PATH)
             blob.download_to_filename(DATABASE_NAME_IN_RUNTIME)
@@ -76,20 +76,23 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
 class SearchPyLucene:
     def __init__(self, ontology, path):
         self.ontology = ontology
-        self.path = os.path.join(os.path.join('ontology', path))
-        # if '.appspot.com' in self.path:
-        #     BUCKET_NAME = os.environ['BUCKET_NAME']
-        #     ontology_relpath = os.path.relpath(self.path, BUCKET_NAME)
-        #     BUCKET_PATH = os.path.join('ontology', ontology_relpath)
-        #     head, tail = os.path.split(self.path)
-        #     DATABASE_NAME_IN_RUNTIME = f"/tmp/{tail}"  # Remember that only the /tmp folder is writable within the directory
-        #
-        #     storage_client = storage.Client()
-        #     bucket = storage_client.bucket(BUCKET_NAME)
-        #     blob = bucket.blob(BUCKET_PATH)
-        #     blob.download_to_filename(DATABASE_NAME_IN_RUNTIME)
-        #
-        #     self.path = DATABASE_NAME_IN_RUNTIME
+        self.path = path
+        if '.appspot.com' in self.path:
+            BUCKET_NAME = os.environ['BUCKET_NAME']
+            ontology_relpath = os.path.relpath(self.path, BUCKET_NAME)
+            BUCKET_PATH = os.path.join('ontology', ontology_relpath)
+            INDEX_LOCATION_IN_RUNTIME = f"/tmp/{self.ontology}/"  # Remember that only the /tmp folder is writable within the directory
+
+            storage_client = storage.Client(project=os.environ['PROJECT'])
+            bucket = storage_client.get_bucket(BUCKET_NAME)
+            blobs = bucket.list_blobs(prefix=BUCKET_PATH)
+            for blob in blobs:
+                if all(x not in blob.name for x in ['.db', '.csv']):
+                    head, tail = os.path.split(blob.name)
+                    FILE_PATH_IN_RUNTIME = os.path.join(INDEX_LOCATION_IN_RUNTIME, tail)
+                    blob.download_to_filename(FILE_PATH_IN_RUNTIME)
+
+            self.path = INDEX_LOCATION_IN_RUNTIME
         try:
             lucene.initVM()
         except:
