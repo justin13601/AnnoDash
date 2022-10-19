@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -13,36 +14,48 @@ from org.apache.lucene.analysis.core import WhitespaceAnalyzer, LowerCaseFilter,
 from org.apache.lucene.analysis.en import PorterStemFilter
 from org.apache.lucene.document import Document, Field, TextField
 from org.apache.pylucene.analysis import PythonAnalyzer
+from google.cloud import storage, bigquery
 
 from java.nio.file import Paths
 
 
 class SearchSQLite:
-    def __init__(self, conn=None, df=None, local=True):
-        self.conn = conn
-        self.df = df
-        self.local = local
+    def __init__(self, ontology, path_to_db):
+        self.ontology = ontology
+        self.path = path_to_db
+        if '.appspot.com' in self.path:
+            BUCKET_NAME = os.environ['BUCKET_NAME']
+            head, tail = os.path.split(self.path)
+            DATABASE_NAME_IN_RUNTIME = f"/tmp/{tail}"  # Remember that only the /tmp folder is writable within the directory
 
-    def prepareSearch(self, path_to_db):
-        self.conn = sqlite3.connect(path_to_db)
-        c = self.conn.cursor()
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(BUCKET_NAME)
+            blob = bucket.blob(self.path)
+            blob.download_to_filename(DATABASE_NAME_IN_RUNTIME)
 
-    def searchOntologyLabel(self, ontology, query):
-        self.df = pd.read_sql(f"SELECT * FROM {ontology} WHERE LABEL MATCH '{query}' ORDER BY rank", self.conn)
+            self.path = DATABASE_NAME_IN_RUNTIME
 
-    def searchOntologyCode(self, ontology, query):
-        self.df = pd.read_sql(f"SELECT * FROM {ontology} WHERE CODE MATCH '{query}'", self.conn)
+    def search_ontology_by_label(self, query):
+        conn = sqlite3.connect(self.path)
+        df_result = pd.read_sql(f"SELECT * FROM {self.ontology} WHERE LABEL MATCH '{query}' ORDER BY rank", conn)
+        return df_result
 
-    def getOntology(self, ontology):
-        self.df = pd.read_sql(f"SELECT CODE, LABEL FROM {ontology}", self.conn)
-        self.df = self.df.reset_index().rename(columns={"index": "id"})
+    def search_ontology_by_code(self, query):
+        conn = sqlite3.connect(self.path)
+        df_result = pd.read_sql(f"SELECT * FROM {self.ontology} WHERE CODE MATCH '{query}'", conn)
+        return df_result
 
-    def getOntologyFull(self, ontology):
-        self.df = pd.read_sql(f"SELECT * FROM {ontology}", self.conn)
-        self.df = self.df.reset_index().rename(columns={"index": "id"})
+    def get_all_ontology(self):
+        conn = sqlite3.connect(self.path)
+        df_result = pd.read_sql(f"SELECT CODE, LABEL FROM {self.ontology}", conn)
+        df_result = df_result.reset_index().rename(columns={"index": "id"})
+        return df_result
 
-    def closeSearch(self):
-        self.conn.close()
+    def get_all_ontology_with_data(self):
+        conn = sqlite3.connect(self.path)
+        df_result = pd.read_sql(f"SELECT * FROM {self.ontology}", conn)
+        df_result = df_result.reset_index().rename(columns={"index": "id"})
+        return df_result
 
 
 class PorterStemmerAnalyzer(PythonAnalyzer):
