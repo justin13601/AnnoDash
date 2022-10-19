@@ -9,7 +9,7 @@ resources:
 
 env_variables:
   BUCKET_NAME: kind-lab.appspot.com
-
+  PROJECT_ID: kind-lab
 
 
 
