@@ -9,7 +9,7 @@ html {
 
 body {
     background-color: #171c28;
-    background-image: linear-gradient(#444754, #171c28 5%, #171c28, #444754 99%);
+    background-image: linear-gradient(#444754, #171c28 5%, #171c28 95%, #444754 99%);
     color: #cfddee;
     font-size: 15px;
     height: 100%;
