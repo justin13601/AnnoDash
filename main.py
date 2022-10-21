@@ -22,9 +22,10 @@ app.layout = html.Div(
     ],
 )
 def display_page(pathname):
-    if pathname == '/':
+    try:
         return main_layout
-    else:
+    except:
+        print('Something went wrong!')
         return '404'
 
 
