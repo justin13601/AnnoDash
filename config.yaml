@@ -1,8 +1,8 @@
 !!python/object:ml_collections.config_dict.config_dict.ConfigDict
 _convert_dict: true
 _fields:
-  concepts: demo-data/D_LABITEMS.csv
-  data: demo-data/LABEVENTS.csv
+  concepts: demo-data/demo_chartevents_user_1.csv
+  data: demo-data/CHARTEVENTS.csv
   kwargs: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
@@ -26,7 +26,7 @@ _fields:
             version: 2.0
           _locked: false
           _type_safe: true
-        name: development
+        name: demo-development
       _locked: false
       _type_safe: true
     _convert_dict: true
@@ -39,16 +39,16 @@ _fields:
           version: 2.0
         _locked: false
         _type_safe: true
-      name: development
+      name: demo-development
     _locked: false
     _type_safe: true
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      location: ontology
-      search: sqlite
+      location: kind-lab.appspot.com
+      search: pylucene
     _locked: false
     _type_safe: true
-  results: results-json
+  results: results-json/demo
 _locked: false
 _type_safe: true
