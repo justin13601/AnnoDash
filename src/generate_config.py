@@ -2,7 +2,7 @@ import yaml
 from ml_collections import config_dict
 
 # configurations
-save_directory = 'results-json/demo'
+save_directory = 'results-json/chartevents'
 concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'ontology'
@@ -47,12 +47,12 @@ def generateConfig():
         'version': 2.0
     }
     metadata_dictionary = {
-        'name': 'demo-development',
+        'name': 'development',
         'labels': config_dict.FrozenConfigDict(app_labels_dictionary)
     }
     cfg.metadata = config_dict.FrozenConfigDict(metadata_dictionary)
 
-    with open('../config-demo.yaml', 'w') as yaml_file:
+    with open('../config.yaml', 'w') as yaml_file:
         yaml.dump(cfg, yaml_file)
     return cfg
 
