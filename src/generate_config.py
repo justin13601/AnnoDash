@@ -5,7 +5,7 @@ from ml_collections import config_dict
 save_directory = 'results-json/chartevents'
 concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
-ontology_directory = 'ontology'
+ontology_directory = 'kind-lab.appspot.com'
 ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf]
 # umls_apikey = '1c3bfb9d-bcd1-472b-8ff5-d58adbb1c047'
 
