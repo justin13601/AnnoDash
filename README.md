@@ -56,6 +56,8 @@ learning-powered plugins and search algorithms, can be easily added.
 The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module loaded is deployed on
 Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/) and on Google App Engine [here](https://mimic-dash-dot-kind-lab.nn.r.appspot.com/).
 
+Featured on [Plotly & Dash 500](https://www.linkedin.com/posts/dave-gibbon-8a6219_python-plotly-dash-activity-6993654939717689344-pYrw)!
+
 #### Overview
 
 ![Home](assets/dash.png)
