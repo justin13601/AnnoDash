@@ -44,7 +44,7 @@ from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
 from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
-from main import app
+from app import app
 
 
 ######################################################################################################

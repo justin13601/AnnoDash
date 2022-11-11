@@ -115,6 +115,25 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
 
 ### Installation
 
+#### Using Docker:
+
+1. Clone repository:
+   ```sh
+   git clone https://github.com/justin13601/mimic-iv-dash.git
+   ```
+   
+2. Build Docker image:
+   ```sh
+   docker build -t mimic-iv-dash .
+   ```
+   
+3. Run container:
+   ```sh
+   docker run -p 8080:80 mimic-iv-dash
+   ```
+
+#### Manual:
+
 1. Clone repository:
    ```sh
    git clone https://github.com/justin13601/mimic-iv-dash.git
