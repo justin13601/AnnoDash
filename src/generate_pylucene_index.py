@@ -21,12 +21,8 @@ def query_ontology(ontology):
     database_file = f'{ontology}.db'
     path = os.path.join(os.path.join('../ontology', ontology), database_file)
 
-    mysearch = SearchSQLite()
-    mysearch.prepareSearch(path)
-    mysearch.getOntologyFull(ontology)
-    mysearch.closeSearch()
-    df_ontology = mysearch.df
-    del mysearch
+    mysearch = SearchSQLite(ontology, path)
+    df_ontology = mysearch.get_all_ontology_with_data()
     return df_ontology
 
 

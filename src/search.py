@@ -48,7 +48,7 @@ class SearchSQLite:
         df_result = pd.read_sql(f"SELECT * FROM {self.ontology} WHERE CODE MATCH '{query}'", conn)
         return df_result
 
-    def get_all_ontology(self):
+    def get_all_ontology_no_data(self):
         conn = sqlite3.connect(self.path)
         df_result = pd.read_sql(f"SELECT CODE, LABEL FROM {self.ontology}", conn)
         df_result = df_result.reset_index().rename(columns={"index": "id"})
@@ -102,7 +102,6 @@ class SearchPyLucene:
         self.analyzer = PorterStemmerAnalyzer()
         self.config = IndexWriterConfig(self.analyzer)
         self.store = SimpleFSDirectory(Paths.get(self.path))
-        self.results = pd.DataFrame()
 
     def execute_search(self, query):
         lucene.getVMEnv().attachCurrentThread()
@@ -121,11 +120,12 @@ class SearchPyLucene:
             entry['pylucene'] = round(scoreDocs[i].score, 1)
             hits_list.append(entry)
         try:
-            self.results = pd.DataFrame(hits_list, columns=list(hits_list[0].keys()))
-            for each_col in self.results.columns:
-                self.results.loc[self.results[each_col] == 'None', each_col] = np.nan
+            results = pd.DataFrame(hits_list, columns=list(hits_list[0].keys()))
+            for each_col in results.columns:
+                results.loc[results[each_col] == 'None', each_col] = np.nan
         except IndexError:
-            self.results = pd.DataFrame()
+            results = pd.DataFrame()
+        return results
 
 # not used currently
 # class SearchLupyne:
