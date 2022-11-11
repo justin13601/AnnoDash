@@ -22,5 +22,4 @@ app = dash.Dash(
 )
 
 app.title = "MIMIC-Dash: A Clinical Terminology Annotation Dashboard"
-server = app.server
 app.config.suppress_callback_exceptions = True

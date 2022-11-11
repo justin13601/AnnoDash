@@ -837,7 +837,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             return None, curr_ontology_cols, []
         return curr_data_ontology[0:0], curr_ontology_cols, []
 
-    df_ontology = my_searches[ontology].get_all_ontology()
+    df_ontology = my_searches[ontology].get_all_ontology_no_data()
 
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology.columns)
@@ -937,7 +937,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
 
     listed_options = [option['props']['value'] for option in suggestions]
 
-    df_ontology = my_searches[ontology_filter].get_all_ontology()
+    df_ontology = my_searches[ontology_filter].get_all_ontology_no_data()
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
 
@@ -1003,11 +1003,10 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         if triggered_id == 'search-btn.n_clicks' or search_string in listed_options:
             query = search_string
         try:
-            my_indices[ontology_filter].execute_search(query)
+            df_data = my_indices[ontology_filter].execute_search(query)
         except lucene.JavaError:
             query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
-            my_indices[ontology_filter].execute_search(query)
-        df_data = my_indices[ontology_filter].results
+            df_data = my_indices[ontology_filter].execute_search(query)
 
         if df_data.empty:
             return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
@@ -1157,8 +1156,7 @@ def change_search_button_style(_, __, new_query, curr_query):
 )
 def generate_suggestions(item, ontology):
     query = itemsid_dict[item]
-    my_indices[ontology].execute_search(query)
-    df_data = my_indices[ontology].results
+    df_data = my_indices[ontology].execute_search(query)
     if df_data.empty:
         return []
 
