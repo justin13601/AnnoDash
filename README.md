@@ -122,12 +122,15 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
    git clone https://github.com/justin13601/mimic-iv-dash.git
    ```
    
-2. Build Docker image:
+2. Edit configurations in ```config.yaml```. Ontology files and indices in ```./ontology``` can be used for local deployments instead of GCP bucket.
+
+   
+3. Build Docker image:
    ```sh
    docker build -t mimic-iv-dash .
    ```
    
-3. Run container:
+4. Run container:
    ```sh
    docker run -p 8080:80 mimic-iv-dash
    ```
