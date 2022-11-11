@@ -33,5 +33,4 @@ def display_page(href):
 
 # run main.py (MIMIC-Dash v2)
 if __name__ == "__main__":
-    # app.run_server(debug=True, host="0.0.0.0", port=8080, use_reloader=False)
-    app.run_server(port=8888, debug=True, use_reloader=False)
+    app.run_server(debug=True, host="0.0.0.0", port=8080, use_reloader=False)
