@@ -124,9 +124,13 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
    git clone https://github.com/justin13601/mimic-iv-dash.git
    ```
    
-2. Edit configurations in ```config.yaml```. Ontology files and indices in ```./ontology``` can be used for local deployments instead of GCP bucket.
+2. Edit ```/src/generate_config.py``` with desired directories and configurations and run:
+    ```sh
+   python3 generate_config.py
+    ```
+   This creates the ```config.yaml``` required by the dashboard.
 
-   
+
 3. Build Docker image:
    ```sh
    docker build -t mimic-iv-dash .
@@ -164,11 +168,7 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
 
 ## Usage
 
-Run app and visit http://127.0.0.1:8888/:
-
-   ```sh
-   python3 app.py
-   ```
+Run app and visit http://127.0.0.1:8080/ or http://localhost:8080/.
 
 #### Required Files:
 
