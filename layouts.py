@@ -628,5 +628,3 @@ def serve_layout():
         ],
     )
 
-
-main_layout = serve_layout()
