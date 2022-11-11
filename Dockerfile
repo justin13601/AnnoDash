@@ -8,4 +8,5 @@ COPY . ./
 
 WORKDIR .
 EXPOSE 8080
-ENTRYPOINT gunicorn -b 0.0.0.0:8080 app:server
+CMD gunicorn -b 0.0.0.0:80 main:server
+#ENTRYPOINT gunicorn -b 0.0.0.0:8080 main:server
