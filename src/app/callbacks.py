@@ -44,7 +44,7 @@ from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
 from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
-from app import app
+from src.app.app import app
 
 
 ######################################################################################################
@@ -71,7 +71,7 @@ def load_config(file):
         return configurations
 
 
-config_file = 'config.yaml'
+config_file = 'src/app/config.yaml'
 if os.path.exists(config_file):
     print('Configuration file found.')
     config = load_config(config_file)
