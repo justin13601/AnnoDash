@@ -1,8 +1,8 @@
 from dash import Dash, html, dcc, dash_table, ALL, ctx
 from dash.dependencies import State, Input, Output, ClientsideFunction
-from app import app
-from layouts import serve_layout
-import callbacks
+from src.app.app import app
+from src.app.layouts import serve_layout
+import src.app.callbacks
 
 server = app.server
 

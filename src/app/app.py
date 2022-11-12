@@ -11,8 +11,11 @@ import dash
 # APP #
 ######################################################################################################
 
+assets_path = '../../assets'
+
 app = dash.Dash(
     __name__,
+    assets_folder=assets_path,
     meta_tags=[
         {
             "name": "viewport",
