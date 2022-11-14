@@ -1,0 +1,27 @@
+version: '3.7'
+services:
+  web:
+    # Path to dockerfile.
+    # '.' represents the current directory in which docker-compose.yml is present.
+    build: .
+
+    # Mapping of container port to host
+    ports:
+      - "8080:80"
+    # Mount volume
+#    volumes:
+#      - "/usercode/:/code"
+
+    # Link database container to app container for reachability.
+#    links:
+#      - "database:backend"
+
+  database:
+    # image to fetch from docker hub
+    image: justin13601/mimic-iv-dash:latest
+
+    # Environment variables for startup script, container will use these variables to start the container with these define variables.
+    environment:
+      - "PROJECT_ID=kind-lab"
+      - "BUCKET_NAME=kind-lab.appspot.com"
+      - "GOOGLE_APPLICATION_CREDENTIALS=''"
