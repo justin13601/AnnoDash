@@ -13,8 +13,8 @@ services:
 #      - "/usercode/:/code"
 
     # Link database container to app container for reachability.
-    links:
-      - "database:backenddb"
+#    links:
+#      - "database:backend"
 
   database:
     # image to fetch from docker hub
