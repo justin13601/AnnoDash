@@ -131,6 +131,12 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
    This creates the ```config.yaml``` required by the dashboard.
 
 
+3. Build image and run container:
+   ```sh
+   docker-compose up
+   ```
+
+OR:
 3. Build Docker image:
    ```sh
    docker build -t mimic-iv-dash .
