@@ -7,12 +7,13 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-    <img src="assets/mimic.png" alt="Logo" height="80">
 
-<h3 align="center">MIMIC-IV Clinical Dashboard</h3>
+[//]: # (    <img src="assets/mimic.png" alt="Logo" height="80">)
+
+<h3 align="center">AnnoDash</h3>
 
   <p align="center">
-Dashboard for Clinical Terminology Annotations    <br />
+A Clinical Terminology Annotation Dashboard    <br />
     (Supports LOINC®, SNOMED-CT)
   </p>
 </div>
@@ -46,15 +47,16 @@ Dashboard for Clinical Terminology Annotations    <br />
 
 ## About
 
-MIMIC-Dash is a deployable clinical terminology annotation dashboard developed primarily in Python using Plotly Dash. It
+AnnoDash is a deployable clinical terminology annotation dashboard developed primarily in Python using Plotly Dash. It
 allows users to annotate concepts/items on a straightforward interface supported by visualizations of associated
 patient data and natural language processing algorithms.
 
 The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Extensions, such as machine
 learning-powered plugins and search algorithms, can be easily added.
 
-The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module loaded is deployed on
-Heroku [here](https://mimic-iv-dash-v2.herokuapp.com/) and on Google App Engine [here](https://mimic-dash-dot-kind-lab.nn.r.appspot.com/).
+The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module is under releases.
+
+[//]: # (loaded is deployed on Heroku [here]&#40;https://mimic-iv-dash-v2.herokuapp.com/&#41; and on Google App Engine [here]&#40;https://mimic-dash-dot-kind-lab.nn.r.appspot.com/&#41;.)
 
 Featured on [Plotly & Dash 500](https://www.linkedin.com/posts/dave-gibbon-8a6219_python-plotly-dash-activity-6993654939717689344-pYrw)!
 
