@@ -31,6 +31,6 @@ def display_page(href):
         return '404'
 
 
-# run main.py (MIMIC-Dash v2)
+# run main.py
 if __name__ == "__main__":
     app.run_server(debug=True, host="0.0.0.0", port=8080, use_reloader=False)
