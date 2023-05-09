@@ -45,8 +45,8 @@ _fields:
   ontology: !!python/object:ml_collections.config_dict.config_dict.ConfigDict
     _convert_dict: true
     _fields:
-      gpt: true
-      location: kind-lab.appspot.com
+      gpt_support: true
+      location: ontology
       search: pylucene
     _locked: false
     _type_safe: true
