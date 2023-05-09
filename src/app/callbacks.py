@@ -925,26 +925,27 @@ def update_filter_search_dropdown(data, ontology):
         Input("ontology-select", "value"),
         Input("search-btn", "n_clicks"),
         Input("filter-search", "value"),
-        # Input("search-input", "value"),
+        Input("search-input", "value"),
     ],
     [
         State("store-search-results", "data"),
         State("list-suggested-inputs", "children"),
     ]
 )
-def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data):
+def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data,
+                             suggestions):
     if not item:
         return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 
-    # listed_options = [option['props']['value'] for option in suggestions]
+    listed_options = [option['props']['value'] for option in suggestions]
 
     df_ontology = my_searches[ontology_filter].get_all_ontology_no_data()
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
 
-    # if triggered_id == 'search-input.value':
-    #     if search_string not in listed_options:
-    #         raise PreventUpdate
+    if triggered_id == 'search-input.value':
+        if search_string not in listed_options:
+            raise PreventUpdate
 
     if triggered_id == 'filter-search.value':
         filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
