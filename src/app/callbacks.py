@@ -979,7 +979,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
                                             vectorizer=my_indices['vectorizer'],
                                             tf_idf_matrix=my_indices['tf_idf_matrix'])
     elif scorer == 'UMLS':
-        results = generateRelatedOntologies(query, choices, method='UMLS', apikey=config.ontology.umls_apikey)
+        results = generateRelatedOntologies(query, choices, method='UMLS', apikey=os.getenv("UMLS_API_KEY"))
         query_2 = itemsid_dict[item]
         results_2 = generateRelatedOntologies(query_2, choices, method='UMLS',
                                               apikey=config.ontology.umls_apikey)
@@ -1059,22 +1059,23 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
     # GPT ranking
-    # start_time = time.time()
+    if config.ontology.gpt_support:
+        # start_time = time.time()
 
-    # target concept metadata, can add other info
-    metadata = {'examples': get_n_values(item, n=3)}
+        # target concept metadata, can add other info
+        metadata = {'examples': get_n_values(item, n=3)}
 
-    # GPT ranker
-    ranker = RankGPT()
-    ranker.prepare_prompt(target=itemsid_dict[item], choices=data, metadata=metadata)
-    ranker.execute_rank()
-    ranked_ids = json.loads(ranker.response['choices'][0]['message']['content'])
+        # GPT ranker
+        ranker = RankGPT()
+        ranker.prepare_prompt(target=itemsid_dict[item], choices=data, metadata=metadata)
+        ranker.execute_rank()
+        ranked_ids = json.loads(ranker.response['choices'][0]['message']['content'])
 
-    # Sort datatable for display
-    data = [data[i] for i in ranked_ids]
+        # Sort datatable for display
+        data = [data[i] for i in ranked_ids]
 
-    # elapsed_time = time.time() - start_time
-    # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
+        # elapsed_time = time.time() - start_time
+        # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
 
     return data, return_columns, tooltip_outputs, query, data
 
