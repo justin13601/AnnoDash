@@ -925,18 +925,19 @@ def update_filter_search_dropdown(data, ontology):
         Input("ontology-select", "value"),
         Input("search-btn", "n_clicks"),
         Input("filter-search", "value"),
-        # Input("search-input", "value"),
     ],
     [
+        State("search-input", "value"),
         State("store-search-results", "data"),
         State("list-suggested-inputs", "children"),
     ]
 )
-def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data):
+def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data,
+                             suggestions):
     if not item:
         return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 
-    # listed_options = [option['props']['value'] for option in suggestions]
+    listed_options = [option['props']['value'] for option in suggestions]
 
     df_ontology = my_searches[ontology_filter].get_all_ontology_no_data()
 
@@ -1049,6 +1050,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
     # start_time = time.time()
 
     # target concept metadata, can add other info
+    # TODO: add keep sampling until 3 unique values
     metadata = {'examples': []}
     table = df_events.query(f'itemid == {item}')
     if table.empty:
