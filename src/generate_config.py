@@ -5,7 +5,7 @@ from ml_collections import config_dict
 save_directory = 'results-json/chartevents'
 concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
-ontology_directory = 'kind-lab.appspot.com'
+ontology_directory = 'ontology'  # kind-lab.appspot.com
 ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf]
 gpt_support = True
 '''
@@ -30,7 +30,7 @@ def generateConfig():
     cfg.ontology = config_dict.ConfigDict()
     cfg.ontology.location = ontology_directory
     cfg.ontology.search = ontology_search_method
-    cfg.ontology.gpt = gpt_support
+    cfg.ontology.gpt_support = gpt_support
 
     cfg.kwargs = config_dict.ConfigDict()
     cfg.kwargs.title_font = graph_title_font
