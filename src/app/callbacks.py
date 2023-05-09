@@ -840,19 +840,21 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         return curr_data_ontology[0:0], curr_ontology_cols, []
 
     df_ontology = my_searches[ontology].get_all_ontology_no_data()
-
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology.columns)
     else:
         df_data = pd.DataFrame.from_records(curr_data_ontology)
     columns = [{"name": 'CODE', "id": 'CODE'}, {"name": 'LABEL', "id": 'LABEL'}]
+    print(related)
+    print('-------')
+    print(curr_data_related)
     if related:
+        temp_dict = [d for d in curr_data_related if d.get('id') == related['row_id']][0]
         if curr_data_ontology:
-            if curr_data_related[related['row_id']]['CODE'] in [each_selected['CODE'] for each_selected in
-                                                                curr_data_ontology]:
+            if temp_dict['CODE'] in [each_selected['CODE'] for each_selected in curr_data_ontology]:
                 raise PreventUpdate
         df_data = pd.concat(
-            [df_data, df_ontology.loc[df_ontology['CODE'] == curr_data_related[related['row_id']]['CODE']]])
+            [df_data, df_ontology.loc[df_ontology['CODE'] == temp_dict['CODE']]])
 
     def table_gen(each_row):
         try:
