@@ -28,12 +28,7 @@ def generateConfig():
     cfg.ontology = config_dict.ConfigDict()
     cfg.ontology.location = ontology_directory
     cfg.ontology.search = ontology_search_method
-    try:
-        umls_apikey
-    except NameError:
-        pass
-    else:
-        cfg.ontology.umls_apikey = umls_apikey
+    cfg.ontology.gpt = gpt_support
 
     cfg.kwargs = config_dict.ConfigDict()
     cfg.kwargs.title_font = graph_title_font
