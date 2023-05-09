@@ -945,7 +945,6 @@ def update_filter_search_dropdown(data, ontology):
 )
 def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data,
                              suggestions):
-    # TODO: optimize loading, try loading component on the datatable, if bad, set loading on search btn
     if not item:
         return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 

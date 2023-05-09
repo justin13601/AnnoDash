@@ -448,25 +448,21 @@ def serve_layout():
                                                  ),
                                              ]),
                                     html.Div(style={'margin-top': '15px'}),
-                                    html.Div([
-                                        dcc.Dropdown(
-                                            id='filter-search',
-                                            multi=True,
-                                            placeholder="Select Class...",
-                                            style={'border-radius': 0, 'color': 'black'},
-                                        ),
-                                    ],
-                                        style={'height': '135px', 'overflow-y': 'auto', 'background-color': 'white'}),
-                                    dcc.Loading(
-                                        id="related-loading",
-                                        type="dot",
-                                        color='#2c89f2',
-                                        children=[
-                                            html.Button(id="search-btn", children="Search", n_clicks=0,
-                                                        style={'width': '100%', 'color': 'grey', 'margin-top': '15px'},
-                                                        disabled=False),
+                                    html.Div(
+                                        [
+                                            dcc.Dropdown(
+                                                id='filter-search',
+                                                multi=True,
+                                                placeholder="Select Class...",
+                                                style={'border-radius': 0, 'color': 'black'},
+                                            ),
                                         ],
-                                        style={'margin-top': '20px'}
+                                        style={'height': '135px', 'overflow-y': 'auto', 'background-color': 'white'}
+                                    ),
+                                    html.Button(
+                                        id="search-btn", children="Search", n_clicks=0,
+                                        style={'width': '100%', 'color': 'grey', 'margin-top': '15px'},
+                                        disabled=False
                                     ),
                                 ],
                             ),
@@ -512,100 +508,107 @@ def serve_layout():
                                                 id="related-datatable-outer",
                                                 className='related-datatable',
                                                 hidden=False,
-                                                children=dash_table.DataTable(id='related-datatable',
-                                                                              data=None,
-                                                                              columns=[],
-                                                                              tooltip_data=[],
-                                                                              sort_action='native',
-                                                                              fixed_rows={'headers': True},
-                                                                              filter_action='native',
-                                                                              filter_options={
-                                                                                  'case': 'insensitive'},
-                                                                              style_data={
-                                                                                  'width': 'auto',
-                                                                                  'maxWidth': '100px',
-                                                                                  'minWidth': '100px',
-                                                                                  'whiteSpace': 'normal'
-                                                                              },
-                                                                              style_table={
-                                                                                  'height': '240px',
-                                                                                  'overflowY': 'auto'
-                                                                              },
-                                                                              style_cell={
-                                                                                  'textAlign': 'left',
-                                                                                  'backgroundColor': 'transparent'
-                                                                              },
-                                                                              style_header={
-                                                                                  'fontWeight': 'bold',
-                                                                                  'color': '#2c8cff'
-                                                                              },
-                                                                              style_data_conditional=[
-                                                                                  {  # 'active' | 'selected'
-                                                                                      'if': {'state': 'active'},
-                                                                                      'backgroundColor': 'transparent',
-                                                                                      'border': '1px solid lightgray'
-                                                                                  },
-                                                                                  {
-                                                                                      'if': {
-                                                                                          'column_id': 'RELEVANCE'},
-                                                                                      'width': '1%',
-                                                                                      'maxWidth': '1%',
-                                                                                      'minWidth': '1%',
-                                                                                  },
-                                                                                  {
-                                                                                      'if': {
-                                                                                          'column_id': 'CODE'},
-                                                                                      'width': '10%',
-                                                                                      'maxWidth': '10%',
-                                                                                      'minWidth': '10%',
-                                                                                  }
-                                                                              ],
-                                                                              # page_size=20,
-                                                                              # virtualization=True,
-                                                                              merge_duplicate_headers=True,
-                                                                              style_as_list_view=True,
-                                                                              css=[
-                                                                                  {
-                                                                                      'selector': '.previous-page, .next-page, '
-                                                                                                  '.first-page, .last-page',
-                                                                                      'rule': 'color: #2c8cff'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.previous-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.next-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.first-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.last-page:hover',
-                                                                                      'rule': 'color: #002552'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.column-header--sort:hover',
-                                                                                      'rule': 'color: #2c8cff'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': 'input.dash-filter--case--insensitive',
-                                                                                      'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.dash-tooltip',
-                                                                                      'rule': 'border-width: 0px; background-color: #000000;'
-                                                                                  },
-                                                                                  {
-                                                                                      'selector': '.dash-table-tooltip',
-                                                                                      'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
-                                                                                  }
-                                                                              ],
-                                                                              tooltip_delay=0,
-                                                                              tooltip_duration=None,
-                                                                              )
+                                                children=dcc.Loading(
+                                                    id='related-datatable-loading',
+                                                    type="dot",
+                                                    color='#2c89f2',
+                                                    children=[
+                                                        dash_table.DataTable(id='related-datatable',
+                                                                             data=None,
+                                                                             columns=[],
+                                                                             tooltip_data=[],
+                                                                             sort_action='native',
+                                                                             fixed_rows={'headers': True},
+                                                                             filter_action='native',
+                                                                             filter_options={
+                                                                                 'case': 'insensitive'},
+                                                                             style_data={
+                                                                                 'width': 'auto',
+                                                                                 'maxWidth': '100px',
+                                                                                 'minWidth': '100px',
+                                                                                 'whiteSpace': 'normal'
+                                                                             },
+                                                                             style_table={
+                                                                                 'height': '240px',
+                                                                                 'overflowY': 'auto'
+                                                                             },
+                                                                             style_cell={
+                                                                                 'textAlign': 'left',
+                                                                                 'backgroundColor': 'transparent'
+                                                                             },
+                                                                             style_header={
+                                                                                 'fontWeight': 'bold',
+                                                                                 'color': '#2c8cff'
+                                                                             },
+                                                                             style_data_conditional=[
+                                                                                 {  # 'active' | 'selected'
+                                                                                     'if': {'state': 'active'},
+                                                                                     'backgroundColor': 'transparent',
+                                                                                     'border': '1px solid lightgray'
+                                                                                 },
+                                                                                 {
+                                                                                     'if': {
+                                                                                         'column_id': 'RELEVANCE'},
+                                                                                     'width': '1%',
+                                                                                     'maxWidth': '1%',
+                                                                                     'minWidth': '1%',
+                                                                                 },
+                                                                                 {
+                                                                                     'if': {
+                                                                                         'column_id': 'CODE'},
+                                                                                     'width': '10%',
+                                                                                     'maxWidth': '10%',
+                                                                                     'minWidth': '10%',
+                                                                                 }
+                                                                             ],
+                                                                             # page_size=20,
+                                                                             # virtualization=True,
+                                                                             merge_duplicate_headers=True,
+                                                                             style_as_list_view=True,
+                                                                             css=[
+                                                                                 {
+                                                                                     'selector': '.previous-page, .next-page, '
+                                                                                                 '.first-page, .last-page',
+                                                                                     'rule': 'color: #2c8cff'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.previous-page:hover',
+                                                                                     'rule': 'color: #002552'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.next-page:hover',
+                                                                                     'rule': 'color: #002552'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.first-page:hover',
+                                                                                     'rule': 'color: #002552'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.last-page:hover',
+                                                                                     'rule': 'color: #002552'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.column-header--sort:hover',
+                                                                                     'rule': 'color: #2c8cff'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': 'input.dash-filter--case--insensitive',
+                                                                                     'rule': 'border-color: #2c8cff !important; border-radius: 3px; border-style: solid; border-width: 2px; color: #2c8cff !important;'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.dash-tooltip',
+                                                                                     'rule': 'border-width: 0px; background-color: #000000;'
+                                                                                 },
+                                                                                 {
+                                                                                     'selector': '.dash-table-tooltip',
+                                                                                     'rule': 'background-color: #000000; color: #ffffff; border-radius: 5px; margin-top: 5px; line-height: 15px ; width: fit-content; max-width: 25px; min-width: unset;'
+                                                                                 }
+                                                                             ],
+                                                                             tooltip_delay=0,
+                                                                             tooltip_duration=None,
+                                                                             )
+                                                    ]
+                                                )
                                             ),
                                         ]
                                     ),
@@ -627,4 +630,3 @@ def serve_layout():
             ),
         ],
     )
-
