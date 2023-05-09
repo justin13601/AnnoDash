@@ -13,7 +13,7 @@ You must respond in the format of a list of integers, where the integers are row
 
 
 For example:
-The target clinical concept is "CONCEPT". Typical values of the concept include: EX1, EX2, EX3.
+The target clinical concept is "CONCEPT". Example values of this concept include: EX1, EX2, EX3.
 
 Input:
 1,12345-6,DESCRIPTION 1
@@ -25,7 +25,7 @@ Output:
 
 ------
 
-The target clinical concept is "{target}". Typical values of the concept include: {examples}.
+The target clinical concept is "{target}". Example values of this concept include: {examples}.
                        
 Input:
 {choices}
