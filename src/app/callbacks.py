@@ -3,8 +3,9 @@ import os
 import re
 import sys
 # import csv
-# import time
+import time
 import json
+
 import yaml
 import errno
 import base64
@@ -44,6 +45,7 @@ from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
 from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
+from src.rank import RankGPT
 from src.app.app import app
 
 
@@ -51,7 +53,7 @@ from src.app.app import app
 # DATA & HELPER FUNCTIONS #
 ######################################################################################################
 
-class MIMICDashError(Exception):
+class AnnoDashError(Exception):
     pass
 
 
@@ -182,7 +184,7 @@ def set_up_search(ontologies: list) -> (dict, dict):
         except OSError:
             raise OSError("Indices not found.")
         except:
-            raise MIMICDashError
+            raise AnnoDashError
     elif config.ontology.search == 'tf-idf':
         try:
             print("Loading TF-IDF Index...")
@@ -194,7 +196,7 @@ def set_up_search(ontologies: list) -> (dict, dict):
         except FileNotFoundError:
             raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
         except:
-            raise MIMICDashError
+            raise AnnoDashError
     return search_objects, index_objects
 
 
@@ -246,7 +248,7 @@ def generate_scorer_options(ontology):
     elif config.ontology.search == 'pylucene':
         options = ["pylucene"]
     else:
-        raise MIMICDashError
+        raise AnnoDashError
 
     scorer_options = [{"label": each_scorer.replace('_', ' '), "value": each_scorer} for each_scorer in options]
     return scorer_options
@@ -1014,10 +1016,10 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         col_id = df_data.pop('id')
         df_data.insert(0, col_id.name, col_id)
     else:
-        raise MIMICDashError
+        raise AnnoDashError
 
-    if len(df_data.index) > 250:
-        df_data = df_data.iloc[:250]
+    if len(df_data.index) > 50:
+        df_data = df_data.iloc[:50]
 
     scores = df_data[scorer]
 
@@ -1043,6 +1045,31 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             'value': f'**{tooltip_dict[each_value]}**',
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
+
+    # GPT ranking
+    # start_time = time.time()
+
+    # target concept metadata, can add other info
+    metadata = {'examples': []}
+    table = df_events.query(f'itemid == {item}')
+    if table.empty:
+        metadata['examples'].append('None')
+    else:
+        typical_data = table.sample(n=3)
+        for index, row in typical_data.iterrows():
+            metadata['examples'].append(f"{row['value']}{row['valueuom']}")
+
+    # GPT ranker
+    ranker = RankGPT()
+    ranker.prepare_prompt(target=itemsid_dict[item], choices=data, metadata=metadata)
+    ranker.execute_rank()
+    ranked_ids = json.loads(ranker.response['choices'][0]['message']['content'])
+
+    # Sort datatable for display
+    data = [data[i] for i in ranked_ids]
+
+    # elapsed_time = time.time() - start_time
+    # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
 
     return data, return_columns, tooltip_outputs, query, data
 
