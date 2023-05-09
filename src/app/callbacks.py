@@ -546,6 +546,17 @@ def filter_datatable(data, filter_search, scorer, ontology_filter):
     return new_data, tooltip_outputs
 
 
+def get_n_values(item, n):
+    table = df_events.query(f'itemid == {item}')
+    if table.empty:
+        n_values = ['None']
+    else:
+        table['value_with_uom'] = table['value'] + table['valueuom']
+        top_in_table = table['value_with_uom'].value_counts().nlargest(n)
+        n_values = top_in_table.index.values
+    return n_values
+
+
 ######################################################################################################
 # CALLBACKS #
 ######################################################################################################
@@ -934,6 +945,7 @@ def update_filter_search_dropdown(data, ontology):
 )
 def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search, search_string, init_data,
                              suggestions):
+    # TODO: optimize loading, try loading component on the datatable, if bad, set loading on search btn
     if not item:
         return None, [{'name': 'Invalid Source Item', 'id': 'invalid'}], [], '', None
 
@@ -1050,15 +1062,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
     # start_time = time.time()
 
     # target concept metadata, can add other info
-    # TODO: add keep sampling until 3 unique values
-    metadata = {'examples': []}
-    table = df_events.query(f'itemid == {item}')
-    if table.empty:
-        metadata['examples'].append('None')
-    else:
-        typical_data = table.sample(n=3)
-        for index, row in typical_data.iterrows():
-            metadata['examples'].append(f"{row['value']}{row['valueuom']}")
+    metadata = {'examples': get_n_values(item, n=3)}
 
     # GPT ranker
     ranker = RankGPT()
