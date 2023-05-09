@@ -845,9 +845,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     else:
         df_data = pd.DataFrame.from_records(curr_data_ontology)
     columns = [{"name": 'CODE', "id": 'CODE'}, {"name": 'LABEL', "id": 'LABEL'}]
-    print(related)
-    print('-------')
-    print(curr_data_related)
+
     if related:
         temp_dict = [d for d in curr_data_related if d.get('id') == related['row_id']][0]
         if curr_data_ontology:
