@@ -7,8 +7,9 @@ concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'kind-lab.appspot.com'
 ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf]
-# umls_apikey = 'please load your API key from an environment variable or secret management service'
-# gpt_apikey = 'please load your API key from an environment variable or secret management service'
+gpt_support = True
+# UMLS_API_KEY = 'please load your API key from an environment variable or secret management service if ontology_search_method -> umls'
+# OPENAI_API_KEY = 'please load your API key from an environment variable or secret management service if gpt_support -> True'
 
 graph_title_font = 'verdana'
 graph_title_color = 'Black'
