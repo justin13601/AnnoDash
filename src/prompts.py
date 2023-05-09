@@ -32,7 +32,3 @@ Input:
 
 Output:
 """
-
-'''
-Ranking is fine but issue with the initial retrieve using pylucene for top 50? For ex, Ectopy Type 1’s top 50 only includes Ventricular ectopics and Ectopic pregnancy. Even though GPT ranks them highly I assume there are other better codes that weren’t retrieved by the top 50? 
-'''
