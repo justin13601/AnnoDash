@@ -45,7 +45,7 @@ from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
 from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
-from src.rank import RankGPT
+from src.rank import RankGPT, RankCohere
 from src.app.app import app
 
 
@@ -1076,10 +1076,17 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         # elapsed_time = time.time() - start_time
         # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
     elif config.ontology.LLM == 'cohere':
-        start_time = time.time()
+        # start_time = time.time()
 
-        elapsed_time = time.time() - start_time
-        print('--------Cohere Ranking Time:', elapsed_time, 'seconds--------')
+        ranker = RankCohere()
+        ranker.prepare_ranker(target=itemsid_dict[item], choices=data)
+        ranker.execute_rank()
+        ranked_desc = ranker.result
+
+        data = sorted(data, key=lambda x: ranked_desc.index(x['LABEL']))
+
+        # elapsed_time = time.time() - start_time
+        # print('--------Cohere Ranking Time:', elapsed_time, 'seconds--------')
 
     return data, return_columns, tooltip_outputs, query, data
 
