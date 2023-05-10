@@ -3,7 +3,7 @@ import time
 import openai
 
 
-def main():
+def main(system_prompt, user_message):
     start_time = time.time()
     # Load your API key from an environment variable or secret management service
     openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -13,10 +13,16 @@ def main():
         model=model,
         messages=[
             {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
                 "role": "user",
-                "content": 'Please list 50 SNOMED CT codes'
+                "content": user_message
             }
-        ]
+        ],
+        temperature=0,
+        max_tokens=2000,
     )
 
     print(response)
@@ -26,4 +32,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    system_prompt = """
+    
+    """
+
+    user_message = """
+    
+    """
+
+    main(system_prompt, user_message)
