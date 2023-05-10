@@ -7,10 +7,11 @@ concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'ontology'  # kind-lab.appspot.com
 ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf]
-gpt_support = True
+LLM = 'gpt'  # [False, 'gpt', 'cohere']
 '''
 UMLS_API_KEY = 'please load your API key from an environment variable or secret management service if ontology_search_method -> umls'
-OPENAI_API_KEY = 'please load your API key from an environment variable or secret management service if gpt_support -> True
+OPENAI_API_KEY = 'please load your API key from an environment variable or secret management service if LLM -> gpt
+COHERE_API_KEY = 'please load your API key from an environment variable or secret management service if LLM -> cohere
 '''
 
 graph_title_font = 'verdana'
@@ -30,7 +31,7 @@ def generateConfig():
     cfg.ontology = config_dict.ConfigDict()
     cfg.ontology.location = ontology_directory
     cfg.ontology.search = ontology_search_method
-    cfg.ontology.gpt_support = gpt_support
+    cfg.ontology.LLM = LLM
 
     cfg.kwargs = config_dict.ConfigDict()
     cfg.kwargs.title_font = graph_title_font
