@@ -1058,7 +1058,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
     # GPT ranking
-    if config.ontology.gpt_support:
+    if config.ontology.LLM == 'gpt':
         # start_time = time.time()
 
         # target concept metadata, can add other info
@@ -1075,6 +1075,11 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
 
         # elapsed_time = time.time() - start_time
         # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
+    elif config.ontology.LLM == 'cohere':
+        start_time = time.time()
+
+        elapsed_time = time.time() - start_time
+        print('--------Cohere Ranking Time:', elapsed_time, 'seconds--------')
 
     return data, return_columns, tooltip_outputs, query, data
 
