@@ -1,6 +1,7 @@
 import os
 import time
 import openai
+import cohere
 import json
 from src.prompts import *
 from functools import lru_cache
@@ -53,4 +54,28 @@ class RankGPT:
     def execute_rank(self):
         openai.api_key = self.api_key
         self.response = get_response(self.model, self.system_prompt, self.user_prompt)
+        return
+
+
+class RankCohere:
+    def __init__(self):
+        # Load your API key from an environment variable or secret management service
+        self.api_key = os.getenv("COHERE_API_KEY")
+        self.model = "rerank-multilingual-v2.0"
+        self.query = ''
+        self.documents = []
+        self.result = []
+
+    def prepare_ranker(self, target, choices):
+        self.query = target
+        self.documents = [d['LABEL'] for d in choices]
+        return
+
+    def execute_rank(self):
+        co = cohere.Client(self.api_key)
+        rerank_hits = co.rerank(query=self.query, documents=self.documents, top_n=len(self.documents), model=self.model)
+
+        for hit in rerank_hits:
+            self.result.append(self.documents[hit.index])
+
         return
