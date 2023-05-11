@@ -6,8 +6,8 @@ save_directory = 'results-json/chartevents'
 concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'ontology'  # kind-lab.appspot.com
-ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf, elastic]
-LLM = 'cohere'  # [False, 'gpt', 'cohere']
+ontology_search_method = 'elastic'  # [sqlite, pylucene, tf-idf, elastic]
+LLM = 'cohere'  # [None, 'gpt', 'cohere']
 '''
 UMLS_API_KEY = 'please load your API key from an environment variable or secret management service if ontology_search_method -> umls'
 OPENAI_API_KEY = 'please load your API key from an environment variable or secret management service if LLM -> gpt
@@ -43,8 +43,8 @@ def generateConfig():
     cfg.kwargs.spikes = graph_show_spikes
 
     app_labels_dictionary = {
-        'app': 'mimic-iv-dash',
-        'version': 2.0
+        'app': 'AnnoDash',
+        'version': 3.1
     }
     metadata_dictionary = {
         'name': 'development',
