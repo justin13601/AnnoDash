@@ -77,5 +77,4 @@ class RankCohere:
 
         for hit in rerank_hits:
             self.result.append(self.documents[hit.index])
-
         return
