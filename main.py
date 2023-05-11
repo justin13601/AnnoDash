@@ -1,3 +1,5 @@
+import traceback
+
 from dash import Dash, html, dcc, dash_table, ALL, ctx
 from dash.dependencies import State, Input, Output, ClientsideFunction
 from src.app.app import app
@@ -26,9 +28,11 @@ app.layout = html.Div(
 def display_page(href):
     try:
         return serve_layout()
-    except:
+    except Exception:
         print('Something went wrong!')
-        return '404'
+        print('----------')
+        traceback.print_exc()
+        return '404 - Something went wrong! Please check console.'
 
 
 # run main.py
