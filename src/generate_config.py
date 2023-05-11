@@ -6,8 +6,8 @@ save_directory = 'results-json/chartevents'
 concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'ontology'  # kind-lab.appspot.com
-ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf]
-LLM = 'gpt'  # [False, 'gpt', 'cohere']
+ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf, elastic]
+LLM = 'cohere'  # [False, 'gpt', 'cohere']
 '''
 UMLS_API_KEY = 'please load your API key from an environment variable or secret management service if ontology_search_method -> umls'
 OPENAI_API_KEY = 'please load your API key from an environment variable or secret management service if LLM -> gpt
