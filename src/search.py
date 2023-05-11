@@ -175,9 +175,10 @@ class SearchPyLucene:
 
 # TODO: look into elastic search
 class SearchElastic:
-    def __init__(self):
+    def __init__(self, ontology):
         self.connection = None
         self.es = None
+        self.index = ontology
 
     def prepare_search(self):
         self.connection = "http://localhost:9200"
@@ -186,14 +187,17 @@ class SearchElastic:
 
     def execute_search(self, query):
         response = self.es.search(
-            index="movies",
+            index=self.index,
             query={
                 "query_string": {
                     "query": query,
                 },
             },
         )
-        return response.body['hits']['hits']
+        df_result = pd.DataFrame.from_records(response.body['hits']['hits'], columns=["_score", "_source"])
+        df_source = pd.json_normalize(df_result["_source"])
+        df_source["elastic"] = df_result["_score"]
+        return df_source
 
 
 # TODO: Add other search methods (tf-idf etc)
