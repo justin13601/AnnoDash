@@ -44,7 +44,7 @@ import sqlite3
 from google.cloud import storage, bigquery
 
 from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
-from src.search import SearchSQLite, SearchPyLucene  # , SearchTF_IDF
+from src.search import SearchSQLite, SearchPyLucene, SearchElastic, SearchTF_IDF
 from src.rank import RankGPT, RankCohere
 from src.app.app import app
 
@@ -185,6 +185,17 @@ def set_up_search(ontologies: list) -> (dict, dict):
             raise OSError("Indices not found.")
         except:
             raise AnnoDashError
+    elif config.ontology.search == 'elastic':
+        try:
+            print("If you haven't, please run generate_elastic_index.py after creating local ElasticSearch cluster.")
+            print("Loading Elastic Search Indices...")
+            for each in list_of_ontologies:
+                myindexer = SearchElastic(each)
+                myindexer.prepare_search()
+                index_objects[each] = myindexer
+            print("Done.")
+        except:
+            raise AnnoDashError
     elif config.ontology.search == 'tf-idf':
         try:
             print("Loading TF-IDF Index...")
@@ -247,6 +258,8 @@ def generate_scorer_options(ontology):
         options = ["fts5"]
     elif config.ontology.search == 'pylucene':
         options = ["pylucene"]
+    elif config.ontology.search == 'elastic':
+        options = ["elastic"]
     else:
         raise AnnoDashError
 
@@ -1018,6 +1031,20 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         try:
             df_data = my_indices[ontology_filter].execute_search(query)
         except lucene.JavaError:
+            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
+            df_data = my_indices[ontology_filter].execute_search(query)
+
+        if df_data.empty:
+            return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
+        df_data['id'] = np.arange(len(df_data['CODE']))
+        col_id = df_data.pop('id')
+        df_data.insert(0, col_id.name, col_id)
+    elif scorer == 'elastic':
+        if triggered_id == 'search-btn.n_clicks' or search_string in listed_options:
+            query = search_string
+        try:
+            df_data = my_indices[ontology_filter].execute_search(query)
+        except:
             query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
             df_data = my_indices[ontology_filter].execute_search(query)
 
