@@ -8,7 +8,7 @@ import lucene
 from org.apache.lucene import queryparser, search
 from org.apache.lucene.index import IndexWriterConfig, IndexWriter, DirectoryReader
 from org.apache.lucene.store import SimpleFSDirectory
-from org.apache.lucene.analysis import Analyzer
+from org.apache.lucene.analysis import Analyzer, StopwordAnalyzerBase
 from org.apache.lucene.analysis.standard import StandardTokenizer
 from org.apache.lucene.analysis.core import WhitespaceAnalyzer, LowerCaseFilter, WhitespaceTokenizer, StopFilter, \
     StopAnalyzer
@@ -18,6 +18,9 @@ from org.apache.pylucene.analysis import PythonAnalyzer
 from google.cloud import storage, bigquery
 
 from java.nio.file import Paths
+from java.util import Arrays, HashSet
+
+from elasticsearch import Elasticsearch
 
 
 class SearchSQLite:
@@ -61,11 +64,12 @@ class SearchSQLite:
         return df_result
 
 
+# TODO: stopwords (nltk?) or tokenize and remove top 200
 class PorterStemmerAnalyzer(PythonAnalyzer):
     def __init__(self):
         PythonAnalyzer.__init__(self)
 
-    # camelCase to override java function?
+    #  Override java function
     def createComponents(self, fieldName):
         source = StandardTokenizer()
         result = LowerCaseFilter(source)
@@ -127,6 +131,7 @@ class SearchPyLucene:
             results = pd.DataFrame()
         return results
 
+
 # not used currently
 # class SearchLupyne:
 #     def __init__(self, results=None, indexer=None):
@@ -167,8 +172,33 @@ class SearchPyLucene:
 #             self.results = pd.DataFrame()
 #
 #
-# class SearchTF_IDF:
-#     def __init__(self, ngram=None, vectorizer=None, matrix=None):
-#         self.ngram = ngram
-#         self.vectorizer = vectorizer
-#         self.matrix = matrix
+
+# TODO: look into elastic search
+class SearchElastic:
+    def __init__(self):
+        self.connection = None
+        self.es = None
+
+    def prepare_search(self):
+        self.connection = "http://localhost:9200"
+        self.es = Elasticsearch(self.connection)
+        return
+
+    def execute_search(self, query):
+        response = self.es.search(
+            index="movies",
+            query={
+                "query_string": {
+                    "query": query,
+                },
+            },
+        )
+        return response.body['hits']['hits']
+
+
+# TODO: Add other search methods (tf-idf etc)
+class SearchTF_IDF:
+    def __init__(self, ngram=None, vectorizer=None, matrix=None):
+        self.ngram = ngram
+        self.vectorizer = vectorizer
+        self.matrix = matrix
