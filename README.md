@@ -179,8 +179,8 @@ OR:
 ### LLM & API Support
 
 The modular structure of AnnoDash enables users to modify its query and ranking components easily. Currently, the
-dashboard already supports querying using SQLite's FTS5 (Full Text Search 5), ElasticSearch, and simple document search
-using TF-IDF and/or similarity ratios. Ranking is currently available via OpenAI's GPT-3.5 or through CohereAI's
+dashboard already supports querying using PyLucene, SQLite's FTS5 (Full Text Search 5), ElasticSearch, and simple
+document search using TF-IDF and/or similarity ratios. Ranking is currently available via OpenAI's GPT-3.5 or through CohereAI's
 re-ranking API endpoint.
 
 The configuration desired can be specified in ```/src/generate_config.py```.
@@ -188,6 +188,7 @@ The configuration desired can be specified in ```/src/generate_config.py```.
 #### Using ElasticSearch:
 
 To utilize ElasticSearch, run a local ElasticSearch cluster via Docker:
+
    ```sh
    docker run --rm -p 9200:9200 -p 9300:9300 -e "xpack.security.enabled=false" -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:8.7.0
    ```
