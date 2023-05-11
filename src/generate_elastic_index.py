@@ -5,6 +5,8 @@ from elasticsearch.helpers import bulk
 
 from src.search import SearchSQLite
 
+from src.stopwords import *
+
 
 def query_ontology(ontology):
     database_file = f'{ontology}.db'
@@ -15,8 +17,7 @@ def query_ontology(ontology):
     return df_ontology
 
 
-ontology_path = "../ontology"
-load = False
+STOPWORDS = get_stopwords()
 
 connection = "http://localhost:9200"
 es = Elasticsearch(connection)
@@ -27,6 +28,29 @@ startTime = time.time()
 ######################################################################
 
 df_loinc = query_ontology('loinc')
+
+mappings = {
+    "properties": {
+        "CODE": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "LABEL": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "SYSTEM": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "SCALE_TYP": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "METHOD_TYP": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "CLASS": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+    }
+}
+settings = {
+    'analysis': {
+        'analyzer': {
+            'extended_snowball_analyzer': {
+                'type': 'snowball',
+                'stopwords': STOPWORDS,
+            },
+        },
+    },
+}
+
+es.indices.create(index="loinc", mappings=mappings, settings=settings)
 
 bulk_data = []
 for i, row in df_loinc.iterrows():
@@ -54,6 +78,28 @@ print(es.cat.count(index="loinc", format="json"))
 ######################################################################
 
 df_snomed = query_ontology('snomed')
+
+mappings = {
+    "properties": {
+        "CODE": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "LABEL": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "EFFECTIVE_TIME": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "HIERARCHY": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+        "SEMANTIC_TAG": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+    }
+}
+settings = {
+    'analysis': {
+        'analyzer': {
+            'extended_snowball_analyzer': {
+                'type': 'snowball',
+                'stopwords': STOPWORDS,
+            },
+        },
+    },
+}
+
+es.indices.create(index="snomed", mappings=mappings, settings=settings)
 
 bulk_data = []
 for i, row in df_snomed.iterrows():
