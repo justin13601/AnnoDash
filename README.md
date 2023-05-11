@@ -14,7 +14,7 @@
 
   <p align="center">
 A Clinical Terminology Annotation Dashboard    <br />
-    (Supports LOINC®, SNOMED-CT)
+    (Supports LOINC®, SNOMED CT)
   </p>
 </div>
 
@@ -49,16 +49,18 @@ A Clinical Terminology Annotation Dashboard    <br />
 
 AnnoDash is a deployable clinical terminology annotation dashboard developed primarily in Python using Plotly Dash. It
 allows users to annotate concepts/items on a straightforward interface supported by visualizations of associated
-patient data and natural language processing algorithms.
+patient data and natural language processing.
 
-The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Extensions, such as machine
-learning-powered plugins and search algorithms, can be easily added.
+The dashboard seeks to provide a flexible and customizable solution for clinical annotation. Recent large language
+models (LLMs) are supported to aid the annotation process. Additional extensions, such as machine learning-powered
+plugins and search algorithms, can be easily added.
 
 The latest demo with ```chartevents``` & ```d_items``` from the MIMIC-IV v2.0 ```icu``` module is under releases.
 
 [//]: # (loaded is deployed on Heroku [here]&#40;https://mimic-iv-dash-v2.herokuapp.com/&#41; and on Google App Engine [here]&#40;https://mimic-dash-dot-kind-lab.nn.r.appspot.com/&#41;.)
 
-Featured on [Plotly & Dash 500](https://www.linkedin.com/posts/dave-gibbon-8a6219_python-plotly-dash-activity-6993654939717689344-pYrw)!
+Featured
+on [Plotly & Dash 500](https://www.linkedin.com/posts/dave-gibbon-8a6219_python-plotly-dash-activity-6993654939717689344-pYrw)!
 
 #### Overview
 
@@ -80,7 +82,7 @@ records over a 96-hour window. Both numerical and text data are supported.
 #### Annotation
 
 The user annotates target items by first selecting the to-be annotated item in the first dropdown. The following
-dropdown allows users to select the target ontology (LOINC® or SNOMED-CT). Code suggestions are then generated in the
+dropdown allows users to select the target ontology (LOINC® or SNOMED CT). Code suggestions are then generated in the
 bottom table. Users are able to select their target annotation and by submitting, the appropriate data is saved
 in ```.json``` files.
 
@@ -96,7 +98,8 @@ ratio.
 
 ## Getting Started
 
-Below are steps to download, install, and run the dashboard locally. Leave all configuration fields the same to run the demo.
+Below are steps to download, install, and run the dashboard locally. Leave all configuration fields the same to run the
+demo.
 
 ### Requirements
 
@@ -123,9 +126,9 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
 
 1. Clone repository:
    ```sh
-   git clone https://github.com/justin13601/mimic-iv-dash.git
+   git clone https://github.com/justin13601/AnnoDash.git
    ```
-   
+
 2. Edit ```/src/generate_config.py``` with desired directories and configurations and run:
     ```sh
    python3 generate_config.py
@@ -139,21 +142,22 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
    ```
 
 OR:
+
 3. Build Docker image:
    ```sh
-   docker build -t mimic-iv-dash .
+   docker build -t AnnoDash .
    ```
-   
+
 4. Run container:
    ```sh
-   docker run -p 8080:80 mimic-iv-dash
+   docker run -p 8080:80 AnnoDash
    ```
 
 #### Manual:
 
 1. Clone repository:
    ```sh
-   git clone https://github.com/justin13601/mimic-iv-dash.git
+   git clone https://github.com/justin13601/AnnoDash.git
    ```
 
 2. Install requirements:
@@ -163,7 +167,7 @@ OR:
 
 3. Install PyLucene and associated Java libraries.
     ```sh
-    # shell script to install jcc and pylucene
+    # use shell scripts to install jcc and pylucene
     ```
 
 4. Edit ```/src/generate_config.py``` with desired directories and configurations and run:
@@ -171,6 +175,26 @@ OR:
    python3 generate_config.py
     ```
    This creates the ```config.yaml``` required by the dashboard.
+
+### LLM & API Support
+
+The modular structure of AnnoDash enables users to modify its query and ranking components easily. Currently, the
+dashboard already supports querying using SQLite's FTS5 (Full Text Search 5), ElasticSearch, and simple document search
+using TF-IDF and/or similarity ratios. Ranking is currently available via OpenAI's GPT-3.5 or through CohereAI's
+re-ranking API endpoint.
+
+The configuration desired can be specified in ```/src/generate_config.py```.
+
+#### Using ElasticSearch:
+
+To utilize ElasticSearch, run a local ElasticSearch cluster via Docker:
+   ```sh
+   docker run --rm -p 9200:9200 -p 9300:9300 -e "xpack.security.enabled=false" -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:8.7.0
+   ```
+
+#### Using APIs:
+
+Please define your API keys (OpenAI, CohereAI, NLM UMLS) as environment variables prior to running the dashboard.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -226,7 +250,7 @@ Demo data and respective licenses are included in the [demo-data folder](/demo-d
 
 - LOINC® Ontology Codes are available at https://loinc.org.
 
-- SNOMED-CT Ontology Codes are available at https://www.nlm.nih.gov/healthit/snomedct/index.html.
+- SNOMED CT Ontology Codes are available at https://www.nlm.nih.gov/healthit/snomedct/index.html.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
