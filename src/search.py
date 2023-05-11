@@ -23,6 +23,10 @@ from java.util import Arrays, HashSet
 from elasticsearch import Elasticsearch
 
 
+class SearchEngineNotAvailable(Exception):
+    pass
+
+
 class SearchSQLite:
     def __init__(self, ontology, path_to_db):
         self.ontology = ontology
@@ -74,6 +78,8 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
         source = StandardTokenizer()
         result = LowerCaseFilter(source)
         result = PorterStemFilter(result)
+        # stopfilter: https://lucene.apache.org/core/8_11_0/core/index.html
+        # result = StopFilter(result, StopwordAnalyzerBase.stopwords)
         return Analyzer.TokenStreamComponents(source, result)
 
 
@@ -173,7 +179,6 @@ class SearchPyLucene:
 #
 #
 
-# TODO: look into elastic search
 class SearchElastic:
     def __init__(self, ontology):
         self.connection = None
@@ -186,17 +191,21 @@ class SearchElastic:
         return
 
     def execute_search(self, query):
-        response = self.es.search(
-            index=self.index,
-            query={
-                "query_string": {
-                    "query": query,
+        try:
+            response = self.es.search(
+                index=self.index,
+                query={
+                    "query_string": {
+                        "query": query,
+                    },
                 },
-            },
-        )
+                size='50',
+            )
+        except:
+            raise SearchEngineNotAvailable('Please check your search engine.')
         df_result = pd.DataFrame.from_records(response.body['hits']['hits'], columns=["_score", "_source"])
         df_source = pd.json_normalize(df_result["_source"])
-        df_source["elastic"] = df_result["_score"]
+        df_source["elastic"] = df_result["_score"].round(2)
         return df_source
 
 
