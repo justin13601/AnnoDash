@@ -4,15 +4,15 @@ import lucene
 from org.apache.lucene import queryparser, search
 from org.apache.lucene.index import IndexWriterConfig, IndexWriter, DirectoryReader
 from org.apache.lucene.store import SimpleFSDirectory
-from org.apache.lucene.analysis import Analyzer
+from org.apache.lucene.analysis import Analyzer, StopwordAnalyzerBase
 from org.apache.lucene.analysis.standard import StandardTokenizer
-from org.apache.lucene.analysis.core import WhitespaceAnalyzer, LowerCaseFilter, WhitespaceTokenizer, StopFilter, \
-    StopAnalyzer
+from org.apache.lucene.analysis.core import WhitespaceAnalyzer, LowerCaseFilter, WhitespaceTokenizer, StopFilter
 from org.apache.lucene.analysis.en import PorterStemFilter
 from org.apache.lucene.document import Document, Field, TextField
 from org.apache.pylucene.analysis import PythonAnalyzer
 
 from java.nio.file import Paths
+from java.util import Arrays, HashSet
 
 from src.search import SearchSQLite
 
@@ -30,10 +30,19 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
     def __init__(self):
         PythonAnalyzer.__init__(self)
 
+    @staticmethod
+    def get_stops(result):
+        myStops = ['a', 'b', 'c']
+        stop_set = HashSet()
+        for stopWord in myStops:
+            stop_set.add(stopWord)
+        return stop_set
+
     def createComponents(self, fieldName):
         source = StandardTokenizer()
         result = LowerCaseFilter(source)
         result = PorterStemFilter(result)
+        # result = StopFilter(result, StopwordAnalyzerBase.stopwords)
         return Analyzer.TokenStreamComponents(source, result)
 
 
