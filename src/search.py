@@ -1,8 +1,20 @@
 import os
+import re
+import time
+import requests
 import pathlib
 import numpy as np
 import pandas as pd
 import sqlite3
+
+import jaro
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
+from ftfy import fix_text
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from elasticsearch import Elasticsearch
+
 from lupyne import engine
 import lucene
 from org.apache.lucene import queryparser, search
@@ -16,14 +28,19 @@ from org.apache.lucene.analysis.en import PorterStemFilter
 from org.apache.lucene.document import Document, Field, TextField
 from org.apache.pylucene.analysis import PythonAnalyzer
 from google.cloud import storage, bigquery
-
 from java.nio.file import Paths
 from java.util import Arrays, HashSet
 
-from elasticsearch import Elasticsearch
+
+class SearchNotAvailable(Exception):
+    pass
 
 
-class SearchEngineNotAvailable(Exception):
+class ScorerNotAvailable(Exception):
+    pass
+
+
+class VectorizerNotAvailable(Exception):
     pass
 
 
@@ -68,7 +85,6 @@ class SearchSQLite:
         return df_result
 
 
-# TODO: stopwords (nltk?) or tokenize and remove top 200
 class PorterStemmerAnalyzer(PythonAnalyzer):
     def __init__(self):
         PythonAnalyzer.__init__(self)
@@ -113,7 +129,7 @@ class SearchPyLucene:
         self.config = IndexWriterConfig(self.analyzer)
         self.store = SimpleFSDirectory(Paths.get(self.path))
 
-    def execute_search(self, query):
+    def execute_search(self, query, n=50):
         lucene.getVMEnv().attachCurrentThread()
         ireader = DirectoryReader.open(self.store)
         isearcher = search.IndexSearcher(ireader)
@@ -121,7 +137,7 @@ class SearchPyLucene:
         # Parse a simple query that searches in label col:
         parser = queryparser.classic.QueryParser('LABEL', self.analyzer)
         query = parser.parse(query)
-        scoreDocs = isearcher.search(query, 250).scoreDocs
+        scoreDocs = isearcher.search(query, n).scoreDocs
         hits = [isearcher.doc(scoreDoc.doc) for scoreDoc in scoreDocs]
         hits_list = []
         for i, hit in enumerate(hits):
@@ -176,8 +192,7 @@ class SearchPyLucene:
 #                 self.results.loc[self.results[each_col] == 'None', each_col] = np.nan
 #         except IndexError:
 #             self.results = pd.DataFrame()
-#
-#
+
 
 class SearchElastic:
     def __init__(self, ontology):
@@ -190,7 +205,7 @@ class SearchElastic:
         self.es = Elasticsearch(self.connection)
         return
 
-    def execute_search(self, query):
+    def execute_search(self, query, n=50):
         try:
             response = self.es.search(
                 index=self.index,
@@ -199,19 +214,106 @@ class SearchElastic:
                         "query": query,
                     },
                 },
-                size='50',
+                size=f'{n}',
             )
         except:
-            raise SearchEngineNotAvailable('Please check your search engine.')
+            raise SearchNotAvailable('Please check your search engine.')
         df_result = pd.DataFrame.from_records(response.body['hits']['hits'], columns=["_score", "_source"])
         df_source = pd.json_normalize(df_result["_source"])
         df_source["elastic"] = df_result["_score"].round(2)
         return df_source
 
 
-# TODO: Add other search methods (tf-idf etc)
 class SearchTF_IDF:
-    def __init__(self, ngram=None, vectorizer=None, matrix=None):
-        self.ngram = ngram
+    def __init__(self, data=None, vectorizer=None, matrix=None):
+        self.data = data
         self.vectorizer = vectorizer
         self.matrix = matrix
+
+    def execute_search(self, query, n=50):
+        if not self.vectorizer:
+            raise VectorizerNotAvailable("Please define a vectorizer in the function call.")
+        fitted_query = self.vectorizer.transform([query])
+        scores = cosine_similarity(self.matrix, fitted_query)
+        self.data['tf_idf'] = scores
+        self.data = self.data.sort_values(by=['tf_idf'], ascending=False)
+        return self.data[1:n + 1]
+
+
+class SearchSimilarity:
+    def __init__(self, data=None):
+        self.data = data
+        self.choices = list(self.data['LABEL'])
+
+    def execute_search(self, query, scorer, n=50):
+        if scorer == 'jaro_winkler':
+            score_func = jaro.jaro_winkler_metric
+        elif scorer == 'partial_ratio':
+            score_func = fuzz.partial_ratio
+        else:
+            raise ScorerNotAvailable()
+        related = process.extractBests(query, self.choices, scorer=score_func, limit=n)
+        df_related_score = pd.DataFrame(related[1:], columns=['LABEL', scorer])
+        self.data = self.data[self.data['LABEL'].isin([i[0] for i in related[1:]])]
+        self.data = self.data.merge(df_related_score, on='LABEL')
+        self.data = self.data.sort_values(by=[scorer], ascending=False)
+        return self.data
+
+
+class SearchUMLS:
+    def __init__(self):
+        self.base_uri = 'https://uts-ws.nlm.nih.gov'
+        self.api_key = os.getenv("UMLS_API_KEY")
+
+    def execute_search(self, query):
+        path = '/search/current/'
+        query = {'apiKey': self.api_key, 'string': query, 'sabs': 'SNOMEDCT_US', 'returnIdType': 'code'}
+        output = requests.get(self.base_uri + path, params=query)
+        outputJson = output.json()
+        results = (([outputJson['result']])[0])['results']
+        related = [(item['name'], item['ui']) for item in results]
+        return related
+
+
+def ngrams(string: str, n=10) -> list:
+    """
+    Takes an input string, cleans it and converts to ngrams.
+    :param string: str
+    :param n: int
+    :return: list
+    """
+    string = str(string)
+    string = string.lower()  # lower case
+    string = fix_text(string)  # fix text
+    string = string.encode("ascii", errors="ignore").decode()  # remove non ascii chars
+    chars_to_remove = [")", "(", ".", "|", "[", "]", "{", "}", "'", "-"]
+    rx = '[' + re.escape(''.join(chars_to_remove)) + ']'  # remove punc, brackets etc...
+    string = re.sub(rx, '', string)
+    string = string.replace('&', 'and')
+    string = string.title()  # normalise case - capital at start of each word
+    string = re.sub(' +', ' ', string).strip()  # get rid of multiple spaces and replace with a single
+    string = ' ' + string + ' '  # pad names for ngrams...
+    ngrams = zip(*[string[i:] for i in range(n)])
+    return [''.join(ngram) for ngram in ngrams]
+
+
+def partial_ratio(string_1: str, string_2: str) -> float:
+    """
+    Calculates the fuzzywuzzy partial ratio between 2 strings.
+    :param string_1: str
+    :param string_2: str
+    :return: float
+    """
+    ratio = fuzz.partial_ratio(string_1.lower(), string_2.lower())
+    return ratio
+
+
+def jaro_winkler(string_1: str, string_2: str) -> float:
+    """
+    Calculates the Jaro-Winkler score between 2 strings.
+    :param string_1: str
+    :param string_2: str
+    :return: float
+    """
+    score = jaro.jaro_winkler_metric(string_1.lower(), string_2.lower())
+    return score
