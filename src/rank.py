@@ -27,7 +27,7 @@ def get_response(model, system_prompt, user_message):
     return response
 
 
-def rerank(target, choices, method, metadata=None):
+def rank(target, choices, method, metadata=None):
     # GPT ranking
     if method == 'gpt':  # GPT ranker
         # start_time = time.time()
