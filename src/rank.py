@@ -27,23 +27,27 @@ def get_response(model, system_prompt, user_message):
     return response
 
 
-def rank(target, choices, method, metadata=None):
-    # GPT ranking
-    if method == 'gpt':  # GPT ranker
+def set_up_rank(method):
+    if method == 'gpt':
+        return RankGPT()
+    elif method == 'cohere':
+        return RankCohere()
+
+
+def rank(target, choices, method, metadata=None, **kwargs):
+    if method == 'gpt':  # GPT ranking
         # start_time = time.time()
-        ranker = RankGPT()
-        ranker.prepare_prompt(target=target, choices=choices, metadata=metadata)
-        ranked_ids = json.loads(ranker.get_rank_results())
+        kwargs['ranker'].prepare_prompt(target=target, choices=choices, metadata=metadata)
+        ranked_ids = json.loads(kwargs['ranker'].get_rank_results())
         # elapsed_time = time.time() - start_time
         # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
 
         # Sort datatable for display
         return [choices[i] for i in ranked_ids]
-    elif method == 'cohere':
+    elif method == 'cohere':  # CohereAI ranking
         # start_time = time.time()
-        ranker = RankCohere()
-        ranker.prepare_ranker(target=target, choices=choices)
-        ranked_desc = ranker.get_rank_results()
+        kwargs['ranker'].prepare_ranker(target=target, choices=choices)
+        ranked_desc = kwargs['ranker'].get_rank_results()
         # elapsed_time = time.time() - start_time
         # print('--------Cohere Ranking Time:', elapsed_time, 'seconds--------')
 
