@@ -29,8 +29,10 @@ def get_response(model, system_prompt, user_message):
 
 def set_up_rank(method):
     if method == 'gpt':
+        print("OpenAI GPT ranking selected.")
         return RankGPT()
     elif method == 'cohere':
+        print("CohereAI API ranking selected.")
         return RankCohere()
 
 
