@@ -45,7 +45,7 @@ class VectorizerNotAvailable(Exception):
     pass
 
 
-def prepare_search(method, PATH_ontology, list_of_ontologies):
+def set_up_search(method, PATH_ontology, list_of_ontologies):
     index_objects = {}
     if method == 'pylucene':
         try:
@@ -54,7 +54,7 @@ def prepare_search(method, PATH_ontology, list_of_ontologies):
                 path = os.path.join(os.path.join(PATH_ontology, each))
                 myindexer = SearchPyLucene(each, path)
                 index_objects[each] = myindexer
-            print("Done.")
+            print("Done.\n")
         except OSError:
             raise OSError("Indices not found.")
     elif method == 'elastic':
@@ -65,7 +65,7 @@ def prepare_search(method, PATH_ontology, list_of_ontologies):
                 myindexer = SearchElastic(each)
                 myindexer.prepare_search()
                 index_objects[each] = myindexer
-            print("Done.")
+            print("Done.\n")
         except:
             raise SearchNotAvailable('Please check your search engine.')
     elif method == 'tf-idf':
@@ -75,7 +75,7 @@ def prepare_search(method, PATH_ontology, list_of_ontologies):
                 index_objects['ngrams'] = shlv['ngrams']
                 index_objects['vectorizer'] = shlv['model']
                 index_objects['tf_idf_matrix'] = shlv['tf_idf_matrix']
-            print("Done.")
+            print("Done.\n")
         except FileNotFoundError:
             raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
     return index_objects
@@ -86,7 +86,11 @@ def search_ontology(query, df_ontology, method, **kwargs):
         searcher = SearchSimilarity(data=df_ontology)
         return searcher.get_search_results(query=query, scorer=method, **kwargs)
     elif method == 'tf_idf':  # NLP: tf_idf
-        searcher = SearchTF_IDF(data=df_ontology, **kwargs)
+        searcher = SearchTF_IDF(
+            data=df_ontology,
+            vectorizer=kwargs['indexes']['vectorizer'],
+            tf_idf_matrix=kwargs['indexes']['tf_idf_matrix']
+        )
         return searcher.get_search_results(query=query, **kwargs)
     elif method == 'UMLS':
         searcher = SearchUMLS()
@@ -121,22 +125,7 @@ def search_ontology(query, df_ontology, method, **kwargs):
         col_id = df_result.pop('id')
         df_result.insert(0, col_id.name, col_id)
         return df_result
-    elif method == 'pylucene':
-        if kwargs['triggered_id'] == 'search-btn.n_clicks' or kwargs['search_string'] in kwargs['listed_options']:
-            query = kwargs['search_string']
-        try:
-            df_result = kwargs['indexes'][kwargs['ontology_filter']].get_search_results(query=query, **kwargs)
-        except lucene.JavaError:
-            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
-            df_result = kwargs['indexes'][kwargs['ontology_filter']].get_search_results(query=query, **kwargs)
-
-        if df_result.empty:
-            return query
-        df_result['id'] = np.arange(len(df_result['CODE']))
-        col_id = df_result.pop('id')
-        df_result.insert(0, col_id.name, col_id)
-        return df_result
-    elif method == 'elastic':
+    elif method in ['pylucene', 'elastic']:
         if kwargs['triggered_id'] == 'search-btn.n_clicks' or kwargs['search_string'] in kwargs['listed_options']:
             query = kwargs['search_string']
         try:
@@ -151,6 +140,8 @@ def search_ontology(query, df_ontology, method, **kwargs):
         col_id = df_result.pop('id')
         df_result.insert(0, col_id.name, col_id)
         return df_result
+    else:
+        return 'Invalid Search'
 
 
 class SearchSQLite:
