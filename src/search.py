@@ -6,6 +6,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 import sqlite3
+import shelve
 
 import jaro
 from fuzzywuzzy import fuzz
@@ -42,6 +43,114 @@ class ScorerNotAvailable(Exception):
 
 class VectorizerNotAvailable(Exception):
     pass
+
+
+def prepare_search(method, PATH_ontology, list_of_ontologies):
+    index_objects = {}
+    if method == 'pylucene':
+        try:
+            print("Loading PyLucene Indices...")
+            for each in list_of_ontologies:
+                path = os.path.join(os.path.join(PATH_ontology, each))
+                myindexer = SearchPyLucene(each, path)
+                index_objects[each] = myindexer
+            print("Done.")
+        except OSError:
+            raise OSError("Indices not found.")
+    elif method == 'elastic':
+        try:
+            print("If you haven't, please run generate_elastic_index.py after creating local ElasticSearch cluster.")
+            print("Loading Elastic Search Indices...")
+            for each in list_of_ontologies:
+                myindexer = SearchElastic(each)
+                myindexer.prepare_search()
+                index_objects[each] = myindexer
+            print("Done.")
+        except:
+            raise SearchNotAvailable('Please check your search engine.')
+    elif method == 'tf-idf':
+        try:
+            print("Loading TF-IDF Index...")
+            with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
+                index_objects['ngrams'] = shlv['ngrams']
+                index_objects['vectorizer'] = shlv['model']
+                index_objects['tf_idf_matrix'] = shlv['tf_idf_matrix']
+            print("Done.")
+        except FileNotFoundError:
+            raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
+    return index_objects
+
+
+def search_ontology(query, df_ontology, method, **kwargs):
+    if method in ['jaro_winkler', 'partial_ratio']:
+        searcher = SearchSimilarity(data=df_ontology)
+        return searcher.get_search_results(query=query, scorer=method, **kwargs)
+    elif method == 'tf_idf':  # NLP: tf_idf
+        searcher = SearchTF_IDF(data=df_ontology, **kwargs)
+        return searcher.get_search_results(query=query, **kwargs)
+    elif method == 'UMLS':
+        searcher = SearchUMLS()
+        result = searcher.get_search_results(query=query)
+        df_result = pd.DataFrame.from_records(result, columns=['LABEL', 'CODE'])
+        df_result[method] = np.array([100] * len(df_result['CODE']))
+        df_result['id'] = np.arange(len(df_result['CODE']))
+        col_id = df_result.pop('id')
+        df_result.insert(0, col_id.name, col_id)
+        return df_result
+    elif method == 'fts5':
+        query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
+        tokens = re.split('\W+', query)
+        query_tokens = ' OR '.join(tokens)
+        if kwargs['triggered_id'] == 'search-btn.n_clicks':
+            if kwargs['search_string'] != '':
+                query = kwargs['search_string']
+        df_result = kwargs['sql_searcher'].search_ontology_by_label(f'\"{query}\"')
+
+        if df_result.empty:
+            if kwargs['triggered_id'] == 'search-btn.n_clicks':
+                df_result = kwargs['sql_searcher'].search_ontology_by_label(f'{query}')
+            else:
+                df_result = kwargs['sql_searcher'].search_ontology_by_label(f'{query_tokens}')
+                query = query_tokens
+            if df_result.empty:
+                return query
+        match_scores = [round(100 / len(df_result['CODE']) * i) for i in range(len(df_result['CODE']))]
+        match_scores = match_scores[::-1]
+        df_result[method] = match_scores
+        df_result['id'] = np.arange(len(df_result['CODE']))
+        col_id = df_result.pop('id')
+        df_result.insert(0, col_id.name, col_id)
+        return df_result
+    elif method == 'pylucene':
+        if kwargs['triggered_id'] == 'search-btn.n_clicks' or kwargs['search_string'] in kwargs['listed_options']:
+            query = kwargs['search_string']
+        try:
+            df_result = kwargs['indexes'][kwargs['ontology_filter']].get_search_results(query=query, **kwargs)
+        except lucene.JavaError:
+            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
+            df_result = kwargs['indexes'][kwargs['ontology_filter']].get_search_results(query=query, **kwargs)
+
+        if df_result.empty:
+            return query
+        df_result['id'] = np.arange(len(df_result['CODE']))
+        col_id = df_result.pop('id')
+        df_result.insert(0, col_id.name, col_id)
+        return df_result
+    elif method == 'elastic':
+        if kwargs['triggered_id'] == 'search-btn.n_clicks' or kwargs['search_string'] in kwargs['listed_options']:
+            query = kwargs['search_string']
+        try:
+            df_result = kwargs['indexes'][kwargs['ontology_filter']].get_search_results(query=query, **kwargs)
+        except:
+            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
+            df_result = kwargs['indexes'][kwargs['ontology_filter']].get_search_results(query=query, **kwargs)
+
+        if df_result.empty:
+            return query
+        df_result['id'] = np.arange(len(df_result['CODE']))
+        col_id = df_result.pop('id')
+        df_result.insert(0, col_id.name, col_id)
+        return df_result
 
 
 class SearchSQLite:
@@ -129,7 +238,7 @@ class SearchPyLucene:
         self.config = IndexWriterConfig(self.analyzer)
         self.store = SimpleFSDirectory(Paths.get(self.path))
 
-    def execute_search(self, query, n=50):
+    def get_search_results(self, query, n=50, **kwargs):
         lucene.getVMEnv().attachCurrentThread()
         ireader = DirectoryReader.open(self.store)
         isearcher = search.IndexSearcher(ireader)
@@ -205,7 +314,7 @@ class SearchElastic:
         self.es = Elasticsearch(self.connection)
         return
 
-    def execute_search(self, query, n=50):
+    def get_search_results(self, query, n=50, **kwargs):
         try:
             response = self.es.search(
                 index=self.index,
@@ -225,12 +334,12 @@ class SearchElastic:
 
 
 class SearchTF_IDF:
-    def __init__(self, data=None, vectorizer=None, matrix=None):
+    def __init__(self, data, vectorizer, tf_idf_matrix):
         self.data = data
         self.vectorizer = vectorizer
-        self.matrix = matrix
+        self.matrix = tf_idf_matrix
 
-    def execute_search(self, query, n=50):
+    def get_search_results(self, query, n=50, **kwargs):
         if not self.vectorizer:
             raise VectorizerNotAvailable("Please define a vectorizer in the function call.")
         fitted_query = self.vectorizer.transform([query])
@@ -241,11 +350,11 @@ class SearchTF_IDF:
 
 
 class SearchSimilarity:
-    def __init__(self, data=None):
+    def __init__(self, data):
         self.data = data
         self.choices = list(self.data['LABEL'])
 
-    def execute_search(self, query, scorer, n=50):
+    def get_search_results(self, query, scorer, n=50, **kwargs):
         if scorer == 'jaro_winkler':
             score_func = jaro.jaro_winkler_metric
         elif scorer == 'partial_ratio':
@@ -265,7 +374,7 @@ class SearchUMLS:
         self.base_uri = 'https://uts-ws.nlm.nih.gov'
         self.api_key = os.getenv("UMLS_API_KEY")
 
-    def execute_search(self, query):
+    def get_search_results(self, query):
         path = '/search/current/'
         query = {'apiKey': self.api_key, 'string': query, 'sabs': 'SNOMEDCT_US', 'returnIdType': 'code'}
         output = requests.get(self.base_uri + path, params=query)
