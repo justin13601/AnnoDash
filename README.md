@@ -14,7 +14,7 @@
 
   <p align="center">
 A Clinical Terminology Annotation Dashboard    <br />
-    (Supports LOINC®, SNOMED CT)
+    (Supports LOINC®, SNOMED CT, ICD-10-CM, OMOP v5)
   </p>
 </div>
 
