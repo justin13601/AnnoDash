@@ -103,7 +103,7 @@ demo.
 
 ### Requirements
 
-The dashboard requires the following major packages to run:
+The dashboard requires the following major Python packages to run:
 
 * [Dash][dash]~=2.6.0
 * [Pandas][pandas]~=1.4.2
@@ -145,12 +145,12 @@ OR:
 
 3. Build Docker image:
    ```sh
-   docker build -t AnnoDash .
+   docker build -t annodash .
    ```
 
 4. Run container:
    ```sh
-   docker run -p 8080:80 AnnoDash
+   docker run -p 8080:80 annodash -itd -e API_KEY=''
    ```
 
 #### Manual:
