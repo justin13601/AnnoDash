@@ -150,7 +150,7 @@ OR:
 
 4. Run container:
    ```sh
-   docker run -p 8080:80 annodash -itd -e API_KEY=''
+   docker run -d -p 8080:80 annodash -e API_KEY=''
    ```
 
 #### Manual:
@@ -201,7 +201,7 @@ Please define your API keys (OpenAI, CohereAI, NLM UMLS) as environment variable
 
 ## Usage
 
-Run app and visit http://127.0.0.1:8080/ or http://localhost:8080/.
+Install/run the app and visit http://127.0.0.1:8080/ or http://localhost:8080/.
 
 #### Required Files:
 
