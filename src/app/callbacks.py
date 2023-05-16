@@ -164,24 +164,34 @@ unannotated_list.sort()
 
 def set_up(ontologies: list) -> (dict, dict):
     search_objects = {}
-    for ontology in ontologies:
-        database_file = f'{ontology}.db'
-        database_path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
+    try:
+        for ontology in ontologies:
+            database_file = f'{ontology}.db'
+            database_path = os.path.join(os.path.join(PATH_ontology, ontology), database_file)
 
-        search_objects[ontology] = SearchSQLite(ontology, database_path)
+            search_objects[ontology] = SearchSQLite(ontology, database_path)
+    except:
+        raise AnnoDashError("SQL search set up failed.")
 
     try:
-        index_objects = prepare_search(
+        index_objects = set_up_search(
             method=config.ontology.search,
             PATH_ontology=PATH_ontology,
             list_of_ontologies=list_of_ontologies
         )
     except:
-        raise AnnoDashError
-    return search_objects, index_objects
+        raise AnnoDashError("Index set up failed.")
+
+    try:
+        rank_object = set_up_rank(
+            method=config.ontology.rank
+        )
+    except:
+        raise AnnoDashError("Ranker set up failed.")
+    return search_objects, index_objects, rank_object
 
 
-sql_searchers, my_indexes = set_up(list_of_ontologies)
+sql_searchers, my_indexes, my_ranker = set_up(list_of_ontologies)
 
 
 ######################################################################################################
@@ -996,7 +1006,13 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
 
     if config.ontology.rank:
         metadata = {'examples': get_n_values(item, n=3)}  # target concept metadata, can add other info
-        data = rank(target=itemsid_dict[item], choices=data, method=config.ontology.rank, metadata=metadata)
+        data = rank(
+            target=itemsid_dict[item],
+            choices=data,
+            method=config.ontology.rank,
+            metadata=metadata,
+            ranker=my_ranker
+        )
 
     return data, return_columns, tooltip_outputs, query, data
 
