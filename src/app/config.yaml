@@ -47,7 +47,7 @@ _fields:
     _fields:
       LLM: cohere
       location: ontology
-      search: elastic
+      search: pylucene
     _locked: false
     _type_safe: true
   results: results-json/chartevents
