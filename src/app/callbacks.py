@@ -234,7 +234,9 @@ def generate_scorer_options(ontology):
         options = ["jaro_winkler", "partial_ratio"]
     elif 'SNOMED' in ontology:
         options = ["jaro_winkler", "partial_ratio", "UMLS"]
-    elif config.ontology.search == 'sqlite':
+    elif config.ontology.search == 'ratios':
+        options = ["jaro_winkler", "partial_ratio"]
+    elif config.ontology.search == 'fts5':
         options = ["fts5"]
     elif config.ontology.search == 'pylucene':
         options = ["pylucene"]
@@ -1004,7 +1006,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
-    if config.ontology.rank:
+    if config.ontology.rank is not None and scorer not in ['jaro_winkler', 'partial_ratio']:
         metadata = {'examples': get_n_values(item, n=3)}  # target concept metadata, can add other info
         data = rank(
             target=itemsid_dict[item],
@@ -1125,10 +1127,12 @@ def change_search_button_style(_, __, new_query, curr_query):
     ],
 )
 def generate_suggestions(item, ontology):
-    query = itemsid_dict[item]
-    df_data = my_indexes[ontology].get_search_results(query)
-    if df_data.empty:
-        return []
+    options = []
+    if my_indexes:
+        query = itemsid_dict[item]
+        df_data = my_indexes[ontology].get_search_results(query)
+        if df_data.empty:
+            return []
 
-    options = [html.Option(value=label) for label in df_data['LABEL'].tolist()]
+        options = [html.Option(value=label) for label in df_data['LABEL'].tolist()]
     return options
