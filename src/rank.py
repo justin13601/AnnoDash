@@ -60,7 +60,7 @@ def rank(target, choices, method, metadata=None, **kwargs):
 class RankGPT:
     def __init__(self):
         # Load your API key from an environment variable or secret management service
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.api_key = os.environ['OPENAI_API_KEY']
         self.model = 'gpt-3.5-turbo'
         self.system_prompt = ''
         self.user_prompt = ''
@@ -89,7 +89,7 @@ class RankGPT:
 class RankCohere:
     def __init__(self):
         # Load your API key from an environment variable or secret management service
-        self.api_key = os.getenv("COHERE_API_KEY")
+        self.api_key = os.environ['COHERE_API_KEY']
         self.model = "rerank-multilingual-v2.0"
         self.query = ''
         self.documents = []

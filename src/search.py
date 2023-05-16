@@ -363,7 +363,7 @@ class SearchSimilarity:
 class SearchUMLS:
     def __init__(self):
         self.base_uri = 'https://uts-ws.nlm.nih.gov'
-        self.api_key = os.getenv("UMLS_API_KEY")
+        self.api_key = os.environ['UMLS_API_KEY']
 
     def get_search_results(self, query):
         path = '/search/current/'
