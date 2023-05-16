@@ -46,7 +46,7 @@ _fields:
     _convert_dict: true
     _fields:
       location: ontology
-      rank: cohere
+      rank: gpt
       search: pylucene
     _locked: false
     _type_safe: true
