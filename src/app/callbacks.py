@@ -1,6 +1,6 @@
 import os
-# import io
 import re
+# import io
 import sys
 # import csv
 import time
@@ -32,20 +32,19 @@ from dash.dash import no_update
 
 import numpy as np
 import pandas as pd
-# import scipy
-# import scipy.sparse as sp
-import lucene
-# import jaro
-# import pickle
-import shelve
-# from fuzzywuzzy import fuzz, process
-# from ftfy import fix_text
 import sqlite3
 from google.cloud import storage, bigquery
+# import scipy
+# import scipy.sparse as sp
+# import lucene
+# import jaro
+# import pickle
+# from fuzzywuzzy import fuzz, process
+# from ftfy import fix_text
 
-from related_ontologies.related import generateRelatedOntologies, ngrams, TfidfVectorizer, cosine_similarity
-from src.search import SearchSQLite, SearchPyLucene, SearchElastic, SearchTF_IDF
-from src.rank import RankGPT, RankCohere
+from related_ontologies.related import generateRelatedOntologies
+from src.search import *
+from src.rank import *
 from src.app.app import app
 
 
@@ -163,7 +162,7 @@ unannotated_list = list(set(itemsid_dict.keys()) - set(annotated_list))
 unannotated_list.sort()
 
 
-def set_up_search(ontologies: list) -> (dict, dict):
+def set_up(ontologies: list) -> (dict, dict):
     search_objects = {}
     for ontology in ontologies:
         database_file = f'{ontology}.db'
@@ -171,47 +170,18 @@ def set_up_search(ontologies: list) -> (dict, dict):
 
         search_objects[ontology] = SearchSQLite(ontology, database_path)
 
-    # load indices if needed
-    index_objects = {}
-    if config.ontology.search == 'pylucene':
-        try:
-            print("Loading PyLucene Indices...")
-            for each in list_of_ontologies:
-                path = os.path.join(os.path.join(PATH_ontology, each))
-                myindexer = SearchPyLucene(each, path)
-                index_objects[each] = myindexer
-            print("Done.")
-        except OSError:
-            raise OSError("Indices not found.")
-        except:
-            raise AnnoDashError
-    elif config.ontology.search == 'elastic':
-        try:
-            print("If you haven't, please run generate_elastic_index.py after creating local ElasticSearch cluster.")
-            print("Loading Elastic Search Indices...")
-            for each in list_of_ontologies:
-                myindexer = SearchElastic(each)
-                myindexer.prepare_search()
-                index_objects[each] = myindexer
-            print("Done.")
-        except:
-            raise AnnoDashError
-    elif config.ontology.search == 'tf-idf':
-        try:
-            print("Loading TF-IDF Index...")
-            with shelve.open(os.path.join(PATH_ontology, 'tf_idf.shlv'), protocol=5) as shlv:
-                index_objects['ngrams'] = shlv['ngrams']
-                index_objects['vectorizer'] = shlv['model']
-                index_objects['tf_idf_matrix'] = shlv['tf_idf_matrix']
-            print("Done.")
-        except FileNotFoundError:
-            raise FileNotFoundError("Vectorizer shelve files not found, TF-IDF is not available.")
-        except:
-            raise AnnoDashError
+    try:
+        index_objects = prepare_search(
+            method=config.ontology.search,
+            PATH_ontology=PATH_ontology,
+            list_of_ontologies=list_of_ontologies
+        )
+    except:
+        raise AnnoDashError
     return search_objects, index_objects
 
 
-my_searches, my_indices = set_up_search(list_of_ontologies)
+sql_searchers, my_indexes = set_up(list_of_ontologies)
 
 
 ######################################################################################################
@@ -863,7 +833,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             return None, curr_ontology_cols, []
         return curr_data_ontology[0:0], curr_ontology_cols, []
 
-    df_ontology = my_searches[ontology].get_all_ontology_no_data()
+    df_ontology = sql_searchers[ontology].get_all_ontology_no_data()
     if not curr_data_ontology:
         df_data = pd.DataFrame(columns=df_ontology.columns)
     else:
@@ -882,7 +852,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         try:
             df_tooltip = pd.DataFrame()
             for each_ontology in list_of_ontologies:
-                df_tooltip = my_searches[ontology].search_ontology_by_code(f'\"{each_row["CODE"]}\"')
+                df_tooltip = sql_searchers[ontology].search_ontology_by_code(f'\"{each_row["CODE"]}\"')
                 if not df_tooltip.empty:
                     break
             return df_tooltip
@@ -963,7 +933,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
 
     listed_options = [option['props']['value'] for option in suggestions]
 
-    df_ontology = my_searches[ontology_filter].get_all_ontology_no_data()
+    df_ontology = sql_searchers[ontology_filter].get_all_ontology_no_data()
 
     triggered_id = dash.callback_context.triggered[0]['prop_id']
 
@@ -979,82 +949,22 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         raise PreventUpdate
 
     query = itemsid_dict[item]
-    choices = list(df_ontology['LABEL'])
-    if scorer == 'partial_ratio':
-        df_data = generateRelatedOntologies(query, choices, method='partial_ratio', df_ontology=df_ontology)
-    elif scorer == 'jaro_winkler':
-        df_data = generateRelatedOntologies(query, choices, method='jaro_winkler', df_ontology=df_ontology)
-    elif scorer == 'tf_idf':
-        # NLP: tf_idf
-        df_data = generateRelatedOntologies(query, choices, method='tf_idf',
-                                            df_ontology=df_ontology,
-                                            vectorizer=my_indices['vectorizer'],
-                                            tf_idf_matrix=my_indices['tf_idf_matrix'])
-    elif scorer == 'UMLS':
-        results = generateRelatedOntologies(query, choices, method='UMLS', apikey=os.getenv("UMLS_API_KEY"))
-        query_2 = itemsid_dict[item]
-        results_2 = generateRelatedOntologies(query_2, choices, method='UMLS',
-                                              apikey=config.ontology.umls_apikey)
-        results_all = results + results_2
-        df_data = pd.DataFrame.from_records(results_all, columns=['LABEL', 'CODE'])
-        df_data[scorer] = np.array([100] * len(df_data['CODE']))
-        df_data['id'] = np.arange(len(df_data['CODE']))
-        col_id = df_data.pop('id')
-        df_data.insert(0, col_id.name, col_id)
-    elif scorer == 'fts5':
-        query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
-        tokens = re.split('\W+', query)
-        query_tokens = ' OR '.join(tokens)
-        if triggered_id == 'search-btn.n_clicks':
-            if search_string != '':
-                query = search_string
+    df_data = search_ontology(
+        query=query,
+        df_ontology=df_ontology,
+        method=scorer,
+        n=50,
+        indexes=my_indexes,
+        sql_searcher=sql_searchers[ontology_filter],
+        triggered_id=triggered_id,
+        listed_options=listed_options,
+        ontology_filter=ontology_filter,
+        search_string=search_string
+    )
 
-        df_data = my_searches[ontology_filter].search_ontology_by_label(f'\"{query}\"')
-
-        if df_data.empty:
-            if triggered_id == 'search-btn.n_clicks':
-                df_data = my_searches[ontology_filter].search_ontology_by_label(f'{query}')
-            else:
-                df_data = my_searches[ontology_filter].search_ontology_by_label(f'{query_tokens}')
-                query = query_tokens
-            if df_data.empty:
-                return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
-        match_scores = [round(100 / len(df_data['CODE']) * i) for i in range(len(df_data['CODE']))]
-        match_scores = match_scores[::-1]
-        df_data[scorer] = match_scores
-        df_data['id'] = np.arange(len(df_data['CODE']))
-        col_id = df_data.pop('id')
-        df_data.insert(0, col_id.name, col_id)
-    elif scorer == 'pylucene':
-        if triggered_id == 'search-btn.n_clicks' or search_string in listed_options:
-            query = search_string
-        try:
-            df_data = my_indices[ontology_filter].execute_search(query)
-        except lucene.JavaError:
-            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
-            df_data = my_indices[ontology_filter].execute_search(query)
-
-        if df_data.empty:
-            return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
-        df_data['id'] = np.arange(len(df_data['CODE']))
-        col_id = df_data.pop('id')
-        df_data.insert(0, col_id.name, col_id)
-    elif scorer == 'elastic':
-        if triggered_id == 'search-btn.n_clicks' or search_string in listed_options:
-            query = search_string
-        try:
-            df_data = my_indices[ontology_filter].execute_search(query)
-        except:
-            query = re.sub(r'[^A-Za-z0-9 ]+', '', query)
-            df_data = my_indices[ontology_filter].execute_search(query)
-
-        if df_data.empty:
-            return None, [{'name': 'No Results Found', 'id': 'none'}], [], query, None
-        df_data['id'] = np.arange(len(df_data['CODE']))
-        col_id = df_data.pop('id')
-        df_data.insert(0, col_id.name, col_id)
-    else:
-        raise AnnoDashError
+    if isinstance(df_data, str):
+        return_string = df_data
+        return None, [{'name': 'No Results Found', 'id': 'none'}], [], return_string, None
 
     if len(df_data.index) > 50:
         df_data = df_data.iloc[:50]
@@ -1084,36 +994,9 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
-    # GPT ranking
-    if config.ontology.LLM == 'gpt':
-        # start_time = time.time()
-
-        # target concept metadata, can add other info
-        metadata = {'examples': get_n_values(item, n=3)}
-
-        # GPT ranker
-        ranker = RankGPT()
-        ranker.prepare_prompt(target=itemsid_dict[item], choices=data, metadata=metadata)
-        ranker.execute_rank()
-        ranked_ids = json.loads(ranker.response['choices'][0]['message']['content'])
-
-        # Sort datatable for display
-        data = [data[i] for i in ranked_ids]
-
-        # elapsed_time = time.time() - start_time
-        # print('--------GPT Ranking Time:', elapsed_time, 'seconds--------')
-    elif config.ontology.LLM == 'cohere':
-        # start_time = time.time()
-
-        ranker = RankCohere()
-        ranker.prepare_ranker(target=itemsid_dict[item], choices=data)
-        ranker.execute_rank()
-        ranked_desc = ranker.result
-
-        data = sorted(data, key=lambda x: ranked_desc.index(x['LABEL']))
-
-        # elapsed_time = time.time() - start_time
-        # print('--------Cohere Ranking Time:', elapsed_time, 'seconds--------')
+    if config.ontology.rank:
+        metadata = {'examples': get_n_values(item, n=3)}  # target concept metadata, can add other info
+        data = rank(target=itemsid_dict[item], choices=data, method=config.ontology.rank, metadata=metadata)
 
     return data, return_columns, tooltip_outputs, query, data
 
@@ -1227,7 +1110,7 @@ def change_search_button_style(_, __, new_query, curr_query):
 )
 def generate_suggestions(item, ontology):
     query = itemsid_dict[item]
-    df_data = my_indices[ontology].execute_search(query)
+    df_data = my_indexes[ontology].get_search_results(query)
     if df_data.empty:
         return []
 
