@@ -222,8 +222,16 @@ def table_type(df_column):
 
 
 def generate_ontology_options():
-    ontology_options = [{"label": "LOINC® Core Edition (2.72)", "value": "loinc"},
-                        {"label": "SNOMED-CT International Edition (07/31/2022)", "value": "snomed"}]
+    ontology_options = [
+        {"label": "LOINC® Core Edition (2.72)",
+         "value": "loinc"},
+        {"label": "SNOMED CT International Edition (07/31/2022)",
+         "value": "snomed"},
+        {"label": "2022 International Classification of Diseases 10th Revision Clinical Modification (ICD-10-CM)",
+         "value": "icd10cm"},
+        {"label": "Observational Medical Outcomes Partnership (OMOP v5.0)",
+         "value": "omopv5"}
+    ]
     return ontology_options
 
 
@@ -1086,7 +1094,7 @@ def update_search_placeholder(ontology):
     if ontology == 'loinc':
         placeholder = 'Search all LOINC®...'
     elif ontology == 'snomed':
-        placeholder = 'Search all SNOMED-CT...'
+        placeholder = 'Search all SNOMED CT...'
     return placeholder
 
 
