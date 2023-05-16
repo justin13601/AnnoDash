@@ -6,12 +6,12 @@ save_directory = 'results-json/chartevents'
 concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'ontology'  # kind-lab.appspot.com
-ontology_search_method = 'elastic'  # [sqlite, pylucene, tf-idf, elastic]
-LLM = 'cohere'  # [None, 'gpt', 'cohere']
+ontology_search_method = 'pylucene'  # [sqlite, pylucene, tf-idf, elastic, ratios]
+ontology_rank_method = 'cohere'  # [None, 'gpt', 'cohere']
 '''
-UMLS_API_KEY = 'please load your API key from an environment variable or secret management service if ontology_search_method -> umls'
-OPENAI_API_KEY = 'please load your API key from an environment variable or secret management service if LLM -> gpt
-COHERE_API_KEY = 'please load your API key from an environment variable or secret management service if LLM -> cohere
+UMLS_API_KEY = 'please load your NLM API key to an environment variable or secret management service if ontology_search_method -> umls'
+OPENAI_API_KEY = 'please load your OpenAI API key to an environment variable or secret management service if ontology_rank_method -> gpt
+COHERE_API_KEY = 'please load your CohereAI API key to an environment variable or secret management service if ontology_rank_method -> cohere
 '''
 
 graph_title_font = 'verdana'
@@ -31,7 +31,7 @@ def generateConfig():
     cfg.ontology = config_dict.ConfigDict()
     cfg.ontology.location = ontology_directory
     cfg.ontology.search = ontology_search_method
-    cfg.ontology.LLM = LLM
+    cfg.ontology.rank = ontology_rank_method
 
     cfg.kwargs = config_dict.ConfigDict()
     cfg.kwargs.title_font = graph_title_font
