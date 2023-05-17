@@ -27,3 +27,4 @@ services:
       - "GOOGLE_APPLICATION_CREDENTIALS=''"
       - "OPENAI_API_KEY=''"
       - "COHERE_API_KEY=''"
+      - "UMLS_API_KEY=''"
