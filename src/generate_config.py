@@ -7,7 +7,7 @@ concepts_file = 'demo-data/demo_chartevents_user_1.csv'
 data_file = 'demo-data/CHARTEVENTS.csv'
 ontology_directory = 'ontology'  # kind-lab.appspot.com
 ontology_search_method = 'pylucene'  # [pylucene, fts5, elastic, ratios, /*tf-idf*/]
-ontology_rank_method = 'gpt'  # [None, 'gpt', 'cohere']
+ontology_rank_method = None  # [None, 'gpt', 'cohere']
 '''
 UMLS_API_KEY = 'please load your NLM API key to an environment variable or secret management service if ontology_search_method -> umls'
 OPENAI_API_KEY = 'please load your OpenAI API key to an environment variable or secret management service if ontology_rank_method -> gpt
