@@ -18,10 +18,12 @@ services:
 
   database:
     # image to fetch from docker hub
-    image: justin13601/mimic-iv-dash:latest
+    image: justin13601/annodash-gpt:latest
 
     # Environment variables for startup script, container will use these variables to start the container with these define variables.
     environment:
       - "PROJECT_ID=kind-lab"
       - "BUCKET_NAME=kind-lab.appspot.com"
       - "GOOGLE_APPLICATION_CREDENTIALS=''"
+      - "OPENAI_API_KEY=''"
+      - "COHERE_API_KEY=''"
