@@ -1,4 +1,4 @@
-service: mimic-dash
+service: annodash-gpt
 runtime: custom
 env: flex
 
@@ -10,6 +10,9 @@ resources:
 env_variables:
   BUCKET_NAME: kind-lab.appspot.com
   PROJECT_ID: kind-lab
+  OPENAI_API_KEY: KEY
+  COHERE_API_KEY: KEY
+  UMLS_API_KEY: KEY
 
 
 
