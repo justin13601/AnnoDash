@@ -85,7 +85,7 @@ below in <a href="#usage">Usage</a>.
 
 The user annotates target concepts by first selecting the to-be annotated item in the first dropdown. The following
 dropdown allows users to select the target ontology. Several default vocabularies are available, but users are free to
-modify the dashboard for additional ontology support via scripts detailed in <a href="#other relevant files">Other
+modify the dashboard for additional ontology support via scripts detailed in <a href="#other-relevant-files">Other
 Relevant Files</a>. Code suggestions are then generated in the bottom table. Users are able to select their target
 annotation via clicking and the appropriate data is saved in ```.json``` files after submission.
 
