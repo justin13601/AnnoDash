@@ -167,16 +167,7 @@ dashboard. This can be done explicitly via editing the Docker Compose file below
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 ### Installation
-
-#### Demo:
-
-Download and modify docker-compose.yml to select the desired demo image and provide API keys where necessary. Then, run:
-
-   ```sh
-   docker-compose up
-   ```
-
-#### Docker Custom Install (Recommended):
+#### Docker Install (Recommended):
 
 1. Clone repository:
    ```sh
@@ -192,16 +183,16 @@ Download and modify docker-compose.yml to select the desired demo image and prov
 
 3. Build dashboard image:
    ```sh
-   docker build -t AnnoDash .
+   docker build -t annodash .
    ```
 
 
-4. Run dashboard container, specifying API keys where necessary:
+4. Modify docker-compose.yml to include API keys where necessary. Then, run Docker container:
    ```sh
-   docker run -d -p 8080:80 annodash -e OPENAI_API_KEY='' -e COHERE_API_KEY='' -e UMLS_API_KEY=''
+   docker-compose up
    ```
 
-#### Manual Custom Install:
+#### Manual Install:
 
 1. Clone repository:
    ```sh
