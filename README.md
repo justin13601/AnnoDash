@@ -89,7 +89,7 @@ modify the dashboard for additional ontology support via scripts detailed in <a 
 Relevant Files</a>. Code suggestions are then generated in the bottom table. Users are able to select their target
 annotation via clicking and the appropriate data is saved in ```.json``` files after submission.
 
-#### Ontology Search
+#### Ontology Search & Ranking
 
 The dashboard automatically generates ontology code suggestions based on the target concept. A string search supported
 by PyLucene and the Porter stemming algorithm sorts results by relevance, as indicated by the colour of the circle
@@ -147,12 +147,13 @@ Please follow setup instructions available [here](https://lucene.apache.org/pylu
     * Define location of the concepts ```.csv``` (default: ```/demo-data/demo_chartevents_user_1.csv```)
     * Define location of ontology SQLite3 databases (default: ```/ontology```)
     * Define string search algorithm (default: ```pylucene```)
+    * Define ranking algorithm (default: ```None```)
     * Define dashboard aesthetics for graphs (defaults are shown in the configuration file)
 
 #### Using ElasticSearch:
 
-To utilize ElasticSearch, run a local ElasticSearch cluster via Docker and specify 'elastic' in the appropriate
-configuration field:
+To utilize ElasticSearch as the string search algorithm, run a local ElasticSearch cluster via Docker and specify '
+elastic' in the appropriate configuration field:
 
    ```sh
    docker run --rm -p 9200:9200 -p 9300:9300 -e "xpack.security.enabled=false" -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:8.7.0
@@ -160,8 +161,8 @@ configuration field:
 
 #### Using APIs:
 
-Please define your API keys (OpenAI, CohereAI, NLM UMLS) as environment variables prior to running the dashboard. This
-can be done explicitly via the provided Docker command or Docker Compose file below.
+If desired, please define your API keys (OpenAI, CohereAI, NLM UMLS) as environment variables prior to running the
+dashboard. This can be done explicitly via editing the Docker Compose file below.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -231,13 +232,18 @@ Install/run the dashboard and visit http://127.0.0.1:8080/ or http://localhost:8
 ```/src/generate_config.py``` is used to generate the ```config.yaml``` file.
 
 ```/src/generate_ontology_database.py``` uses SQLite3 to generate the ```.db``` database files used to store the
-ontology vocabulary.
+ontology vocabulary. This is needed when defining custom vocabularies outside the default list of available ones.
 
-```/src/generate_pylucene_index.py``` is used to generate the index used by PyLucene for ontology querying.
+```/src/generate_pylucene_index.py``` is used to generate the index used by PyLucene for ontology querying. This is
+needed when defining custom vocabularies outside the default list of available ones.
 
-```/src/generate_elastic_index.py``` is used to generate the index used by ElasticSearch for ontology querying.
+```/src/generate_elastic_index.py``` is used to generate the index used by ElasticSearch for ontology querying. This is
+needed when defining custom vocabularies outside the default list of available ones. This can be run only after a local
+ElasticSearch cluster is created via Docker.
 
 ```/src/search.py``` includes classes for ontology searching.
+
+```/src/rank.py``` includes classes for ontology ranking.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
