@@ -17,6 +17,23 @@ from java.util import Arrays, HashSet
 from src.search import SearchSQLite
 
 
+class InvalidOntology(Exception):
+    pass
+
+
+def list_available_ontologies():
+    print(f'Loading available ontologies...')
+    if '.appspot.com' in ontology_path:
+        ontologies = ['loinc', 'snomed']
+    else:
+        directory_contents = os.listdir(ontology_path)
+        ontologies = [item for item in directory_contents if os.path.isdir(os.path.join(ontology_path, item))]
+    if not ontologies:
+        raise InvalidOntology
+    print(f"{', '.join(each_ontology.upper() for each_ontology in ontologies)} codes available.\n")
+    return ontologies
+
+
 def query_ontology(ontology):
     database_file = f'{ontology}.db'
     path = os.path.join(os.path.join('../ontology', ontology), database_file)
@@ -48,91 +65,52 @@ class PorterStemmerAnalyzer(PythonAnalyzer):
 
 ontology_path = "../ontology"
 load = False
+ontologies = list_available_ontologies()
 
 startTime = time.time()
-######################################################################
-# LOINC
-######################################################################
 
-df_loinc = query_ontology('loinc')
-lucene.initVM()
+for each_ontology in ontologies:
+    print(f"Generating index for {each_ontology}...")
+    df = query_ontology(each_ontology)
+    lucene.initVM()
 
-analyzer = PorterStemmerAnalyzer()
-config = IndexWriterConfig(analyzer)
-store = SimpleFSDirectory(Paths.get(os.path.join(ontology_path, 'loinc')))
+    analyzer = PorterStemmerAnalyzer()
+    config = IndexWriterConfig(analyzer)
+    store = SimpleFSDirectory(Paths.get(os.path.join(ontology_path, each_ontology)))
 
-if not load:
-    writer = IndexWriter(store, config)
-    for i, each_row in df_loinc.iterrows():
-        doc = Document()
-        for each_col in df_loinc.columns:
-            try:
-                doc.add(Field(each_col, each_row[each_col], TextField.TYPE_STORED))
-            except:
-                doc.add(Field(each_col, str(each_row[each_col]), TextField.TYPE_STORED))
-        writer.addDocument(doc)
-    writer.close()
+    if not load:
+        writer = IndexWriter(store, config)
+        for i, each_row in df.iterrows():
+            doc = Document()
+            for each_col in df.columns:
+                try:
+                    doc.add(Field(each_col, each_row[each_col], TextField.TYPE_STORED))
+                except:
+                    doc.add(Field(each_col, str(each_row[each_col]), TextField.TYPE_STORED))
+            writer.addDocument(doc)
+        writer.close()
 
-# search the index:
-ireader = DirectoryReader.open(store)
-isearcher = search.IndexSearcher(ireader)
+    # search the index:
+    ireader = DirectoryReader.open(store)
+    isearcher = search.IndexSearcher(ireader)
 
-# Parse a simple query that searches for "tests":
-parser = queryparser.classic.QueryParser('LABEL', analyzer)
-query = parser.parse('tests')
-print(query)
-hits = isearcher.search(query, len(df_loinc.index)).scoreDocs
-print(len(hits))  # 820
+    # Parse a simple query that searches for "tests":
+    parser = queryparser.classic.QueryParser('LABEL', analyzer)
+    query = parser.parse('tests')
+    print("Querying:", query)
+    hits = isearcher.search(query, len(df.index)).scoreDocs
+    print("Results found:", len(hits))
 
-# Iterate through the results:
-for hit in hits:
-    hitDoc = isearcher.doc(hit.doc)
-    print(hitDoc)
+    # Iterate through the results:
+    for i, hit in enumerate(hits):
+        hitDoc = isearcher.doc(hit.doc)
+        print(hitDoc)
+        if i > 5:
+            break
 
-ireader.close()
-store.close()
-
-######################################################################
-# SNOMED
-######################################################################
-
-df_snomed = query_ontology('snomed')
-lucene.initVM()
-
-analyzer = PorterStemmerAnalyzer()
-config = IndexWriterConfig(analyzer)
-store = SimpleFSDirectory(Paths.get(os.path.join(ontology_path, 'snomed')))
-
-if not load:
-    writer = IndexWriter(store, config)
-    for i, each_row in df_snomed.iterrows():
-        doc = Document()
-        for each_col in df_snomed.columns:
-            try:
-                doc.add(Field(each_col, each_row[each_col], TextField.TYPE_STORED))
-            except:
-                doc.add(Field(each_col, str(each_row[each_col]), TextField.TYPE_STORED))
-        writer.addDocument(doc)
-    writer.close()
-
-# search the index:
-ireader = DirectoryReader.open(store)
-isearcher = search.IndexSearcher(ireader)
-
-# Parse a simple query that searches for "tests":
-parser = queryparser.classic.QueryParser('LABEL', analyzer)
-query = parser.parse('tests')
-print(query)
-hits = isearcher.search(query, len(df_loinc.index)).scoreDocs
-print(len(hits))  # 2913
-
-# # Iterate through the results:
-# for hit in hits:
-#     hitDoc = isearcher.doc(hit.doc)
-#     print(hitDoc['LABEL'])
-
-ireader.close()
-store.close()
+    ireader.close()
+    store.close()
+    print('\n')
 
 executionTime = (time.time() - startTime)
 print('Execution time in seconds: ' + str(executionTime))
