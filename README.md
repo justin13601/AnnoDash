@@ -64,7 +64,7 @@ on [Plotly & Dash 500](https://www.linkedin.com/posts/dave-gibbon-8a6219_python-
 
 #### Overview
 
-![Home](assets/dash.png)
+![Home](assets/dash-new.png)
 The top left section of the dashboard features a dropdown to keep track of target concepts the user wishes to
 annotate. The target vocabulary is also selected in a dropdown in this section. The top right module contains the data
 visualization component. The bottom half of the dashboard includes modules dedicated to querying and displaying
