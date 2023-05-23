@@ -227,9 +227,9 @@ def generate_ontology_options():
          "value": "loinc"},
         {"label": "SNOMED CT International Edition (07/31/2022)",
          "value": "snomed"},
-        {"label": "2022 International Classification of Diseases 10th Revision Clinical Modification (ICD-10-CM)",
+        {"label": "2022 ICD-10-CM",
          "value": "icd10cm"},
-        {"label": "Observational Medical Outcomes Partnership (OMOP v5.0)",
+        {"label": "Observational Medical Outcomes Partnership (v5.0)",
          "value": "omopv5"}
     ]
     return ontology_options
@@ -872,7 +872,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
         try:
             df_tooltip = pd.DataFrame()
             for each_ontology in list_of_ontologies:
-                df_tooltip = sql_searchers[ontology].search_ontology_by_code(f'\"{each_row["CODE"]}\"')
+                df_tooltip = sql_searchers[each_ontology].search_ontology_by_code(f'\"{each_row["CODE"]}\"')
                 if not df_tooltip.empty:
                     break
             return df_tooltip
