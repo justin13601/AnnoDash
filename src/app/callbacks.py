@@ -227,7 +227,7 @@ def generate_ontology_options():
          "value": "loinc"},
         {"label": "SNOMED CT International Edition (07/31/2022)",
          "value": "snomed"},
-        {"label": "2022 ICD-10-CM",
+        {"label": "ICD-10-CM 2022",
          "value": "icd10cm"},
         {"label": "Observational Medical Outcomes Partnership (v5.0)",
          "value": "omopv5"}
@@ -536,6 +536,8 @@ def filter_datatable(data, filter_search, scorer, ontology_filter):
             new_data = [row for row in data if row['CLASS'] in filter_search]
         elif ontology_filter == 'snomed':
             new_data = [row for row in data if row['HIERARCHY'] in filter_search]
+        elif ontology_filter == 'omopv5':
+            new_data = [row for row in data if row['CLASS'] in filter_search]
         else:
             raise InvalidOntology
     df_newdata = pd.DataFrame.from_records(new_data)
@@ -912,7 +914,7 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
     ]
 )
 def update_filter_search_dropdown(data, ontology):
-    if not data:
+    if not data or ontology in ['icd10cm']:
         return [], "No Classes Available"
     if ontology == 'loinc':
         filters = set([i['CLASS'] for i in data])
@@ -920,6 +922,9 @@ def update_filter_search_dropdown(data, ontology):
     elif ontology == 'snomed':
         filters = set([i['HIERARCHY'] for i in data])
         placeholder = "Select Hierarchy..."
+    elif ontology == 'omopv5':
+        filters = set([i['CLASS'] for i in data])
+        placeholder = "Select Class..."
     else:
         raise InvalidOntology
     options = [{"label": each_filter, "value": each_filter} for each_filter in filters]
@@ -962,8 +967,10 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
     #         raise PreventUpdate
 
     if triggered_id == 'filter-search.value':
-        filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
-        return filtered_data, no_update, tooltip_output, no_update, no_update
+        if ontology_filter not in ['icd10cm']:
+            filtered_data, tooltip_output = filter_datatable(init_data, filter_search, scorer, ontology_filter)
+            return filtered_data, no_update, tooltip_output, no_update, no_update
+        raise PreventUpdate
 
     if ontology_filter is None:
         raise PreventUpdate
@@ -973,7 +980,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         query=query,
         df_ontology=df_ontology,
         method=scorer,
-        n=50,
+        n=25,
         indexes=my_indexes,
         sql_searcher=sql_searchers[ontology_filter],
         triggered_id=triggered_id,
@@ -985,9 +992,6 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
     if isinstance(df_data, str):
         return_string = df_data
         return None, [{'name': 'No Results Found', 'id': 'none'}], [], return_string, None
-
-    if len(df_data.index) > 50:
-        df_data = df_data.iloc[:50]
 
     scores = df_data[scorer]
 
