@@ -165,23 +165,27 @@ class SearchSQLite:
     def search_ontology_by_label(self, query):
         conn = sqlite3.connect(self.path)
         df_result = pd.read_sql(f"SELECT * FROM {self.ontology} WHERE LABEL MATCH '{query}' ORDER BY rank", conn)
+        df_result['CODE'] = df_result['CODE'].astype(str)
         return df_result
 
     def search_ontology_by_code(self, query):
         conn = sqlite3.connect(self.path)
         df_result = pd.read_sql(f"SELECT * FROM {self.ontology} WHERE CODE MATCH '{query}'", conn)
+        df_result['CODE'] = df_result['CODE'].astype(str)
         return df_result
 
     def get_all_ontology_no_data(self):
         conn = sqlite3.connect(self.path)
         df_result = pd.read_sql(f"SELECT CODE, LABEL FROM {self.ontology}", conn)
         df_result = df_result.reset_index().rename(columns={"index": "id"})
+        df_result['CODE'] = df_result['CODE'].astype(str)
         return df_result
 
     def get_all_ontology_with_data(self):
         conn = sqlite3.connect(self.path)
         df_result = pd.read_sql(f"SELECT * FROM {self.ontology}", conn)
         df_result = df_result.reset_index().rename(columns={"index": "id"})
+        df_result['CODE'] = df_result['CODE'].astype(str)
         return df_result
 
 
