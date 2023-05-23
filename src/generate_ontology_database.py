@@ -20,12 +20,11 @@ try:
 
     # Create table with headers
     c.execute('''CREATE VIRTUAL TABLE loinc using fts5
-                 (CODE, LABEL, SYSTEM, SCALE_TYP,
-                 METHOD_TYP, CLASS)''')
+                 (CODE, LABEL, SYSTEM, SCALE_TYP, METHOD_TYP, CLASS)''')
     conn.commit()
 
     file_name = 'LoincTableCore.csv'
-    dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology'
+    dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology\loinc'
     path = os.path.join(dir, file_name)
 
     # Convert CSV to SQL
@@ -58,7 +57,7 @@ try:
     pymedtermino.REMOVE_SUPPRESSED_CONCEPTS = True
 
     file_name = 'sct2_Concept_Snapshot_INT_20220731.txt'
-    dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology'
+    dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology\snomed'
     path = os.path.join(dir, file_name)
 
     df_snomed = pd.read_csv(path, sep='\t')
@@ -171,13 +170,43 @@ try:
     labels = []
     for line in lines:
         line = line.strip()  # Remove leading/trailing whitespace
-        code, label  = line.split(' ', 1)
+        code, label = line.split(' ', 1)
         codes.append(code)
         labels.append(label)
     df_icd10cm = pd.DataFrame({'CODE': codes, 'LABEL': labels})
     df_icd10cm.to_sql('icd10cm', conn, if_exists='append', index=False)
 except sqlite3.OperationalError as e:
     print('Error creating database for ICD-10-CM ontology:', str(e))
+
+######################################################################
+# OMOP V5
+######################################################################
+try:
+    conn = sqlite3.connect('../ontology/omopv5/omopv5.db')
+    conn.enable_load_extension(True)
+    # conn.load_extension(sqlite_spellfix.extension_path())
+    c = conn.cursor()
+
+    # Create table with headers
+    c.execute('''CREATE VIRTUAL TABLE omopv5 using fts5
+                 (CODE, LABEL, DOMAIN, CLASS, VOCABULARY, VOCABULARY_CODE, EFFECTIVE_TIME)''')
+    conn.commit()
+
+    file_name = 'CONCEPT.csv'
+    dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology\omopv5'
+    path = os.path.join(dir, file_name)
+
+    # Convert CSV to SQL
+    df_omopv5 = pd.read_csv(path, low_memory=False, sep='\t')
+    df_omopv5.rename(
+        columns={'concept_id': 'CODE', 'concept_name': 'LABEL', 'domain_id': 'DOMAIN', 'concept_class_id': 'CLASS',
+                 'vocabulary_id': 'VOCABULARY', 'concept_code': 'VOCABULARY_CODE',
+                 'valid_start_date': 'EFFECTIVE_TIME'}, inplace=True)
+    df_omopv5 = df_omopv5[pd.isna(df_omopv5['invalid_reason'])]
+    df_omopv5.drop(['standard_concept', 'valid_end_date', 'invalid_reason'], axis=1, inplace=True)
+    df_omopv5.to_sql('omopv5', conn, if_exists='append', index=False)
+except sqlite3.OperationalError as e:
+    print('Error creating database for OMOP V5 ontology:', str(e))
 
 ######################################################################
 
