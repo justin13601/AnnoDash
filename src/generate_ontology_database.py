@@ -25,7 +25,7 @@ c.execute('''CREATE VIRTUAL TABLE loinc using fts5
 conn.commit()
 
 file_name = 'LoincTableCore.csv'
-dir = r'C:\Users\Justin\PycharmProjects\mimic-iv-dash\ontology'
+dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology'
 path = os.path.join(dir, file_name)
 
 # Convert CSV to SQL
@@ -56,7 +56,7 @@ pymedtermino.LANGUAGE = "en"
 pymedtermino.REMOVE_SUPPRESSED_CONCEPTS = True
 
 file_name = 'sct2_Concept_Snapshot_INT_20220731.txt'
-dir = r'C:\Users\Justin\PycharmProjects\mimic-iv-dash\ontology'
+dir = r'C:\Users\Justin\PycharmProjects\AnnoDash\ontology'
 path = os.path.join(dir, file_name)
 
 df_snomed = pd.read_csv(path, sep='\t')
