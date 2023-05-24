@@ -7,10 +7,29 @@ from src.search import SearchSQLite
 
 from src.stopwords import *
 
+ontology_path = "../ontology"
+
+
+class InvalidOntology(Exception):
+    pass
+
+
+def list_available_ontologies():
+    print(f'Loading available ontologies...')
+    if '.appspot.com' in ontology_path:
+        ontologies = ['loinc', 'snomed']
+    else:
+        directory_contents = os.listdir(ontology_path)
+        ontologies = [item for item in directory_contents if os.path.isdir(os.path.join(ontology_path, item))]
+    if not ontologies:
+        raise InvalidOntology
+    print(f"{', '.join(each_ontology.upper() for each_ontology in ontologies)} codes available.\n")
+    return ontologies
+
 
 def query_ontology(ontology):
     database_file = f'{ontology}.db'
-    path = os.path.join(os.path.join('../ontology', ontology), database_file)
+    path = os.path.join(os.path.join(ontology_path, ontology), database_file)
 
     mysearch = SearchSQLite(ontology, path)
     df_ontology = mysearch.get_all_ontology_with_data()
@@ -18,108 +37,52 @@ def query_ontology(ontology):
 
 
 STOPWORDS = get_stopwords()
+ontologies = list_available_ontologies()
 
 connection = "http://localhost:9200"
 es = Elasticsearch(connection)
 
 startTime = time.time()
-######################################################################
-# LOINC
-######################################################################
 
-df_loinc = query_ontology('loinc')
+for each_ontology in ontologies:
+    print(f"Generating Elasticsearch index for {each_ontology}...")
+    df = query_ontology(each_ontology)
 
-mappings = {
-    "properties": {
-        "CODE": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "LABEL": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "SYSTEM": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "SCALE_TYP": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "METHOD_TYP": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "CLASS": {"type": "text", "analyzer": "extended_snowball_analyzer"},
+    properties = {}
+    for col in list(df.columns):
+        properties[col] = {"type": "text", "analyzer": "extended_snowball_analyzer"}
+    mappings = {
+        "properties": properties
     }
-}
-settings = {
-    'analysis': {
-        'analyzer': {
-            'extended_snowball_analyzer': {
-                'type': 'snowball',
-                'stopwords': STOPWORDS,
+
+    settings = {
+        'analysis': {
+            'analyzer': {
+                'extended_snowball_analyzer': {
+                    'type': 'snowball',
+                    'stopwords': STOPWORDS,
+                },
             },
         },
-    },
-}
-
-es.indices.create(index="loinc", mappings=mappings, settings=settings)
-
-bulk_data = []
-for i, row in df_loinc.iterrows():
-    bulk_data.append(
-        {
-            "_index": "loinc",
-            "_id": i,
-            "_source": {
-                "CODE": row["CODE"],
-                "LABEL": row["LABEL"],
-                "SYSTEM": row["SYSTEM"],
-                "SCALE_TYP": row["SCALE_TYP"],
-                "METHOD_TYP": row["METHOD_TYP"],
-                "CLASS": row["CLASS"],
-            }
-        }
-    )
-
-bulk(es, bulk_data)
-es.indices.refresh(index="loinc")
-print(es.cat.count(index="loinc", format="json"))
-
-######################################################################
-# SNOMED
-######################################################################
-
-df_snomed = query_ontology('snomed')
-
-mappings = {
-    "properties": {
-        "CODE": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "LABEL": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "EFFECTIVE_TIME": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "HIERARCHY": {"type": "text", "analyzer": "extended_snowball_analyzer"},
-        "SEMANTIC_TAG": {"type": "text", "analyzer": "extended_snowball_analyzer"},
     }
-}
-settings = {
-    'analysis': {
-        'analyzer': {
-            'extended_snowball_analyzer': {
-                'type': 'snowball',
-                'stopwords': STOPWORDS,
-            },
-        },
-    },
-}
 
-es.indices.create(index="snomed", mappings=mappings, settings=settings)
+    es.indices.create(index=each_ontology, mappings=mappings, settings=settings)
 
-bulk_data = []
-for i, row in df_snomed.iterrows():
-    bulk_data.append(
-        {
-            "_index": "snomed",
-            "_id": i,
-            "_source": {
-                "CODE": row["CODE"],
-                "LABEL": row["LABEL"],
-                "EFFECTIVE_TIME": row["EFFECTIVE_TIME"],
-                "HIERARCHY": row["HIERARCHY"],
-                "SEMANTIC_TAG": row["SEMANTIC_TAG"],
+    bulk_data = []
+    for i, row in df.iterrows():
+        source = {}
+        for col in list(df.columns):
+            source[col] = row[col]
+        bulk_data.append(
+            {
+                "_index": "loinc",
+                "_id": i,
+                "_source": source
             }
-        }
-    )
-
-bulk(es, bulk_data)
-es.indices.refresh(index="snomed")
-print(es.cat.count(index="snomed", format="json"))
+        )
+    bulk(es, bulk_data)
+    es.indices.refresh(index=each_ontology)
+    print(es.cat.count(index=each_ontology, format="json"))
 
 executionTime = (time.time() - startTime)
 print('Execution time in seconds: ' + str(executionTime))
