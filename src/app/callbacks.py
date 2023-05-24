@@ -713,6 +713,8 @@ def reset_annotation(_, ontology, prev_ontology_data, curr_ontology_data, item,
         else:
             annotate(item, curr_ontology_data, ontology, comments)
         return None, []
+    elif triggered_id == 'ontology-select.value':
+        return None, []
     elif prev_ontology_data is not None:
         return None, []
     else:
@@ -855,20 +857,21 @@ def update_ontology_datatable(_, related, curr_data_related, curr_data_ontology,
             return None, curr_ontology_cols, []
         return curr_data_ontology[0:0], curr_ontology_cols, []
 
-    df_ontology = sql_searchers[ontology].get_all_ontology_no_data()
+    columns = [{"name": 'CODE', "id": 'CODE'}, {"name": 'LABEL', "id": 'LABEL'}]
     if not curr_data_ontology:
-        df_data = pd.DataFrame(columns=df_ontology.columns)
+        df_data = pd.DataFrame(columns=['CODE', 'LABEL'])
     else:
         df_data = pd.DataFrame.from_records(curr_data_ontology)
-    columns = [{"name": 'CODE', "id": 'CODE'}, {"name": 'LABEL', "id": 'LABEL'}]
 
-    if related:
+    if related is None:
+        raise PreventUpdate
+    else:
         temp_dict = [d for d in curr_data_related if d.get('id') == related['row_id']][0]
         if curr_data_ontology:
             if temp_dict['CODE'] in [each_selected['CODE'] for each_selected in curr_data_ontology]:
                 raise PreventUpdate
-        df_data = pd.concat(
-            [df_data, df_ontology.loc[df_ontology['CODE'] == temp_dict['CODE']]])
+        new_row_df = pd.DataFrame(temp_dict, index=[0])
+        df_data = pd.concat([df_data, new_row_df], ignore_index=True)
 
     def table_gen(each_row):
         try:
