@@ -70,7 +70,7 @@ ontologies = list_available_ontologies()
 startTime = time.time()
 
 for each_ontology in ontologies:
-    print(f"Generating index for {each_ontology}...")
+    print(f"Generating PyLucene index for {each_ontology}...")
     df = query_ontology(each_ontology)
     lucene.initVM()
 
