@@ -5,6 +5,7 @@ import sys
 # import csv
 import time
 import json
+import uuid
 
 import yaml
 import errno
@@ -80,22 +81,30 @@ else:
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), config_file)
 
 # paths
+UUID = str(uuid.uuid4())
 PATH_data = config.data
 PATH_items = config.concepts
 PATH_results = config.results
 PATH_ontology = config.ontology.location
 
-if not os.path.exists(PATH_results):
-    os.makedirs(PATH_results)
+
+def upload_blob(bucket_name, blob_text, destination_blob_name):
+    """Uploads a file to the bucket."""
+    storage_client = storage.Client(project=os.environ['PROJECT_ID'])
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+
+    blob.upload_from_string(blob_text)
+
+    print('Uploaded to {}.'.format(destination_blob_name))
 
 
-def load_items(item_path):
-    filename = os.path.basename(item_path).strip()
-    print(f'Loading {filename}...')
-    items = pd.read_csv(item_path)
-    dictionary = pd.Series(items[items.columns[1]].values, index=items[items.columns[0]].values).to_dict()
-    print('Done.\n')
-    return items, dictionary
+def log_data(name, json):
+    BUCKET_NAME = os.environ['BUCKET_NAME']
+    BLOB_STR = str(json)
+    BLOB_NAME = f"{UUID}/{name}"
+    upload_blob(BUCKET_NAME, BLOB_STR, BLOB_NAME)
+    return
 
 
 def tryConvertDate(dates):
@@ -115,6 +124,15 @@ def load_data(data_path):
     )  # String -> Datetime
     print('Done.\n')
     return data
+
+
+def load_items(item_path):
+    filename = os.path.basename(item_path).strip()
+    print(f'Loading {filename}...')
+    items = pd.read_csv(item_path)
+    dictionary = pd.Series(items[items.columns[1]].values, index=items[items.columns[0]].values).to_dict()
+    print('Done.\n')
+    return items, dictionary
 
 
 # load data
@@ -145,6 +163,14 @@ def load_annotations(annotations_path):
                         skipped.append(int(each_file.strip('.json')))
     return annotated, skipped
 
+
+if not os.path.exists(PATH_results):
+    os.makedirs(PATH_results)
+
+if '.appspot.com' in PATH_ontology:
+    session_start = dt.now()
+    dt_string = session_start.strftime("%Y/%m/%d %H:%M:%S")
+    upload_blob(os.environ['BUCKET_NAME'], '', f'{UUID}-{dt_string}/')
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
@@ -192,6 +218,8 @@ def set_up(ontologies: list) -> (dict, dict):
 
 
 sql_searchers, my_indexes, my_ranker = set_up(list_of_ontologies)
+
+print("AnnoDash ready.")
 
 
 ######################################################################################################
@@ -496,9 +524,16 @@ def annotate(item, annotation, ontology, comments, skipped=False):
                      'annotatedlabel': [each_id['LABEL'] for each_id in annotation],
                      'comments': comments
                      }
-    filename = os.path.join(PATH_results, f"{item}.json")
-    with open(filename, "w") as outfile:
-        json.dump(item_dict, outfile, indent=4)
+    if '.appspot.com' in PATH_ontology:
+        now = dt.now()
+        dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
+        item_dict = {'uuid': UUID,
+                     'annotatedtime': dt_string}
+        log_data(f"{item}.json", item_dict)
+    else:
+        filename = os.path.join(PATH_results, f"{item}.json")
+        with open(filename, "w") as outfile:
+            json.dump(item_dict, outfile, indent=4)
     return
 
 
