@@ -75,7 +75,7 @@ for each_ontology in ontologies:
             source[col] = row[col]
         bulk_data.append(
             {
-                "_index": "loinc",
+                "_index": each_ontology,
                 "_id": i,
                 "_source": source
             }
