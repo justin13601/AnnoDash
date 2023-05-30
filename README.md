@@ -167,6 +167,7 @@ dashboard. This can be done explicitly via editing the Docker Compose file below
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 ### Installation
+
 #### Docker Install (Recommended):
 
 1. Clone repository:
@@ -232,6 +233,8 @@ Install/run the dashboard and visit http://127.0.0.1:8080/ or http://localhost:8
 
 ```/src/generate_ontology_database.py``` uses SQLite3 to generate the ```.db``` database files used to store the
 ontology vocabulary. This is needed when defining custom vocabularies outside the default list of available ones.
+External packages are required to execute this script. In particular, PyMedTermino is needed to generate SNOMED CT's
+database file. Please see installation instructions [here](https://pythonhosted.org/PyMedTermino/tuto_en.html#installation).
 
 ```/src/generate_pylucene_index.py``` is used to generate the index used by PyLucene for ontology querying. This is
 needed when defining custom vocabularies outside the default list of available ones.
