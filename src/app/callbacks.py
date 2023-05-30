@@ -169,8 +169,8 @@ if not os.path.exists(PATH_results):
 
 if '.appspot.com' in PATH_ontology:
     session_start = dt.now()
-    dt_string = session_start.strftime("%Y/%m/%d %H:%M:%S")
-    upload_blob(os.environ['BUCKET_NAME'], '', f'{UUID}-{dt_string}/')
+    dt_string = session_start.strftime("%Y-%m-%d_%H-%M-%S")
+    upload_blob(os.environ['BUCKET_NAME'], '', f'{UUID}_{dt_string}/')
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
@@ -526,7 +526,7 @@ def annotate(item, annotation, ontology, comments, skipped=False):
                      }
     if '.appspot.com' in PATH_ontology:
         now = dt.now()
-        dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
+        dt_string = now.strftime("%Y-%m-%d_%H-%M-%S")
         item_dict = {'uuid': UUID,
                      'annotatedtime': dt_string}
         log_data(f"{item}.json", item_dict)
