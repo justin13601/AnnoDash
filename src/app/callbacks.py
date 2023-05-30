@@ -102,7 +102,7 @@ def upload_blob(bucket_name, blob_text, destination_blob_name):
 def log_data(name, json):
     BUCKET_NAME = os.environ['BUCKET_NAME']
     BLOB_STR = str(json)
-    BLOB_NAME = f"{UUID}/{name}"
+    BLOB_NAME = f"{UUID}_{dt_string}/{name}"
     upload_blob(BUCKET_NAME, BLOB_STR, BLOB_NAME)
     return
 
