@@ -102,7 +102,8 @@ def upload_blob(bucket_name, blob_text, destination_blob_name):
 def log_data(name, json):
     BUCKET_NAME = os.environ['BUCKET_NAME']
     BLOB_STR = str(json)
-    BLOB_NAME = f"{UUID}_{session_start_dt_string}/{name}"
+    # BLOB_NAME = f"{UUID}_{session_start_dt_string}/{name}"
+    BLOB_NAME = f"{session_start_dt_string}/{name}"
     upload_blob(BUCKET_NAME, BLOB_STR, BLOB_NAME)
     return
 
@@ -170,7 +171,8 @@ if not os.path.exists(PATH_results):
 if '.appspot.com' in PATH_ontology:
     session_start = dt.now()
     session_start_dt_string = session_start.strftime("%Y-%m-%d_%H-%M-%S")
-    upload_blob(os.environ['BUCKET_NAME'], '', f'{UUID}_{session_start_dt_string}/')
+    # upload_blob(os.environ['BUCKET_NAME'], '', f'{UUID}_{session_start_dt_string}/')
+    upload_blob(os.environ['BUCKET_NAME'], '', f'{session_start_dt_string}/')
 
 if 'demo-data' in PATH_data:
     print("Demo data selected.")
