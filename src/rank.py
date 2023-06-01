@@ -61,7 +61,8 @@ class RankGPT:
     def __init__(self):
         # Load your API key from an environment variable or secret management service
         self.api_key = os.environ['OPENAI_API_KEY']
-        self.model = 'gpt-3.5-turbo'
+        # self.model = 'gpt-3.5-turbo'
+        self.model = 'gpt-4-0314'
         self.system_prompt = ''
         self.user_prompt = ''
 
