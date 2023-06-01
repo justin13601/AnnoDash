@@ -1028,6 +1028,12 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
         ontology_filter=ontology_filter,
         search_string=search_string
     )
+    if not search_string:
+        search_string = query
+    elif triggered_id == 'item-select.value':
+        search_string = query
+    elif query != search_string:
+        search_string = query
 
     if isinstance(df_data, str):
         return_string = df_data
@@ -1058,7 +1064,8 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
-    if config.ontology.rank is not None and scorer not in ['jaro_winkler', 'partial_ratio']:
+    # if config.ontology.rank is not None and scorer not in ['jaro_winkler', 'partial_ratio']:
+    if item == 220179:
         metadata = {'examples': get_n_values(item, n=3)}  # target concept metadata, can add other info
         data = rank(
             target=itemsid_dict[item],
@@ -1068,7 +1075,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             ranker=my_ranker
         )
 
-    return data, return_columns, tooltip_outputs, query, data
+    return data, return_columns, tooltip_outputs, search_string, data
 
 
 @app.callback(
