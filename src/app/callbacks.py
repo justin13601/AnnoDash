@@ -1064,8 +1064,7 @@ def update_related_datatable(item, _, scorer, ontology_filter, __, filter_search
             'type': 'markdown'}
         tooltip_outputs.append({'RELEVANCE': tooltip_output})
 
-    # if config.ontology.rank is not None and scorer not in ['jaro_winkler', 'partial_ratio']:
-    if item == 220179:
+    if config.ontology.rank is not None and scorer not in ['jaro_winkler', 'partial_ratio']:
         metadata = {'examples': get_n_values(item, n=3)}  # target concept metadata, can add other info
         data = rank(
             target=itemsid_dict[item],
