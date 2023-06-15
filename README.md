@@ -2,7 +2,7 @@
 
 [![Python](https://ForTheBadge.com/images/badges/made-with-python.svg)](https://colab.research.google.com/)
 
-[![DOI](https://zenodo.org/badge/490904949.svg)](https://zenodo.org/badge/latestdoi/490904949)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8043943.svg)](https://doi.org/10.5281/zenodo.8043943)
 
 <!-- PROJECT LOGO -->
 <br />
