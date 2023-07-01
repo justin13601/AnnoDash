@@ -1,0 +1,65 @@
+cff-version: 1.2.0
+title: 'AnnoDash, a clinical terminology annotation dashboard'
+message: Please cite AnnoDash using the metadata from this file.
+type: software
+authors:
+  - given-names: Justin
+    family-names: Xu
+    email: justin.xu@mail.utoronto.ca
+    affiliation: The Hospital for Sick Children
+    orcid: 'https://orcid.org/0000-0003-4700-6277'
+  - given-names: Mjaye
+    family-names: Mazwi
+    email: mjaye.mazwi@sickkids.ca
+    affiliation: The Hospital for Sick Children
+    orcid: 'https://orcid.org/0000-0003-1345-5429'
+  - given-names: Alistair E W
+    family-names: Johnson
+    email: alistair.johnson@sickkids.ca
+    orcid: 'https://orcid.org/0000-0002-8735-3014'
+    affiliation: The Hospital for Sick Children
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.8043943
+    description: 'AnnoDash, a clinical terminology annotation dashboard'
+repository-code: 'https://github.com/justin13601/AnnoDash'
+abstract: >-
+  Background: Standard ontologies are critical for
+  interoperability and multisite analyses of health data.
+  Nevertheless, mapping concepts to ontologies is often done
+  with generic tools and is labor-intensive. Contextualizing
+  candidate concepts within source data is also done in an
+  ad hoc manner.
+
+
+  Methods and Results: We present AnnoDash, a flexible
+  dashboard to support annotation of concepts with terms
+  from a given ontology. Text-based similarity is used to
+  identify likely matches, and large language models are
+  used to improve ontology ranking. A convenient interface
+  is provided to visualize observations associated with a
+  concept, supporting the disambiguation of vague concept
+  descriptions. Time-series plots contrast the concept with
+  known clinical measurements. We evaluated the dashboard
+  qualitatively against several ontologies (SNOMED CT,
+  LOINC, etc.) by using MIMIC-IV measurements. The dashboard
+  is web-based and step-by-step instructions for deployment
+  are provided, simplifying usage for nontechnical
+  audiences. The modular code structure enables users to
+  extend upon components, including improving similarity
+  scoring, constructing new plots, or configuring new
+  ontologies.
+
+
+  Conclusion: AnnoDash, an improved clinical terminology
+  annotation tool, can facilitate data harmonizing by
+  promoting mapping of clinical data. AnnoDash is freely
+  available at https://github.com/justin13601/AnnoDash
+  (https://doi.org/10.5281/zenodo.8043943).
+keywords:
+  - clinical concepts
+  - ontology
+  - annotation
+  - natural language processing
+  - software
+license: MIT
