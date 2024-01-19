@@ -52,7 +52,7 @@ def generateConfig():
     }
     cfg.metadata = config_dict.FrozenConfigDict(metadata_dictionary)
 
-    with open('./app/config.yaml', 'w') as yaml_file:
+    with open('src/app/config.yaml', 'w') as yaml_file:
         yaml.dump(cfg, yaml_file)
     return cfg
 
