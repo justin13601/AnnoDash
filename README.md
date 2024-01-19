@@ -122,7 +122,7 @@ The dashboard requires the following major Python packages to run:
 
 All other packages are listed in ```requirements.txt```.
 
-Additionally, the latest version of the dashboard requires PyLucene for its primary ontology code searching algorithm.
+Additionally, the latest version of the dashboard requires PyLucene 8 for its primary ontology code searching algorithm.
 Please follow setup instructions available [here](https://lucene.apache.org/pylucene/install.html).
 
 #### Required Files:
