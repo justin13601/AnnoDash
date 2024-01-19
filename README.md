@@ -188,11 +188,15 @@ dashboard. This can be done explicitly via editing the Docker Compose file below
    ```
 
 
-4. Modify docker-compose.yml to include API keys where necessary. Then, run Docker container:
+4. Run the Docker container:
    ```sh
-   docker-compose up
+   docker run --publish 8080:8080 <IMAGE ID>
    ```
 
+    ```<IMAGE ID>``` may be retrieved through:
+   ```sh
+   docker images
+   ```
 #### Manual Install:
 
 1. Clone repository:
