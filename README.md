@@ -175,28 +175,36 @@ dashboard. This can be done explicitly via editing the Docker Compose file below
    git clone https://github.com/justin13601/AnnoDash.git
    ```
 
-2. Edit ```/src/generate_config.py``` with desired directories and configurations and run:
+2. Install packages needed to generate a configuration file:
+   ```sh
+   pip install PyYAML ml_collections
+   ```
+
+3. Edit ```/src/generate_config.py``` with desired directories and configurations and run:
     ```sh
    python3 generate_config.py
     ```
    This creates the ```config.yaml``` required by the dashboard.
 
 
-3. Build dashboard image:
+4. Build dashboard image:
    ```sh
    docker build -t annodash .
    ```
 
 
-4. Run the Docker container:
+5. Retrieve the Docker image ID and run the Docker container:
+
+   Get ```<IMAGE ID>```:
+   ```sh
+   docker images
+   ```
+
+   Copy appropriate ```<IMAGE ID>``` and start the container:
    ```sh
    docker run --publish 8080:8080 <IMAGE ID>
    ```
 
-    ```<IMAGE ID>``` may be retrieved through:
-   ```sh
-   docker images
-   ```
 #### Manual Install:
 
 1. Clone repository:

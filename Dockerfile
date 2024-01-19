@@ -8,5 +8,5 @@ COPY . ./
 
 WORKDIR .
 EXPOSE 8080
-ENTRYPOINT gunicorn -b 0.0.0.0:8080 main:server
+ENTRYPOINT gunicorn -b 0.0.0.0:8080 main:server --timeout 90
 # ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:80", "main:server"]
